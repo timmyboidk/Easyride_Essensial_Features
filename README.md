@@ -64,3 +64,58 @@ API 文档
     "dimensionKey": "region",
     "dimensionValue": "East"
   }
+
+-   **响应**：无
+
+### 查询分析结果
+
+-   **URL**：`POST /analytics/query`
+-   **描述**：根据指标名称、时间范围、维度等查询聚合数据或明细。
+-   **请求体**（示例）：
+
+  ```json
+{
+  "metricName": "orderRevenue",
+  "recordType": "ORDER_DATA",
+  "startTime": "2023-09-01T00:00:00",
+  "endTime": "2023-09-30T23:59:59",
+  "dimensionKey": "region",
+  "dimensionValue": "East"
+}
+
+-   **响应**（示例）：
+
+  ```json
+{
+  "metricName": "orderRevenue",
+  "recordType": "ORDER_DATA",
+  "dimensionKey": "region",
+  "dimensionValue": "East",
+  "totalValue": 12345.67,
+  "chartData": [
+    {
+      "label": "2023-09-10T10:30:00",
+      "value": 99.99
+    },
+    {
+      "label": "2023-09-11T15:20:00",
+      "value": 200.0
+    }
+  ]
+}
+
+
+-   **URL**：`POST /analytics/report`
+-   **描述**：根据查询条件生成报表，可扩展为导出PDF/Excel。
+-   **请求体**：与 `/analytics/query` 类似
+-   **响应**（示例）：
+
+  ```json
+{
+  "reportTitle": "数据报表：orderRevenue",
+  "chartData": [
+    { "label": "2023-09-10T10:30:00", "value": 99.99 },
+    { "label": "2023-09-11T15:20:00", "value": 200.0 }
+  ]
+}
+
