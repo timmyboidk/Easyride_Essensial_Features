@@ -1,200 +1,245 @@
-以下是一份「**微服务之间的 RocketMQ 通信关系**」的说明，可放入各微服务的 README 或单独的系统文档中。文中会结合**具体的 Topic 名称**与**事件类型**，并简要指出**对应的服务**里使用的**示例代码**或逻辑（若某部分暂未完全实现，会做标注）。
+以下是一份「微服务之间的 RocketMQ 通信关系」的说明，可放入各微服务的 README 或单独的系统文档中。文中会结合具体的 Topic 名称与事件类型，并简要指出对应的服务里使用的示例代码或逻辑（若某部分暂未完全实现，会做标注）。
 
-──────────────────────────────────────────────────────── 一、用户服务（User Service）与消息通信 ────────────────
+ 一、用户服务（User Service）与消息通信
 
-1.  **用户注册与资料变更事件**
+1\.  用户注册与资料变更事件
 
-    -   **Topic**: `user-topic`
-    -   **事件**: `USER_CREATED`, `USER_UPDATED`, `DRIVER_APPROVED` 等
-    -   **所属服务**: `user_service` 通过 RocketMQTemplate 或 `@RocketMQMessageListener` 进行发布和监听。
-    -   **示例**: 在 `user_service` 中，当用户完成注册后，调用
+    -   Topic: `user-topic`
 
-        java
+    -   事件: `USER_CREATED`, `USER_UPDATED`, `DRIVER_APPROVED` 等
 
-        Copy code
+    -   所属服务: `user_service` 通过 RocketMQTemplate 或 `@RocketMQMessageListener` 进行发布和监听。
 
-        `rocketMQTemplate.convertAndSend("user-topic", new UserEventDto(...));`
+    -   示例: 在 `user_service` 中，当用户完成注册后，调用
 
-        其他服务（如 `order_service`, `admin_service`）可监听 `user-topic` 及时更新本地用户信息或执行后续逻辑。
-2.  **与其他微服务的通信**
+        `rocketMQTemplate.convertAndSend("user-topic", new UserEventDto(...));`
 
-    -   **order_service**：若需要在订单中显示用户信息（乘客/司机），可监听 `user-topic` 的 `USER_CREATED` 事件，在本地缓存/数据库更新用户资料。
-    -   **admin_service**：可监听 `user-topic` 中的 `DRIVER_APPROVED` 事件，平台运营人员在后台完成司机审核后，发布事件给 `user_service`，最终其他服务也知道司机已可接单（**如果暂未完全实现，需要添加一个 Admin -> user_service 的互通流程**）。
+        其他服务（如 `order_service`, `admin_service`）可监听 `user-topic` 及时更新本地用户信息或执行后续逻辑。
 
-代码参考
-----
+2\.  与其他微服务的通信
 
--   在 `user_service.rocketmq.UserRocketProducer` 中，`sendUserEvent(...)` 发布事件到 `"user-topic"`.
--   在 `order_service.rocket.UserRocketConsumer` 中使用 `@RocketMQMessageListener(topic = "user-topic", ...)` 监听并存储用户信息。
+    -   order_service：若需要在订单中显示用户信息（乘客/司机），可监听 `user-topic` 的 `USER_CREATED` 事件，在本地缓存/数据库更新用户资料。
 
-──────────────────────────────────────────────────────── 二、订单服务（Order Service）与消息通信 ────────────────
-
-1.  **订单创建、状态更新事件**
-
-    -   **Topic**: `order-topic`
-    -   **事件**: `ORDER_CREATED`, `ORDER_ACCEPTED`, `ORDER_COMPLETED`, `ORDER_CANCELED` 等
-    -   **所属服务**: `order_service` 在完成下单或订单状态改变时，发布上述事件，供其他服务（`matching_service`, `analytics_service`, `notification_service`, etc.）订阅。
-    -   **示例**:
-
-        java
-
-        Copy code
-
-        `rocketMQTemplate.convertAndSend("order-topic", new OrderCreatedEvent(...));`
-
-2.  **与其他微服务的通信**
-
-    -   **matching_service**：监听 `ORDER_CREATED` 事件，自动触发匹配；匹配成功后可再发 `ORDER_ACCEPTED` 返回。
-    -   **analytics_service**：监听 `ORDER_COMPLETED` 等事件，写入运营数据，如订单金额、司机ID、完成时间等。
-    -   **notification_service**：监听订单事件进行消息推送，如"司机已到达"、"订单完成"。
+    -   admin_service：可监听 `user-topic` 中的 `DRIVER_APPROVED` 事件，平台运营人员在后台完成司机审核后，发布事件给 `user_service`，最终其他服务也知道司机已可接单（如果暂未完全实现，需要添加一个 Admin -> user_service 的互通流程）。
 
 代码参考
+
 ----
 
--   在 `order_service.rocket.OrderRocketProducer` (示例) 中对 `convertAndSend("order-topic", new OrderCreatedEvent(...))` 的调用。
--   **matching_service** 中 `@RocketMQMessageListener(topic = "order-topic", consumerGroup="matching-service-group")` 的 `OrderEventListener` 进行自动匹配。
+-   在 `user_service.rocketmq.UserRocketProducer` 中，`sendUserEvent(...)` 发布事件到 `"user-topic"`.
 
-──────────────────────────────────────────────────────── 三、匹配服务（Matching Service）与消息通信 ────────────────
+-   在 `order_service.rocket.UserRocketConsumer` 中使用 `@RocketMQMessageListener(topic = "user-topic", ...)` 监听并存储用户信息。
 
-1.  **监听订单创建事件**
+二、订单服务（Order Service）与消息通信
 
-    -   **Topic**: `order-topic`
-    -   **事件**: `ORDER_CREATED`
-    -   **代码**: `OrderEventListener` (在 `matching_service.rocketmq`) 使用 `@RocketMQMessageListener(topic="order-topic", ...)` ，在 `onMessage(OrderCreatedEvent event)` 中执行自动匹配逻辑。
-2.  **回传订单分配结果**
+1\.  订单创建、状态更新事件
 
-    -   **Topic**: `order-topic`
-    -   **事件**: `ORDER_ACCEPTED` 或 `DRIVER_ASSIGNED`
-    -   **代码**: 在 `MatchingServiceImpl.matchDriver(...)` 或 `acceptOrder(...)` 结束后，如果要告知 `order_service` 最终分配了哪个司机，可发布对应事件：
+    -   Topic: `order-topic`
 
-        java
+    -   事件: `ORDER_CREATED`, `ORDER_ACCEPTED`, `ORDER_COMPLETED`, `ORDER_CANCELED` 等
 
-        Copy code
+    -   所属服务: `order_service` 在完成下单或订单状态改变时，发布上述事件，供其他服务（`matching_service`, `analytics_service`, `notification_service`, etc.）订阅。
 
-        `rocketMQTemplate.convertAndSend("order-topic", new DriverAssignedEvent(orderId, driverId));`
+    -   示例:
 
-    -   **若尚未实现**: 需要在 `matching_service` 中增加 `rocketMQTemplate` 调用，并在 `order_service` 端增设消费者处理 `DRIVER_ASSIGNED` 事件，更新订单状态为已分配。
-3.  **获取司机或乘客信息**
+        `rocketMQTemplate.convertAndSend("order-topic", new OrderCreatedEvent(...));`
 
-    -   **Topic**: `user-topic`** (可监听 `USER_CREATED`, `DRIVER_APPROVED` 等，更新 `DriverStatusRepository`)
-    -   **如需更详细的司机评分**: 也可订阅 `review_service` 的评分更新事件 (例如 `driver-rating-topic`)。
-4.  **(可选) location_service 通信**
+2\.  与其他微服务的通信
 
-    -   **Topic**: `location-request-topic`, `location-response-topic`
-    -   当需要详细地址解析或区域信息时，Matching Service 发送 `LocationRequestEvent` 到 `location-request-topic`；`location_service` 返回 `LocationResponseEvent` 到 `location-response-topic`；`matching_service` 监听后完成地理信息的补全或更精细的匹配。
+    -   matching_service：监听 `ORDER_CREATED` 事件，自动触发匹配；匹配成功后可再发 `ORDER_ACCEPTED` 返回。
+
+    -   analytics_service：监听 `ORDER_COMPLETED` 等事件，写入运营数据，如订单金额、司机ID、完成时间等。
+
+    -   notification_service：监听订单事件进行消息推送，如"司机已到达"、"订单完成"。
 
 代码参考
+
 ----
 
--   **`matching_service.service.MatchingServiceImpl`** 中 `matchDriver()` 监听/发送事件的逻辑。
--   **`matching_service.rocketmq.OrderEventListener`** 监听 `ORDER_CREATED` 并调用 `matchDriver`。
--   若要回传分配结果，可新增一个 `rocketMQTemplate.convertAndSend("order-topic", new DriverAssignedEvent(...))`。
+-   在 `order_service.rocket.OrderRocketProducer` (示例) 中对 `convertAndSend("order-topic", new OrderCreatedEvent(...))` 的调用。
 
-──────────────────────────────────────────────────────── 四、支付服务（Payment Service）与消息通信 ────────────────
+-   matching_service 中 `@RocketMQMessageListener(topic = "order-topic", consumerGroup="matching-service-group")` 的 `OrderEventListener` 进行自动匹配。
 
-1.  **行程完成后支付**
+ 三、匹配服务（Matching Service）与消息通信
 
-    -   **Topic**: `payment-topic`
-    -   **事件**: `PAYMENT_COMPLETED`, `PAYMENT_FAILED`, `REFUND_PROCESSED` 等
-    -   **所属服务**: `payment_service` 当乘客发起支付后，将支付结果事件发送到 `payment-topic`，供 `analytics_service` 或 `notification_service` 监听。
-2.  **与其他服务通信**
+1\.  监听订单创建事件
 
-    -   **order_service**：在订单行程结束进入待支付后，如果支付成功，可更新订单状态为 `COMPLETED`；也可在 `order_service` 中监听 `PAYMENT_COMPLETED`。
-    -   **admin_service**：监听司机提现申请的财务事件或审批事件，若通过审核，可发布 `WITHDRAWAL_APPROVED`。
+    -   Topic: `order-topic`
+
+    -   事件: `ORDER_CREATED`
+
+    -   代码: `OrderEventListener` (在 `matching_service.rocketmq`) 使用 `@RocketMQMessageListener(topic="order-topic", ...)` ，在 `onMessage(OrderCreatedEvent event)` 中执行自动匹配逻辑。
+
+2\.  回传订单分配结果
+
+    -   Topic: `order-topic`
+
+    -   事件: `ORDER_ACCEPTED` 或 `DRIVER_ASSIGNED`
+
+    -   代码: 在 `MatchingServiceImpl.matchDriver(...)` 或 `acceptOrder(...)` 结束后，如果要告知 `order_service` 最终分配了哪个司机，可发布对应事件：
+
+        `rocketMQTemplate.convertAndSend("order-topic", new DriverAssignedEvent(orderId, driverId));`
+
+    -   若尚未实现: 需要在 `matching_service` 中增加 `rocketMQTemplate` 调用，并在 `order_service` 端增设消费者处理 `DRIVER_ASSIGNED` 事件，更新订单状态为已分配。
+
+3\.  获取司机或乘客信息
+
+    -   Topic: `user-topic` (可监听 `USER_CREATED`, `DRIVER_APPROVED` 等，更新 `DriverStatusRepository`)
+
+    -   如需更详细的司机评分: 也可订阅 `review_service` 的评分更新事件 (例如 `driver-rating-topic`)。
+
+4\.  (可选) location_service 通信
+
+    -   Topic: `location-request-topic`, `location-response-topic`
+
+    -   当需要详细地址解析或区域信息时，Matching Service 发送 `LocationRequestEvent` 到 `location-request-topic`；`location_service` 返回 `LocationResponseEvent` 到 `location-response-topic`；`matching_service` 监听后完成地理信息的补全或更精细的匹配。
 
 代码参考
+
 ----
 
--   `payment_service.rocket.PaymentEventProducer` 发布支付完成或退款消息：
+-   `matching_service.service.MatchingServiceImpl` 中 `matchDriver()` 监听/发送事件的逻辑。
 
-    java
+-   `matching_service.rocketmq.OrderEventListener` 监听 `ORDER_CREATED` 并调用 `matchDriver`。
 
-    Copy code
+-   若要回传分配结果，可新增一个 `rocketMQTemplate.convertAndSend("order-topic", new DriverAssignedEvent(...))`。
 
-    `rocketMQTemplate.convertAndSend("payment-topic", new PaymentCompletedEvent(orderId, amount, ...));`
+四、支付服务（Payment Service）与消息通信
 
--   `analytics_service` 监听 `payment-topic`，将支付金额计入平台收入等指标。
+1\.  行程完成后支付
 
-──────────────────────────────────────────────────────── 五、通知服务（Notification Service）与消息通信 ────────────────
+    -   Topic: `payment-topic`
 
-1.  **监听订单、支付、用户等事件**
+    -   事件: `PAYMENT_COMPLETED`, `PAYMENT_FAILED`, `REFUND_PROCESSED` 等
 
-    -   **Topic**: `order-topic`, `payment-topic`, `user-topic`
-    -   **事件**: `ORDER_CREATED`, `ORDER_COMPLETED`, `PAYMENT_COMPLETED`, `USER_CREATED`, `USER_BANNED` 等
-    -   **功能**: 当 notification_service 收到这些事件后，通过 APP 推送、短信或邮件方式通知司机与乘客。
-2.  **消息示例**:
+    -   所属服务: `payment_service` 当乘客发起支付后，将支付结果事件发送到 `payment-topic`，供 `analytics_service` 或 `notification_service` 监听。
 
-    java
+2\.  与其他服务通信
 
-    Copy code
+    -   order_service：在订单行程结束进入待支付后，如果支付成功，可更新订单状态为 `COMPLETED`；也可在 `order_service` 中监听 `PAYMENT_COMPLETED`。
 
-    `@RocketMQMessageListener(topic="payment-topic", consumerGroup="notification-service-group")
-    public class PaymentListener implements RocketMQListener<PaymentCompletedEvent> {
-        public void onMessage(PaymentCompletedEvent event) {
-            // 发送"支付成功"通知给乘客
-        }
-    }`
+    -   admin_service：监听司机提现申请的财务事件或审批事件，若通过审核，可发布 `WITHDRAWAL_APPROVED`。
 
-──────────────────────────────────────────────────────── 六、位置服务（Location Service）与消息通信 ────────────────
+代码参考
 
-1.  **监听位置请求**
+----
 
-    -   **Topic**: `location-request-topic`
-    -   **事件**: `LocationRequestEvent` (匹配服务/其他服务发送请求)
-    -   **功能**: 接收 lat/lng 之后，调用 Google Maps API 进行逆地理编码，得到地址信息。
-2.  **发送位置响应**
+-   `payment_service.rocket.PaymentEventProducer` 发布支付完成或退款消息：
 
-    -   **Topic**: `location-response-topic`
-    -   **事件**: `LocationResponseEvent`
-    -   **功能**: 把地址或坐标信息回传给发送方 (matching_service 等) ；使用 correlationId 关联。
-3.  **代码**:
+    `rocketMQTemplate.convertAndSend("payment-topic", new PaymentCompletedEvent(orderId, amount, ...));`
 
-    -   `location_service.rocket.LocationRequestListener` -> `onMessage(LocationRequestEvent event)` -> 调用 `LocationService.getLocationInfo(...)` -> `rocketMQTemplate.convertAndSend("location-response-topic", new LocationResponseEvent(...))`.
+-   `analytics_service` 监听 `payment-topic`，将支付金额计入平台收入等指标。
 
-──────────────────────────────────────────────────────── 七、评价服务（Review Service）与消息通信 ────────────────
+ 五、通知服务（Notification Service）与消息通信
 
-1.  **行程结束评价**
+1\.  监听订单、支付、用户等事件
 
-    -   **Topic**: `review-topic`
-    -   **事件**: `REVIEW_SUBMITTED`, `DRIVER_RATED`, `PASSENGER_RATED` 等
-    -   **使用**: 当行程结束后，乘客或司机提交评价，review_service 发布/接收相应事件。matching_service 或 analytics_service 若需要评分，可以订阅此事件更新司机的评分或做统计。
-2.  **管理员审核投诉**
+    -   Topic: `order-topic`, `payment-topic`, `user-topic`
 
-    -   **Topic**: `review-complaint-topic` (可自定义)
-    -   **事件**: `COMPLAINT_SUBMITTED`, `COMPLAINT_RESOLVED`
-    -   **admin_service** 监听后执行客服流程或申诉处理。
+    -   事件: `ORDER_CREATED`, `ORDER_COMPLETED`, `PAYMENT_COMPLETED`, `USER_CREATED`, `USER_BANNED` 等
 
-──────────────────────────────────────────────────────── 八、数据分析服务（Analytics Service）与消息通信 ────────────────
+    -   功能: 当 notification_service 收到这些事件后，通过 APP 推送、短信或邮件方式通知司机与乘客。
 
-1.  **监听订单、支付、用户、司机评分事件**
+2\.  消息示例:
 
-    -   **Topic**: `order-topic`, `payment-topic`, `user-topic`, `review-topic`
-    -   **事件**: `ORDER_COMPLETED`, `PAYMENT_COMPLETED`, `USER_CREATED`, `DRIVER_RATED` 等
-    -   **示例**: `analytics_service.rocketmq.OrderEventListener` 监听 `ORDER_COMPLETED`，解析订单金额、区域、司机ID 等存入 `AnalyticsRecord`。
-2.  **与 admin_service**：若 analytics_service 有新的分析报表，需要通知后台，可发送 `ANALYSIS_FINISHED` 等事件，让 admin_service 获取可视化报告数据。（如尚未实现，可标记为"需要添加的通信"）。
+    `@RocketMQMessageListener(topic="payment-topic", consumerGroup="notification-service-group")
 
-──────────────────────────────────────────────────────── 九、管理后台服务（Admin Service）与消息通信 ────────────────
+    public class PaymentListener implements RocketMQListener<PaymentCompletedEvent> {
 
-1.  **手动干预订单**
+        public void onMessage(PaymentCompletedEvent event) {
 
-    -   **Topic**: `admin-topic` 或直接使用 `order-topic`
-    -   **事件**: `ORDER_INTERVENE` (管理员手动重新分配或取消订单)
-    -   **说明**: 在 admin_service 执行干预后，将此事件发送给 order_service，以更新订单状态；matching_service 也可接收以更新司机状态。
-2.  **财务审批**
+            // 发送"支付成功"通知给乘客
 
-    -   **Topic**: `admin-finance-topic` (可选)
-    -   **事件**: `WITHDRAWAL_APPROVED`, `WITHDRAWAL_REJECTED`
-    -   **说明**: 当管理员审批司机提现申请后，通知 payment_service 进行后续处理。
+        }
 
-──────────────────────────────────────────────────────── 十、总结 ────
+    }`
 
-1.  **各微服务**都有**自身专属的 Topic**（如 `user-topic`, `order-topic`, `payment-topic`, `location-request-topic`, `location-response-topic`, `review-topic`, `admin-topic`），并**发布或订阅**相应的 **Event**（`ORDER_CREATED`, `USER_CREATED`, `PAYMENT_COMPLETED`, `LOCATION_RESPONSE_EVENT`等）。
-2.  **User Service** 和 **Order Service** 是**业务核心**：用户注册/管理，订单创建/状态流转，通过事件让其他服务（matching, payment, analytics, etc.）做相应处理。
-3.  **Matching Service**：监听 `ORDER_CREATED` 事件进行自动匹配，并在完成后向 `order_service` 发送 `DRIVER_ASSIGNED` 或 `ORDER_ACCEPTED`，也可能通过 `location_service` 获取地址数据（异步的 `location-request-topic` / `location-response-topic`）。
-4.  **Payment Service**：在支付成功后发布 `PAYMENT_COMPLETED` 到 `payment-topic`，让 `order_service` 更新订单已支付，也让 `analytics_service` 记录收入指标。
-5.  **Notification Service**：订阅各大 Topic，向乘客、司机、管理员推送相关消息；发送完毕可能发布 `NOTIFICATION_SENT` 给 admin_service 做日志。
-6.  **Review Service**：乘客或司机评价行程后发布 `REVIEW_SUBMITTED`；matching_service、analytics_service 若需要评分更新可监听该事件；admin_service 若需要处理投诉可监听 `COMPLAINT_SUBMITTED`。
-7.  **Analytics Service**：订阅各类事件做数据归档和统计分析；可视化报表后通知后台或存储结果。
-8.  **Admin Service**：后台运营干预订单或审批提现时，将相关事件（`ORDER_INTERVENE`, `WITHDRAWAL_APPROVED`）发送到相应 Topic；也可监听 `DRIVER_REGISTERED`、`ORDER_EXCEPTION` 等事件作人工处理。
+六、位置服务（Location Service）与消息通信
 
-通过**以上事件与 Topic 的组合**，每个微服务都能**松耦合**地协同工作，一旦某个事件发布，任何需要响应此事件的服务皆可通过 RocketMQ Listener 进行处理，从而实现一个**灵活**、**可扩展**、**面向事件**的微服务体系。
+1\.  监听位置请求
+
+    -   Topic: `location-request-topic`
+
+    -   事件: `LocationRequestEvent` (匹配服务/其他服务发送请求)
+
+    -   功能: 接收 lat/lng 之后，调用 Google Maps API 进行逆地理编码，得到地址信息。
+
+2\.  发送位置响应
+
+    -   Topic: `location-response-topic`
+
+    -   事件: `LocationResponseEvent`
+
+    -   功能: 把地址或坐标信息回传给发送方 (matching_service 等) ；使用 correlationId 关联。
+
+3\.  代码:
+
+    -   `location_service.rocket.LocationRequestListener` -> `onMessage(LocationRequestEvent event)` -> 调用 `LocationService.getLocationInfo(...)` -> `rocketMQTemplate.convertAndSend("location-response-topic", new LocationResponseEvent(...))`.
+
+七、评价服务（Review Service）与消息通信
+
+1\.  行程结束评价
+
+    -   Topic: `review-topic`
+
+    -   事件: `REVIEW_SUBMITTED`, `DRIVER_RATED`, `PASSENGER_RATED` 等
+
+    -   使用: 当行程结束后，乘客或司机提交评价，review_service 发布/接收相应事件。matching_service 或 analytics_service 若需要评分，可以订阅此事件更新司机的评分或做统计。
+
+2\.  管理员审核投诉
+
+    -   Topic: `review-complaint-topic` (可自定义)
+
+    -   事件: `COMPLAINT_SUBMITTED`, `COMPLAINT_RESOLVED`
+
+    -   admin_service 监听后执行客服流程或申诉处理。
+
+八、数据分析服务（Analytics Service）与消息通信
+
+1\.  监听订单、支付、用户、司机评分事件
+
+    -   Topic: `order-topic`, `payment-topic`, `user-topic`, `review-topic`
+
+    -   事件: `ORDER_COMPLETED`, `PAYMENT_COMPLETED`, `USER_CREATED`, `DRIVER_RATED` 等
+
+    -   示例: `analytics_service.rocketmq.OrderEventListener` 监听 `ORDER_COMPLETED`，解析订单金额、区域、司机ID 等存入 `AnalyticsRecord`。
+
+2\.  与 admin_service：若 analytics_service 有新的分析报表，需要通知后台，可发送 `ANALYSIS_FINISHED` 等事件，让 admin_service 获取可视化报告数据。（如尚未实现，可标记为"需要添加的通信"）。
+
+ 九、管理后台服务（Admin Service）与消息通信
+
+1\.  手动干预订单
+
+    -   Topic: `admin-topic` 或直接使用 `order-topic`
+
+    -   事件: `ORDER_INTERVENE` (管理员手动重新分配或取消订单)
+
+    -   说明: 在 admin_service 执行干预后，将此事件发送给 order_service，以更新订单状态；matching_service 也可接收以更新司机状态。
+
+2\.  财务审批
+
+    -   Topic: `admin-finance-topic` (可选)
+
+    -   事件: `WITHDRAWAL_APPROVED`, `WITHDRAWAL_REJECTED`
+
+    -   说明: 当管理员审批司机提现申请后，通知 payment_service 进行后续处理。
+
+ 十、总结
+
+1\.  各微服务都有自身专属的 Topic（如 `user-topic`, `order-topic`, `payment-topic`, `location-request-topic`, `location-response-topic`, `review-topic`, `admin-topic`），并发布或订阅相应的 Event（`ORDER_CREATED`, `USER_CREATED`, `PAYMENT_COMPLETED`, `LOCATION_RESPONSE_EVENT`等）。
+
+2\.  User Service 和 Order Service 是业务核心：用户注册/管理，订单创建/状态流转，通过事件让其他服务（matching, payment, analytics, etc.）做相应处理。
+
+3\.  Matching Service：监听 `ORDER_CREATED` 事件进行自动匹配，并在完成后向 `order_service` 发送 `DRIVER_ASSIGNED` 或 `ORDER_ACCEPTED`，也可能通过 `location_service` 获取地址数据（异步的 `location-request-topic` / `location-response-topic`）。
+
+4\.  Payment Service：在支付成功后发布 `PAYMENT_COMPLETED` 到 `payment-topic`，让 `order_service` 更新订单已支付，也让 `analytics_service` 记录收入指标。
+
+5\.  Notification Service：订阅各大 Topic，向乘客、司机、管理员推送相关消息；发送完毕可能发布 `NOTIFICATION_SENT` 给 admin_service 做日志。
+
+6\.  Review Service：乘客或司机评价行程后发布 `REVIEW_SUBMITTED`；matching_service、analytics_service 若需要评分更新可监听该事件；admin_service 若需要处理投诉可监听 `COMPLAINT_SUBMITTED`。
+
+7\.  Analytics Service：订阅各类事件做数据归档和统计分析；可视化报表后通知后台或存储结果。
+
+8\.  Admin Service：后台运营干预订单或审批提现时，将相关事件（`ORDER_INTERVENE`, `WITHDRAWAL_APPROVED`）发送到相应 Topic；也可监听 `DRIVER_REGISTERED`、`ORDER_EXCEPTION` 等事件作人工处理。
+
+通过以上事件与 Topic 的组合，每个微服务都能松耦合地协同工作，一旦某个事件发布，任何需要响应此事件的服务皆可通过 RocketMQ Listener 进行处理，从而实现一个灵活、可扩展、面向事件的微服务体系。
