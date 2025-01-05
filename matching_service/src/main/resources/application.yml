@@ -1,0 +1,22 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: matching-service
+
+  # 若使用数据库
+  datasource:
+    url: jdbc:mysql://localhost:3306/matching_db?useSSL=false&characterEncoding=UTF-8
+    username: root
+    password: root
+  jpa:
+    hibernate:
+      ddl-auto: update
+
+rocketmq:
+  name-server: localhost:9876
+  producer:
+    group: matching-producer-group
+  consumer:
+    group: matching-consumer-group
