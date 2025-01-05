@@ -261,20 +261,3 @@ APP推送通知：
 权限管理
 为不同的运营人员设置角色和权限，控制后台功能访问。
 记录操作日志，追踪每个管理员的操作行为。
-
-Kafka 集成
---------
-
-### 事件发布
-
--   **`user_service`**：
-    -   在用户创建或更新时向 `user-topic` 发布事件。
--   **`order_service`**：
-    -   在订单创建或完成时向 `order-topic` 发布事件。
-
-### 事件消费
-
--   **`order_service`**：
-    -   订阅 `user-topic` 的事件以同步用户数据。
--   **`payment_service`**：
-    -   订阅 `order-topic` 的事件以触发支付流程。
