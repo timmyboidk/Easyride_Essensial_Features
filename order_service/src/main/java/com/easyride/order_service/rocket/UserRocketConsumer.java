@@ -7,9 +7,7 @@ import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * 替代原来的 Kafka Consumer；监听 "user-topic" 主题
- */
+@Slf4j
 @Service
 @RocketMQMessageListener(topic = "user-topic", consumerGroup = "order-service-group")
 public class UserRocketConsumer {
@@ -21,14 +19,22 @@ public class UserRocketConsumer {
     }
 
     @Transactional
+    @Override
     public void onMessage(UserEventDto userEvent) {
-        // 保存或更新用户本地数据库
-        User user = new User();
-        user.setId(userEvent.getId());
-        user.setUsername(userEvent.getUsername());
-        user.setEmail(userEvent.getEmail());
-        user.setRole(userEvent.getRole());
-
-        userRepository.save(user);
+     try {
+            log.info("[OrderService] Received UserEvent: {}", userEvent);
+            // 根据接收到的用户事件更新本地用户信息
+            User user = new User();
+            user.setId(userEvent.getId());
+            user.setUsername(userEvent.getUsername());
+            user.setEmail(userEvent.getEmail());
+            user.setRole(userEvent.getRole());
+            userRepository.save(user);
+            log.info("[OrderService] User data updated successfully for userId: {}", userEvent.getId());
+        } catch (Exception e) {
+            log.error("[OrderService] Error processing UserEvent: {}", userEvent, e);
+            // 可在此进行重试或发送告警
+            throw e;  // 或根据业务需要处理异常
+        }
     }
 }
