@@ -19,6 +19,11 @@ spring:
 
 rocketmq:
   name-server: 127.0.0.1:9876
+  producer:
+    group: user-producer-group  # 对于 user_service，可设置为 user-producer-group
+  consumer:
+    group: order-service-group   # 对于 order_service 中的消费者
+
 
 jwt:
   secret: eyJhbGciOiJIUzI1NiJ9.eyJSb2xlIjoiQWRtaW4iLCJJc3N1ZXIiOiJJc3N1ZXIiLCJVc2VybmFtZSI6IkphdmFJblVzZSIsImV4cCI6MTczMDUxOTAzMywiaWF0IjoxNzMwNTE5MDMzfQ.MqqRh7kFha8Xkve5hz3qS8ZMnr5xr4HVhR93cuZT4Is
