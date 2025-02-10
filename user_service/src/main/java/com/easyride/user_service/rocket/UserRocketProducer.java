@@ -22,6 +22,6 @@ public class UserRocketProducer {
     public void sendUserEvent(UserEventDto userEvent) {
         // "user-topic" 格式示例： "<topic>:<tag>"
         // 其中 tag 可选，tag 用于做消息筛选
-        rocketMQTemplate.convertAndSend("user-topic", userEvent);
+        rocketMQTemplate.convertAndSend("user-topic:USER_CREATED");
     }
 }
