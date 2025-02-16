@@ -56,17 +56,24 @@ public class PaymentServiceImpl implements PaymentService {
         // 设置防重 key 60 秒过期
         redisTemplate.opsForValue().set(dedupKey, "1", 60, TimeUnit.SECONDS);
 
-        // 2. 创建支付记录（Payment.id 为数据库自增全局唯一标识）
+// 2. 创建支付记录（Payment.id 为数据库自增全局唯一标识）
         Payment payment = new Payment();
         payment.setOrderId(paymentRequestDto.getOrderId());
         payment.setPassengerId(paymentRequestDto.getPassengerId());
-        // 注意：此处支付金额已采用整型（例如 100 表示 1.00 元或美元）
+// 这里假设 paymentRequestDto.getAmount() 已为整数（最小货币单位）
         payment.setAmount(paymentRequestDto.getAmount());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setTransactionType(TransactionType.PAYMENT);
         payment.setCreatedAt(LocalDateTime.now());
-        // 此处建议 Payment 实体中增加 @Version 字段以支持乐观锁
+// 此处建议 Payment 实体中增加 @Version 字段以支持乐观锁
         payment = paymentRepository.save(payment);
+
+// 计算平台服务费，返回的 serviceFee 为 int 类型
+        int serviceFee = calculateServiceFee(paymentRequestDto.getAmount());
+
+// 更新钱包余额，注意这里传入的金额均为整数
+        walletService.addFunds(paymentRequestDto.getOrderId(), paymentRequestDto.getAmount());
+
 
         // 3. 生成随机字符串和时间戳，并计算 MD5 签名
         String randomKey = UUID.randomUUID().toString();
@@ -117,6 +124,13 @@ public class PaymentServiceImpl implements PaymentService {
         // 解析异步支付网关通知，根据通知数据更新支付状态
         // 此处略（根据实际需求实现）
     }
+
+    // 将 calculateServiceFee 方法修改为返回 int 类型，金额单位为最小货币单位
+    private int calculateServiceFee(int amount) {
+        // 使用 Math.round 四舍五入计算 10% 的费用
+        return (int) Math.round(amount * 0.10);
+    }
+
 
     @Override
     @Transactional
