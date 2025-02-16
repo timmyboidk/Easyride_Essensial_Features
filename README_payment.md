@@ -13,6 +13,9 @@ Payment Service
 -   **依赖管理**：Maven
 -   **其他工具**：Lombok（用于简化代码）、Kafka（用于与其他微服务的异步通信）
 -   **支付网关**：PayPal SDK 和 Stripe SDK（用于信用卡支付）
+-   **安全**： 所有请求和响应体通过应用层加密，采用 AES 算法，防止中间人攻击。客户端与服务器共享同一密钥，所有通信数据在传输前都已加密。
+支付服务内部使用 Redis 防抖、MD5 签名、防篡改措施、以及 RocketMQ 有序消息（使用订单ID作为分区键）确保业务安全性、幂等性和消息顺序。
+其他微服务（例如订单服务、Admin 服务、Notification 服务）也需在消息传输过程中采用相应的安全措施，确保全平台数据传输的安全和完整性。
 
 * * * * *
 
@@ -253,10 +256,10 @@ JWT 认证过滤器，拦截请求并进行身份验证。
     `Authorization: Bearer your_jwt_token
 Content-Type: application/json`
 
--   **请求体**：
+-   **请求体(已加密）**：
 
 
-
+客户端需将原始 JSON 请求体（例如：
     `{
       "orderId": 100,
       "passengerId": 1,
@@ -264,11 +267,18 @@ Content-Type: application/json`
       "paymentMethod": "CREDIT_CARD",
       "currency": "USD"
     }`
+）使用预定的 AES 算法和共享密钥加密后发送。
 
--   **响应**：
+业务说明：
+
+支付服务首先对加密的请求体进行解密，得到 PaymentRequestDto；
+处理支付逻辑（包括 Redis 防抖、随机 key 与时间戳生成 MD5 签名、调用支付网关、异步消息发送等）；
+处理完成后，将 PaymentResponseDto 转换为 JSON，并进行加密后返回给客户端。
+
+-   **响应（加密后的字符串）**：
 
 
-
+客户端收到响应后，需使用共享密钥进行解密，获得如下 JSON 格式数据：
     `{
       "paymentId": 500,
       "status": "COMPLETED",
