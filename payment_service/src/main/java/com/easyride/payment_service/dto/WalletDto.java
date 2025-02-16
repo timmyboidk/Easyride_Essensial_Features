@@ -12,7 +12,8 @@ public class WalletDto {
 
     private Long driverId;
 
-    private Double balance;
+
+    private Integer balance;
 
     private LocalDateTime updatedAt;
 }

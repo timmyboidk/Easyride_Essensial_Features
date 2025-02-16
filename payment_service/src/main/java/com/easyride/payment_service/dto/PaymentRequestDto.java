@@ -13,7 +13,8 @@ public class PaymentRequestDto {
 
     private Long passengerId;
 
-    private Double amount;
+    // 修改为 Integer 类型，单位为最小货币单位，例如 100 分表示 1 元
+    private Integer amount;
 
     private String paymentMethod; // PAYPAL, CREDIT_CARD, BALANCE
 

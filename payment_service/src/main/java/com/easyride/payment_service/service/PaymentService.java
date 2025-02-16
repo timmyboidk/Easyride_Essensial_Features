@@ -8,7 +8,7 @@ import java.util.Map;
 public interface PaymentService {
     PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto);
     void handlePaymentNotification(Map<String, String> notificationData);
-    void refundPayment(Long paymentId, Double amount);
+    void refundPayment(Long paymentId, Integer amount);
     void processOrderPayment(Long orderId); // 新增方法
 }
 

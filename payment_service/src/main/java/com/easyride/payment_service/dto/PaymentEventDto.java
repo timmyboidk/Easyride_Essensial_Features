@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 public class PaymentEventDto {
     private Long paymentId;
     private Long orderId;
-    private Double amount;
+    private Integer amount;
     private String status; // COMPLETED, FAILED, etc.
     private String currency;
     private String paymentMethod; // PAYPAL, CREDIT_CARD, etc.

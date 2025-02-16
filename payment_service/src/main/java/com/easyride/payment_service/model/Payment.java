@@ -24,7 +24,7 @@ public class Payment {
 
     private Long passengerId;
 
-    private Double amount;
+    private Integer amount;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;

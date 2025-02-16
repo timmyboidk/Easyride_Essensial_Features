@@ -14,20 +14,21 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-@Service public class PaymentServiceImpl implements PaymentService {
+@Service
+public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final WalletService walletService;
     private final PaymentGatewayUtil paymentGatewayUtil;
     private final StringRedisTemplate redisTemplate;
     private final PaymentEventProducer paymentEventProducer;
-
 
     @Autowired
     public PaymentServiceImpl(PaymentRepository paymentRepository,
@@ -59,6 +60,7 @@ import java.util.concurrent.TimeUnit;
         Payment payment = new Payment();
         payment.setOrderId(paymentRequestDto.getOrderId());
         payment.setPassengerId(paymentRequestDto.getPassengerId());
+        // 注意：此处支付金额已采用整型（例如 100 表示 1.00 元或美元）
         payment.setAmount(paymentRequestDto.getAmount());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setTransactionType(TransactionType.PAYMENT);
@@ -72,7 +74,7 @@ import java.util.concurrent.TimeUnit;
         String dataToSign = randomKey + timestamp + payment.getId();
         String signature = generateMD5(dataToSign);
 
-        // 将签名及时间戳附加到支付方式字段中，作为网关过滤验证（示例，具体格式根据网关要求调整）
+        // 将签名及时间戳附加到支付方式字段中，作为网关过滤验证（示例格式，具体根据网关要求调整）
         String securePaymentMethod = paymentRequestDto.getPaymentMethod()
                 + "|sig=" + signature
                 + "&ts=" + timestamp;
@@ -98,7 +100,7 @@ import java.util.concurrent.TimeUnit;
                     paymentRequestDto.getCurrency(),
                     paymentRequestDto.getPaymentMethod()
             );
-            // 采用 convertAndSendOrderly 保证顺序，使用 orderId 作为分区键
+            // 采用有序消息发送，使用订单ID作为分区键，并加上 tag "PAYMENT_COMPLETED"
             paymentEventProducer.sendPaymentEventOrderly("PAYMENT_COMPLETED", paymentEvent, payment.getOrderId().toString());
 
             return new PaymentResponseDto(payment.getId(), "COMPLETED", "支付成功");
@@ -113,12 +115,12 @@ import java.util.concurrent.TimeUnit;
     @Override
     public void handlePaymentNotification(Map<String, String> notificationData) {
         // 解析异步支付网关通知，根据通知数据更新支付状态
-        // 此处略（可根据实际需求实现）
+        // 此处略（根据实际需求实现）
     }
 
     @Override
     @Transactional
-    public void refundPayment(Long paymentId, Double amount) {
+    public void refundPayment(Long paymentId, Integer amount) {
         Payment payment = paymentRepository.findById(paymentId)
                 .orElseThrow(() -> new RuntimeException("支付记录不存在"));
         if (payment.getStatus() != PaymentStatus.COMPLETED) {
@@ -135,7 +137,7 @@ import java.util.concurrent.TimeUnit;
             PaymentEventDto refundEvent = new PaymentEventDto(
                     payment.getId(),
                     payment.getOrderId(),
-                    amount,
+                    amount, // 此处 amount 为整型金额
                     payment.getStatus().name(),
                     "USD", // 假设货币
                     "REFUND"
@@ -154,7 +156,7 @@ import java.util.concurrent.TimeUnit;
                 .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("支付记录不存在或未完成"));
-        // 可在此添加额外逻辑，如通知 order_service 更新订单状态
+        // 此处可添加额外逻辑，例如通知 order_service 更新订单状态
     }
 
     private String generateMD5(String input) {

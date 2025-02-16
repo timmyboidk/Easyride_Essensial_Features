@@ -18,7 +18,7 @@ public class PaymentGatewayUtil {
     /**
      * 模拟退款处理，返回退款成功
      */
-    public boolean refundPayment(Long paymentId, Double amount) {
+    public boolean refundPayment(Long paymentId, Integer amount) {
         // 实际应调用支付渠道退款接口，此处简单模拟
         return true;  // 模拟退款成功
     }

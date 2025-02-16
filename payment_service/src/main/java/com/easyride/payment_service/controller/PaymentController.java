@@ -56,7 +56,7 @@ public class PaymentController {
      * 退款请求（目前退款接口不进行请求体加密，若有需要可类似 processPayment 做加解密）
      */
     @PostMapping("/refund/{paymentId}")
-    public void refundPayment(@PathVariable Long paymentId, @RequestParam Double amount) {
+    public void refundPayment(@PathVariable Long paymentId, @RequestParam Integer amount) {
         paymentService.refundPayment(paymentId, amount);
     }
 }

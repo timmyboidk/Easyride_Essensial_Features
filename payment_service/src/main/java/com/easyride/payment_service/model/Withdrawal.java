@@ -22,7 +22,7 @@ public class Withdrawal {
 
     private Long driverId;
 
-    private Double amount;
+    private Integer amount;
 
     @Enumerated(EnumType.STRING)
     private WithdrawalStatus status;

@@ -19,7 +19,7 @@ public class Wallet {
     @Id
     private Long driverId;
 
-    private Double balance;
+    private Integer balance;
 
     private LocalDateTime updatedAt;
 }
