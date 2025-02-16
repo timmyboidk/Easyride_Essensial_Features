@@ -86,7 +86,12 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     }
 
     private boolean performRiskControl(Withdrawal withdrawal) {
-        // 实现风控逻辑，例如检查提现金额是否超限
+        // 假设每笔提现不能超过 10000.0，超过则触发风控，返回 false
+        double maxAllowedAmount = 10000.0;
+        if (withdrawal.getAmount() > maxAllowedAmount) {
+            // 可在此记录日志，或调用其他风控服务
+            return false;
+        }
         return true;
     }
 
