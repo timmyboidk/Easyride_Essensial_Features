@@ -13,5 +13,7 @@ public interface WalletService {
     WalletDto getWallet(Long driverId);
 
     List<Payment> getEarnings(Long driverId, LocalDateTime from, LocalDateTime to);
+
+    void subtractFunds(Long orderId, Double amount);
 }
 
