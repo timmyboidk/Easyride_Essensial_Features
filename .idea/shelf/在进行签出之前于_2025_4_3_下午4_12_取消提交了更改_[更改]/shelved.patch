@@ -1,0 +1,103 @@
+Index: .idea/compiler.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"CompilerConfiguration\">\n    <annotationProcessing>\n      <profile name=\"Maven default annotation processors profile\" enabled=\"true\">\n        <sourceOutputDir name=\"target/generated-sources/annotations\" />\n        <sourceTestOutputDir name=\"target/generated-test-sources/test-annotations\" />\n        <outputRelativeToContentRoot value=\"true\" />\n        <module name=\"user_service\" />\n      </profile>\n    </annotationProcessing>\n    <bytecodeTargetLevel target=\"20\" />\n  </component>\n  <component name=\"JavacSettings\">\n    <option name=\"ADDITIONAL_OPTIONS_OVERRIDE\">\n      <module name=\"user_service\" options=\"-parameters\" />\n    </option>\n  </component>\n</project>
+===================================================================
+diff --git a/.idea/compiler.xml b/.idea/compiler.xml
+--- a/.idea/compiler.xml	
++++ b/.idea/compiler.xml	
+@@ -1,19 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+   <component name="CompilerConfiguration">
+-    <annotationProcessing>
+-      <profile name="Maven default annotation processors profile" enabled="true">
+-        <sourceOutputDir name="target/generated-sources/annotations" />
+-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+-        <outputRelativeToContentRoot value="true" />
+-        <module name="user_service" />
+-      </profile>
+-    </annotationProcessing>
+     <bytecodeTargetLevel target="20" />
+   </component>
+-  <component name="JavacSettings">
+-    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+-      <module name="user_service" options="-parameters" />
+-    </option>
+-  </component>
+ </project>
+\ No newline at end of file
+Index: payment_service/target/classes/application.yml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>server:\n  port: 8082\n\nspring:\n  datasource:\n    url: jdbc:mysql://localhost:3306/paymentdb?useSSL=false&serverTimezone=UTC&characterEncoding=utf8\n    username: your_mysql_username\n    password: your_mysql_password\n    driver-class-name: com.mysql.cj.jdbc.Driver\n\n  jpa:\n    hibernate:\n      ddl-auto: update\n    show-sql: true\n\n\n  kafka:\n    bootstrap-servers: localhost:9092\n    consumer:\n      group-id: payment-service-group\n      auto-offset-reset: earliest\n      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer\n      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer\n      properties:\n        spring.json.trusted.packages: '*'\n    producer:\n      key-serializer: org.apache.kafka.common.serialization.StringSerializer\n      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer\n\n\n  security:\n    oauth2:\n      resourceserver:\n        jwt:\n          issuer-uri: https://your-issuer.com/\n\nlogging:\n  level:\n    root: INFO\n    org.springframework.web: DEBUG\n\n# PayPal Configuration\npaypal:\n  client-id: your_paypal_client_id\n  client-secret: your_paypal_client_secret\n  mode: sandbox # or live\n\n# Stripe Configuration (for credit card payments)\nstripe:\n  api-key: your_stripe_api_key\n
+===================================================================
+diff --git a/payment_service/target/classes/application.yml b/payment_service/target/classes/application.yml
+--- a/payment_service/target/classes/application.yml	
++++ b/payment_service/target/classes/application.yml	
+@@ -14,20 +14,10 @@
+     show-sql: true
+ 
+ 
+-  kafka:
+-    bootstrap-servers: localhost:9092
+-    consumer:
+-      group-id: payment-service-group
+-      auto-offset-reset: earliest
+-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+-      properties:
+-        spring.json.trusted.packages: '*'
+-    producer:
+-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+-
+-
++rocketmq:
++  name-server: 127.0.0.1:9876
++  producer:
++    group: payment-producer-group
+   security:
+     oauth2:
+       resourceserver:
+Index: .idea/misc.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"ExternalStorageConfigurationManager\" enabled=\"true\" />\n  <component name=\"MavenProjectsManager\">\n    <option name=\"originalFiles\">\n      <list>\n        <option value=\"$PROJECT_DIR$/user_service/pom.xml\" />\n        <option value=\"$PROJECT_DIR$/pom.xml\" />\n      </list>\n    </option>\n  </component>\n  <component name=\"ProjectRootManager\" version=\"2\" languageLevel=\"JDK_20\" default=\"true\" project-jdk-name=\"20\" project-jdk-type=\"JavaSDK\">\n    <output url=\"file://$PROJECT_DIR$/out\" />\n  </component>\n</project>
+===================================================================
+diff --git a/.idea/misc.xml b/.idea/misc.xml
+--- a/.idea/misc.xml	
++++ b/.idea/misc.xml	
+@@ -1,14 +1,5 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <project version="4">
+-  <component name="ExternalStorageConfigurationManager" enabled="true" />
+-  <component name="MavenProjectsManager">
+-    <option name="originalFiles">
+-      <list>
+-        <option value="$PROJECT_DIR$/user_service/pom.xml" />
+-        <option value="$PROJECT_DIR$/pom.xml" />
+-      </list>
+-    </option>
+-  </component>
+   <component name="ProjectRootManager" version="2" languageLevel="JDK_20" default="true" project-jdk-name="20" project-jdk-type="JavaSDK">
+     <output url="file://$PROJECT_DIR$/out" />
+   </component>
+Index: .idea/modules.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<project version=\"4\">\n  <component name=\"ProjectModuleManager\">\n    <modules>\n      <module fileurl=\"file://$PROJECT_DIR$/.idea/Essensial_Features.iml\" filepath=\"$PROJECT_DIR$/.idea/Essensial_Features.iml\" />\n    </modules>\n  </component>\n</project>
+===================================================================
+diff --git a/.idea/modules.xml b/.idea/modules.xml
+--- a/.idea/modules.xml	
++++ b/.idea/modules.xml	
+@@ -2,7 +2,7 @@
+ <project version="4">
+   <component name="ProjectModuleManager">
+     <modules>
+-      <module fileurl="file://$PROJECT_DIR$/.idea/Essensial_Features.iml" filepath="$PROJECT_DIR$/.idea/Essensial_Features.iml" />
++      <module fileurl="file://$PROJECT_DIR$/.idea/Easyride_Essensial_Features.iml" filepath="$PROJECT_DIR$/.idea/Easyride_Essensial_Features.iml" />
+     </modules>
+   </component>
+ </project>
+\ No newline at end of file
