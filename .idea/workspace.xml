@@ -5,7 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e1a983ce-436b-4d0d-8614-955f5cdc3163" name="更改" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/order_service/src/main/java/com/easyride/order_service/config/WebMvcConfig.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/order_service/src/main/java/com/easyride/order_service/interceptor/SignatureVerificationInterceptor.java" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/order_service/src/main/java/com/easyride/order_service/util/IdempotencyService.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -116,6 +118,7 @@
       <workItem from="1743971936678" duration="1306000" />
       <workItem from="1743973479251" duration="326000" />
       <workItem from="1743973814305" duration="624000" />
+      <workItem from="1743974487632" duration="1488000" />
     </task>
     <servers />
   </component>
