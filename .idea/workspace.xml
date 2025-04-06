@@ -5,9 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e1a983ce-436b-4d0d-8614-955f5cdc3163" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/Easyride_Essensial_Features.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/payment_service/target/classes/com/easyride/payment_service/config/RocketMqConfig.class" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/payment_service/target/classes/com/easyride/payment_service/util/EncryptionUtil.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -77,6 +76,21 @@
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
+  <component name="RunManager">
+    <configuration default="true" type="JetRunConfigurationType">
+      <module name="Easyride_Essensial_Features" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+    <configuration default="true" type="KotlinStandaloneScriptRunConfigurationType">
+      <module name="Easyride_Essensial_Features" />
+      <option name="filePath" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -99,6 +113,9 @@
       <workItem from="1743968314670" duration="109000" />
       <workItem from="1743968701784" duration="1856000" />
       <workItem from="1743971845062" duration="57000" />
+      <workItem from="1743971936678" duration="1306000" />
+      <workItem from="1743973479251" duration="326000" />
+      <workItem from="1743973814305" duration="624000" />
     </task>
     <servers />
   </component>
