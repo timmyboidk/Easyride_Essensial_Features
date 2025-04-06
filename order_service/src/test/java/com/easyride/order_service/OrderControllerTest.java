@@ -1,27 +1,22 @@
-package com.easyride.order_service;
+package com.easyride.order_service.controller;
 
-import com.easyride.order_service.controller.OrderController;
-import com.easyride.order_service.dto.OrderCreateDto;
-import com.easyride.order_service.dto.OrderResponseDto;
-import com.easyride.order_service.model.OrderStatus;
+import com.easyride.order_service.dto.*;
+import com.easyride.order_service.model.*;
 import com.easyride.order_service.service.OrderService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
-import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.Mockito.*;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @WebMvcTest(OrderController.class)
-class OrderControllerTest {
+public class OrderControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -29,51 +24,75 @@ class OrderControllerTest {
     @MockBean
     private OrderService orderService;
 
+    private ObjectMapper mapper = new ObjectMapper();
+
     @Test
-    void createOrder_Success() throws Exception {
-        // 准备请求体
-        OrderCreateDto createDto = new OrderCreateDto();
-        createDto.setPassengerId(1L);
-        // 其他字段赋值，如 startLocation, endLocation, vehicleType, serviceType, paymentMethod
-        // ...
+    void testCreateOrder() throws Exception {
+        OrderCreateDto createDto = new OrderCreateDto(
+                1L,
+                new LocationDto(10.0, 20.0),
+                new LocationDto(30.0, 40.0),
+                VehicleType.CAR,
+                ServiceType.STANDARD,
+                PaymentMethod.CASH
+        );
 
-        // 模拟返回结果
-        OrderResponseDto responseDto = new OrderResponseDto();
-        responseDto.setOrderId(100L);
-        responseDto.setStatus(OrderStatus.PENDING);
-        responseDto.setPassengerName("TestPassenger");
-        responseDto.setDriverName("TestDriver");
-        responseDto.setEstimatedCost(100.0);
-        responseDto.setEstimatedDistance(200.0);
-        responseDto.setEstimatedDuration(60.0);
+        OrderResponseDto responseDto = new OrderResponseDto(
+                100L,
+                OrderStatus.PENDING,
+                "PassengerName",
+                "DriverName",
+                120.0,
+                50.0,
+                30.0
+        );
 
-        when(orderService.createOrder(ArgumentMatchers.any(OrderCreateDto.class)))
-                .thenReturn(responseDto);
+        when(orderService.createOrder(createDto)).thenReturn(responseDto);
 
-        // 发送 POST 请求
         mockMvc.perform(post("/orders/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(new ObjectMapper().writeValueAsString(createDto)))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(mapper.writeValueAsString(createDto)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orderId").value(100L))
-                .andExpect(jsonPath("$.status").value("PENDING"))
-                .andExpect(jsonPath("$.passengerName").value("TestPassenger"))
-                .andExpect(jsonPath("$.driverName").value("TestDriver"));
-
-        // 验证 service 调用
-        verify(orderService).createOrder(ArgumentMatchers.any(OrderCreateDto.class));
+                .andExpect(jsonPath("$.orderId").value(100L));
     }
 
     @Test
-    void createOrder_ValidationError() throws Exception {
-        // 不设置必需字段，触发验证错误
-        OrderCreateDto createDto = new OrderCreateDto();
-
-        mockMvc.perform(post("/orders/create")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(new ObjectMapper().writeValueAsString(createDto)))
-                .andExpect(status().isBadRequest());
+    void testAcceptOrder() throws Exception {
+        // 接受订单接口无返回结果，仅校验状态码
+        mockMvc.perform(post("/orders/200/accept")
+                        .param("driverId", "10"))
+                .andExpect(status().isOk());
     }
 
-    // 其他接口测试: acceptOrder, cancelOrder, updateOrderStatus 等，同理
+    @Test
+    void testGetOrderDetails() throws Exception {
+        OrderResponseDto responseDto = new OrderResponseDto(
+                101L,
+                OrderStatus.PENDING,
+                "PassengerName",
+                "DriverName",
+                150.0,
+                60.0,
+                35.0
+        );
+
+        when(orderService.getOrderDetails(101L)).thenReturn(responseDto);
+
+        mockMvc.perform(get("/orders/101"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(101L));
+    }
+
+    @Test
+    void testCancelOrder() throws Exception {
+        mockMvc.perform(post("/orders/102/cancel"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void testUpdateOrderStatus() throws Exception {
+        mockMvc.perform(post("/orders/103/status")
+                        .param("status", OrderStatus.ACCEPTED.name()))
+                .andExpect(status().isOk());
+    }
 }

@@ -4,11 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="e1a983ce-436b-4d0d-8614-955f5cdc3163" name="更改" comment="">
-      <change afterPath="$PROJECT_DIR$/order_service/src/main/java/com/easyride/order_service/config/WebMvcConfig.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/order_service/src/main/java/com/easyride/order_service/interceptor/SignatureVerificationInterceptor.java" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/order_service/src/main/java/com/easyride/order_service/util/IdempotencyService.java" afterDir="false" />
+    <list default="true" id="e1a983ce-436b-4d0d-8614-955f5cdc3163" name="更改" comment="添加了一个 Spring 拦截器">
+      <change afterPath="$PROJECT_DIR$/order_service/src/test/java/com/easyride/order_service/RepositoryTests.java" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/order_service/src/test/java/com/easyride/order_service/OrderControllerTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/order_service/src/test/java/com/easyride/order_service/OrderControllerTest.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/order_service/src/test/java/com/easyride/order_service/OrderServiceImplTest.java" beforeDir="false" afterPath="$PROJECT_DIR$/order_service/src/test/java/com/easyride/order_service/OrderServiceImplTest.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -35,6 +35,9 @@
     &quot;accountId&quot;: &quot;6b130749-b426-47d1-a5ef-ce6114a3eef7&quot;
   }
 }</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$PROJECT_DIR$/order_service/src/test/java/com/easyride/order_service/OrderControllerTest.java" root0="FORCE_HIGHLIGHTING" />
+  </component>
   <component name="MavenImportPreferences">
     <option name="generalSettings">
       <MavenGeneralSettings>
@@ -58,26 +61,26 @@
     <option name="openDirectoriesWithSingleClick" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent">{
-  &quot;keyToString&quot;: {
-    &quot;ASKED_ADD_EXTERNAL_FILES&quot;: &quot;true&quot;,
-    &quot;ASKED_SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;SHARE_PROJECT_CONFIGURATION_FILES&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;order__service&quot;,
-    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
-    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
-    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
-    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
-    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
-    &quot;project.structure.last.edited&quot;: &quot;SDK&quot;,
-    &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
-    &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
-    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.pluginManager&quot;,
-    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "ASKED_ADD_EXTERNAL_FILES": "true",
+    "ASKED_SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
+    "git-widget-placeholder": "order__service",
+    "kotlin-language-version-configured": "true",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "project.structure.last.edited": "SDK",
+    "project.structure.proportion": "0.15",
+    "project.structure.side.proportion": "0.2",
+    "settings.editor.selected.configurable": "editor.preferences.completion",
+    "vue.rearranger.settings.migration": "true"
   }
-}</component>
+}]]></component>
   <component name="RunManager">
     <configuration default="true" type="JetRunConfigurationType">
       <module name="Easyride_Essensial_Features" />
@@ -118,8 +121,17 @@
       <workItem from="1743971936678" duration="1306000" />
       <workItem from="1743973479251" duration="326000" />
       <workItem from="1743973814305" duration="624000" />
-      <workItem from="1743974487632" duration="1488000" />
+      <workItem from="1743974487632" duration="2606000" />
     </task>
+    <task id="LOCAL-00001" summary="添加了一个 Spring 拦截器">
+      <option name="closed" value="true" />
+      <created>1743979069363</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1743979069363</updated>
+    </task>
+    <option name="localTasksCounter" value="2" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -138,5 +150,7 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="ADD_EXTERNAL_FILES_SILENTLY" value="true" />
+    <MESSAGE value="添加了一个 Spring 拦截器" />
+    <option name="LAST_COMMIT_MESSAGE" value="添加了一个 Spring 拦截器" />
   </component>
 </project>

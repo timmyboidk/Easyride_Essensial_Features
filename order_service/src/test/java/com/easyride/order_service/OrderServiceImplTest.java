@@ -1,32 +1,28 @@
-package com.easyride.order_service;
+package com.easyride.order_service.service;
 
 import com.easyride.order_service.dto.*;
 import com.easyride.order_service.model.*;
 import com.easyride.order_service.repository.*;
-import com.easyride.order_service.service.OrderServiceImpl;
-import com.easyride.order_service.util.DistanceCalculator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-class OrderServiceImplTest {
+public class OrderServiceImplTest {
 
     @Mock
     private OrderRepository orderRepository;
+
     @Mock
     private PassengerRepository passengerRepository;
+
     @Mock
     private DriverRepository driverRepository;
+
     @Mock
     private UserRepository userRepository;
 
@@ -35,155 +31,279 @@ class OrderServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        // 可以在此进行一些初始化操作
+        MockitoAnnotations.openMocks(this);
     }
 
+    // 测试：乘客不存在
     @Test
-    void createOrder_Success() {
-        // 准备测试数据
+    void testCreateOrder_PassengerNotFound() {
         OrderCreateDto createDto = new OrderCreateDto();
         createDto.setPassengerId(1L);
-        createDto.setStartLocation(new LocationDto(30.0, 120.0));
-        createDto.setEndLocation(new LocationDto(31.0, 121.0));
-        createDto.setVehicleType(VehicleType.valueOf("STANDARD"));
-        createDto.setServiceType(ServiceType.valueOf("NORMAL"));
-        createDto.setPaymentMethod(PaymentMethod.valueOf("CREDIT_CARD"));
 
-        // 模拟从 userRepository 获取用户信息
-        User passengerUser = new User();
-        passengerUser.setId(1L);
-        passengerUser.setUsername("TestPassenger");
-        passengerUser.setRole("PASSENGER");
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        when(UserRepository.findById(1L)).thenReturn(Optional.of(passengerUser));
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.createOrder(createDto);
+        });
+        assertEquals("乘客不存在", exception.getMessage());
+    }
 
-        // 模拟 PassengerRepository
+    // 测试：用户角色不是乘客
+    @Test
+    void testCreateOrder_InvalidPassengerRole() {
+        OrderCreateDto createDto = new OrderCreateDto();
+        createDto.setPassengerId(1L);
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("TestUser");
+        user.setRole("DRIVER");
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.createOrder(createDto);
+        });
+        assertEquals("用户不是乘客", exception.getMessage());
+    }
+
+    // 测试：没有可用的司机
+    @Test
+    void testCreateOrder_NoAvailableDriver() {
+        OrderCreateDto createDto = new OrderCreateDto();
+        createDto.setPassengerId(1L);
+        createDto.setStartLocation(new LocationDto(10.0, 20.0));
+        createDto.setEndLocation(new LocationDto(30.0, 40.0));
+        createDto.setVehicleType(VehicleType.CAR);
+        createDto.setServiceType(ServiceType.STANDARD);
+        createDto.setPaymentMethod(PaymentMethod.CASH);
+
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("Passenger");
+        user.setRole("PASSENGER");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
         Passenger passenger = new Passenger();
         passenger.setId(1L);
-        passenger.setName("TestPassenger");
-        when(passengerRepository.findById(1L)).thenReturn(Optional.empty()); // 表示本地还没存
-        when(passengerRepository.save(any(Passenger.class))).thenReturn(passenger);
+        passenger.setName("Passenger");
+        when(passengerRepository.findById(1L)).thenReturn(Optional.of(passenger));
 
-        // 模拟 DriverRepository
-        Driver driver = new Driver();
-        driver.setId(2L);
-        driver.setName("TestDriver");
-        driver.setAvailable(true);
-        when(driverRepository.findFirstByVehicleTypeAndAvailableTrue(VehicleType.STANDARD))
-                .thenReturn(Optional.of(driver));
-        when(driverRepository.save(driver)).thenReturn(driver);
+        when(driverRepository.findFirstByVehicleTypeAndAvailableTrue(VehicleType.CAR)).thenReturn(Optional.empty());
 
-        // Mock 距离计算 (可选)
-        // 这里默认不 stub DistanceCalculator，您可根据需要使用 spy 或 static mocking
-
-        // 模拟 orderRepository
-        Order savedOrder = new Order();
-        savedOrder.setId(10L);
-        savedOrder.setStatus(OrderStatus.PENDING);
-        savedOrder.setPassenger(passenger);
-        savedOrder.setDriver(driver);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
-            Order argument = invocation.getArgument(0);
-            argument.setId(10L); // 模拟数据库生成ID
-            return argument;
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.createOrder(createDto);
         });
-
-        // 执行测试
-        OrderResponseDto response = orderService.createOrder(createDto);
-
-        // 验证结果
-        assertNotNull(response);
-        assertEquals(10L, response.getOrderId());
-        assertEquals("PENDING", response.getStatus().name());
-        assertEquals("TestPassenger", response.getPassengerName());
-        assertEquals("TestDriver", response.getDriverName());
-
-        // 验证交互
-        verify(userRepository);
-        UserRepository.findById(1L);
-        verify(passengerRepository).save(any(Passenger.class));
-        verify(driverRepository).findFirstByVehicleTypeAndAvailableTrue(VehicleType.STANDARD);
-        verify(driverRepository).save(driver);
-        verify(orderRepository).save(any(Order.class));
-    }
-
-    @Test
-    void createOrder_NoAvailableDriver() {
-        // 准备测试数据
-        OrderCreateDto createDto = new OrderCreateDto();
-        createDto.setPassengerId(1L);
-        createDto.setStartLocation(new LocationDto(30.0, 120.0));
-        createDto.setEndLocation(new LocationDto(31.0, 121.0));
-        createDto.setVehicleType(VehicleType.valueOf("STANDARD"));
-        createDto.setServiceType(ServiceType.valueOf("NORMAL"));
-        createDto.setPaymentMethod(PaymentMethod.valueOf("CREDIT_CARD"));
-
-        // 模拟 userRepository
-        User passengerUser = new User();
-        passengerUser.setId(1L);
-        passengerUser.setUsername("TestPassenger");
-        passengerUser.setRole("PASSENGER");
-        when(UserRepository.findById(1L)).thenReturn(Optional.of(passengerUser));
-
-        // 模拟 driverRepository 返回空
-        when(driverRepository.findFirstByVehicleTypeAndAvailableTrue(VehicleType.STANDARD))
-                .thenReturn(Optional.empty());
-
-        // 执行 & 验证异常
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> orderService.createOrder(createDto));
         assertEquals("没有可用的司机", exception.getMessage());
     }
 
+    // 测试：创建订单成功
     @Test
-    void acceptOrder_Success() {
-        // 准备
-        Long orderId = 100L;
-        Long driverId = 2L;
+    void testCreateOrder_Success() {
+        OrderCreateDto createDto = new OrderCreateDto();
+        createDto.setPassengerId(1L);
+        createDto.setStartLocation(new LocationDto(10.0, 20.0));
+        createDto.setEndLocation(new LocationDto(30.0, 40.0));
+        createDto.setVehicleType(VehicleType.CAR);
+        createDto.setServiceType(ServiceType.STANDARD);
+        createDto.setPaymentMethod(PaymentMethod.CASH);
 
-        Order existingOrder = new Order();
-        existingOrder.setId(orderId);
-        existingOrder.setStatus(OrderStatus.PENDING);
+        User user = new User();
+        user.setId(1L);
+        user.setUsername("Passenger");
+        user.setRole("PASSENGER");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        Passenger passenger = new Passenger();
+        passenger.setId(1L);
+        passenger.setName("Passenger");
+        when(passengerRepository.findById(1L)).thenReturn(Optional.of(passenger));
 
         Driver driver = new Driver();
-        driver.setId(driverId);
+        driver.setId(10L);
+        driver.setName("Driver");
         driver.setAvailable(true);
+        when(driverRepository.findFirstByVehicleTypeAndAvailableTrue(VehicleType.CAR)).thenReturn(Optional.of(driver));
 
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
-        when(driverRepository.findById(driverId)).thenReturn(Optional.of(driver));
-        when(orderRepository.save(any(Order.class))).thenReturn(existingOrder);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            order.setId(100L);
+            return order;
+        });
 
-        // 执行
-        orderService.acceptOrder(orderId, driverId);
+        OrderResponseDto response = orderService.createOrder(createDto);
+        assertNotNull(response);
+        assertEquals(100L, response.getOrderId());
+        assertEquals(OrderStatus.PENDING, response.getStatus());
+        assertEquals("Passenger", response.getPassengerName());
+        assertEquals("Driver", response.getDriverName());
+        // 验证司机状态已更新为不可用
+        assertFalse(driver.isAvailable());
+        verify(driverRepository).save(driver);
+    }
 
-        // 验证
-        assertEquals(OrderStatus.ACCEPTED, existingOrder.getStatus());
-        assertEquals(driver, existingOrder.getDriver());
-        verify(orderRepository).save(existingOrder);
+    // 测试：司机接单时订单不存在
+    @Test
+    void testAcceptOrder_OrderNotFound() {
+        when(orderRepository.findById(200L)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.acceptOrder(200L, 10L);
+        });
+        assertEquals("订单不存在", exception.getMessage());
+    }
+
+    // 测试：司机接单时司机不存在
+    @Test
+    void testAcceptOrder_DriverNotFound() {
+        Order order = new Order();
+        order.setId(200L);
+        order.setStatus(OrderStatus.PENDING);
+        when(orderRepository.findById(200L)).thenReturn(Optional.of(order));
+
+        when(driverRepository.findById(10L)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.acceptOrder(200L, 10L);
+        });
+        assertEquals("司机不存在", exception.getMessage());
+    }
+
+    // 测试：司机接单时司机不可用
+    @Test
+    void testAcceptOrder_DriverNotAvailable() {
+        Order order = new Order();
+        order.setId(200L);
+        order.setStatus(OrderStatus.PENDING);
+        when(orderRepository.findById(200L)).thenReturn(Optional.of(order));
+
+        Driver driver = new Driver();
+        driver.setId(10L);
+        driver.setAvailable(false);
+        when(driverRepository.findById(10L)).thenReturn(Optional.of(driver));
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.acceptOrder(200L, 10L);
+        });
+        assertEquals("司机不可用", exception.getMessage());
+    }
+
+    // 测试：司机接单成功
+    @Test
+    void testAcceptOrder_Success() {
+        Order order = new Order();
+        order.setId(200L);
+        order.setStatus(OrderStatus.PENDING);
+        when(orderRepository.findById(200L)).thenReturn(Optional.of(order));
+
+        Driver driver = new Driver();
+        driver.setId(10L);
+        driver.setAvailable(true);
+        when(driverRepository.findById(10L)).thenReturn(Optional.of(driver));
+
+        orderService.acceptOrder(200L, 10L);
+
+        assertEquals(OrderStatus.ACCEPTED, order.getStatus());
+        verify(orderRepository).save(order);
         verify(driverRepository).save(driver);
         assertFalse(driver.isAvailable());
     }
 
+    // 测试：查询订单详情时订单不存在
     @Test
-    void acceptOrder_DriverUnavailable() {
-        Long orderId = 100L;
-        Long driverId = 2L;
+    void testGetOrderDetails_OrderNotFound() {
+        when(orderRepository.findById(300L)).thenReturn(Optional.empty());
 
-        Order existingOrder = new Order();
-        existingOrder.setId(orderId);
-        existingOrder.setStatus(OrderStatus.PENDING);
-
-        Driver driver = new Driver();
-        driver.setId(driverId);
-        driver.setAvailable(false); // 不可用
-
-        when(orderRepository.findById(orderId)).thenReturn(Optional.of(existingOrder));
-        when(driverRepository.findById(driverId)).thenReturn(Optional.of(driver));
-
-        RuntimeException exception = assertThrows(RuntimeException.class,
-                () -> orderService.acceptOrder(orderId, driverId));
-        assertEquals("司机不可用", exception.getMessage());
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.getOrderDetails(300L);
+        });
+        assertEquals("订单不存在", exception.getMessage());
     }
 
-    // 其他测试: getOrderDetails, cancelOrder, updateOrderStatus 同理模拟并断言
+    // 测试：查询订单详情成功
+    @Test
+    void testGetOrderDetails_Success() {
+        Order order = new Order();
+        order.setId(300L);
+        order.setStatus(OrderStatus.PENDING);
+        Passenger passenger = new Passenger();
+        passenger.setId(1L);
+        passenger.setName("Passenger");
+        order.setPassenger(passenger);
+
+        Driver driver = new Driver();
+        driver.setId(10L);
+        driver.setName("Driver");
+        order.setDriver(driver);
+
+        order.setEstimatedCost(120.0);
+        order.setEstimatedDistance(50.0);
+        order.setEstimatedDuration(30.0);
+
+        when(orderRepository.findById(300L)).thenReturn(Optional.of(order));
+
+        OrderResponseDto response = orderService.getOrderDetails(300L);
+        assertNotNull(response);
+        assertEquals(300L, response.getOrderId());
+        assertEquals("Passenger", response.getPassengerName());
+        assertEquals("Driver", response.getDriverName());
+    }
+
+    // 测试：取消订单时订单不存在
+    @Test
+    void testCancelOrder_OrderNotFound() {
+        when(orderRepository.findById(400L)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.cancelOrder(400L);
+        });
+        assertEquals("订单不存在", exception.getMessage());
+    }
+
+    // 测试：取消订单成功（包括司机恢复可用状态）
+    @Test
+    void testCancelOrder_Success() {
+        Order order = new Order();
+        order.setId(400L);
+        order.setStatus(OrderStatus.PENDING);
+        when(orderRepository.findById(400L)).thenReturn(Optional.of(order));
+
+        // 情况1：订单无司机分配
+        orderService.cancelOrder(400L);
+        assertEquals(OrderStatus.CANCELED, order.getStatus());
+        verify(orderRepository, times(1)).save(order);
+
+        // 情况2：订单有司机分配，则司机状态恢复为可用
+        Driver driver = new Driver();
+        driver.setId(10L);
+        driver.setAvailable(false);
+        order.setDriver(driver);
+        orderService.cancelOrder(400L);
+        verify(driverRepository, times(1)).save(driver);
+        assertTrue(driver.isAvailable());
+    }
+
+    // 测试：更新订单状态时订单不存在
+    @Test
+    void testUpdateOrderStatus_OrderNotFound() {
+        when(orderRepository.findById(500L)).thenReturn(Optional.empty());
+
+        Exception exception = assertThrows(RuntimeException.class, () -> {
+            orderService.updateOrderStatus(500L, OrderStatus.CANCELED);
+        });
+        assertEquals("订单不存在", exception.getMessage());
+    }
+
+    // 测试：更新订单状态成功
+    @Test
+    void testUpdateOrderStatus_Success() {
+        Order order = new Order();
+        order.setId(500L);
+        order.setStatus(OrderStatus.PENDING);
+        when(orderRepository.findById(500L)).thenReturn(Optional.of(order));
+
+        orderService.updateOrderStatus(500L, OrderStatus.ACCEPTED);
+        assertEquals(OrderStatus.ACCEPTED, order.getStatus());
+        verify(orderRepository).save(order);
+    }
 }
