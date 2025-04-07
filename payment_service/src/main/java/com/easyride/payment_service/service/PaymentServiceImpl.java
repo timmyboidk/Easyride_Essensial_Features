@@ -10,7 +10,10 @@ import com.easyride.payment_service.repository.PaymentRepository;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
 import com.easyride.payment_service.util.PaymentGatewayUtil;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
+
+    private static final Logger logger = LoggerFactory.getLogger(PaymentServiceImpl.class);
 
     private final PaymentRepository paymentRepository;
     private final WalletService walletService;
@@ -47,58 +52,70 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto) {
-        // 1. 防止重复提交：利用 Redis 防抖
+        // 防重复提交（利用 Redis 防重）
         String dedupKey = "payment:" + paymentRequestDto.getOrderId();
         Boolean exists = redisTemplate.hasKey(dedupKey);
         if (exists != null && exists) {
+            logger.warn("重复提交的支付请求，订单ID: {}", paymentRequestDto.getOrderId());
             throw new RuntimeException("重复提交的支付请求");
         }
-        // 设置防重 key 60 秒过期
         redisTemplate.opsForValue().set(dedupKey, "1", 60, TimeUnit.SECONDS);
 
-// 2. 创建支付记录（Payment.id 为数据库自增全局唯一标识）
+        // 检查支付金额必须为正整数
+        if (paymentRequestDto.getAmount() <= 0) {
+            logger.error("支付金额异常，订单ID: {}, 金额: {}", paymentRequestDto.getOrderId(), paymentRequestDto.getAmount());
+            throw new RuntimeException("支付金额异常");
+        }
+
         Payment payment = new Payment();
         payment.setOrderId(paymentRequestDto.getOrderId());
         payment.setPassengerId(paymentRequestDto.getPassengerId());
-// 这里假设 paymentRequestDto.getAmount() 已为整数（最小货币单位）
         payment.setAmount(paymentRequestDto.getAmount());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setTransactionType(TransactionType.PAYMENT);
         payment.setCreatedAt(LocalDateTime.now());
-// 此处建议 Payment 实体中增加 @Version 字段以支持乐观锁
-        payment = paymentRepository.save(payment);
+        try {
+            payment = paymentRepository.save(payment);
+        } catch (OptimisticLockingFailureException e) {
+            logger.error("支付记录更新出现并发冲突，订单ID: {}", paymentRequestDto.getOrderId(), e);
+            throw new RuntimeException("支付记录更新失败，请重试");
+        }
 
-// 计算平台服务费，返回的 serviceFee 为 int 类型
+        // 计算平台服务费（10%），并更新钱包余额（假设 addFunds 内部已做幂等及并发处理）
         int serviceFee = calculateServiceFee(paymentRequestDto.getAmount());
+        try {
+            walletService.addFunds(paymentRequestDto.getOrderId(), paymentRequestDto.getAmount());
+        } catch (Exception e) {
+            logger.error("更新钱包余额失败，订单ID: {}", paymentRequestDto.getOrderId(), e);
+            throw new RuntimeException("钱包更新失败");
+        }
 
-// 更新钱包余额，注意这里传入的金额均为整数
-        walletService.addFunds(paymentRequestDto.getOrderId(), paymentRequestDto.getAmount());
-
-
-        // 3. 生成随机字符串和时间戳，并计算 MD5 签名
+        // 生成随机字符串、时间戳并计算 MD5 签名（用于支付网关）
         String randomKey = UUID.randomUUID().toString();
         long timestamp = System.currentTimeMillis();
         String dataToSign = randomKey + timestamp + payment.getId();
         String signature = generateMD5(dataToSign);
-
-        // 将签名及时间戳附加到支付方式字段中，作为网关过滤验证（示例格式，具体根据网关要求调整）
         String securePaymentMethod = paymentRequestDto.getPaymentMethod()
                 + "|sig=" + signature
                 + "&ts=" + timestamp;
         paymentRequestDto.setPaymentMethod(securePaymentMethod);
 
-        // 4. 调用支付网关，采用异步处理（模拟异步支付，实际调用支付渠道的 SDK）
         boolean paymentResult = paymentGatewayUtil.processPayment(paymentRequestDto);
-
         if (paymentResult) {
             payment.setStatus(PaymentStatus.COMPLETED);
             payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
-
-            // 5. 更新司机钱包余额（扣除平台服务费后增加收入）
-            walletService.addFunds(paymentRequestDto.getOrderId(), paymentRequestDto.getAmount());
-
-            // 6. 发布支付完成事件到 RocketMQ，保证同一订单的消息顺序
+            try {
+                paymentRepository.save(payment);
+            } catch (OptimisticLockingFailureException e) {
+                logger.error("支付记录更新并发冲突，订单ID: {}", paymentRequestDto.getOrderId(), e);
+                throw new RuntimeException("支付记录更新失败，请重试");
+            }
+            try {
+                walletService.addFunds(paymentRequestDto.getOrderId(), paymentRequestDto.getAmount());
+            } catch (Exception e) {
+                logger.error("更新钱包余额失败（支付成功后），订单ID: {}", paymentRequestDto.getOrderId(), e);
+                throw new RuntimeException("钱包更新失败");
+            }
             PaymentEventDto paymentEvent = new PaymentEventDto(
                     payment.getId(),
                     payment.getOrderId(),
@@ -107,30 +124,22 @@ public class PaymentServiceImpl implements PaymentService {
                     paymentRequestDto.getCurrency(),
                     paymentRequestDto.getPaymentMethod()
             );
-            // 采用有序消息发送，使用订单ID作为分区键，并加上 tag "PAYMENT_COMPLETED"
             paymentEventProducer.sendPaymentEventOrderly("PAYMENT_COMPLETED", paymentEvent, payment.getOrderId().toString());
-
+            logger.info("支付成功，订单ID: {}", paymentRequestDto.getOrderId());
             return new PaymentResponseDto(payment.getId(), "COMPLETED", "支付成功");
         } else {
             payment.setStatus(PaymentStatus.FAILED);
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
+            logger.warn("支付失败，订单ID: {}", paymentRequestDto.getOrderId());
             return new PaymentResponseDto(payment.getId(), "FAILED", "支付失败");
         }
     }
 
     @Override
     public void handlePaymentNotification(Map<String, String> notificationData) {
-        // 解析异步支付网关通知，根据通知数据更新支付状态
-        // 此处略（根据实际需求实现）
+        // 根据实际需求实现异步通知处理
     }
-
-    // 将 calculateServiceFee 方法修改为返回 int 类型，金额单位为最小货币单位
-    private int calculateServiceFee(int amount) {
-        // 使用 Math.round 四舍五入计算 10% 的费用
-        return (int) Math.round(amount * 0.10);
-    }
-
 
     @Override
     @Transactional
@@ -145,15 +154,13 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setStatus(PaymentStatus.REFUNDED);
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
-
             walletService.subtractFunds(payment.getOrderId(), amount);
-
             PaymentEventDto refundEvent = new PaymentEventDto(
                     payment.getId(),
                     payment.getOrderId(),
-                    amount, // 此处 amount 为整型金额
+                    amount,
                     payment.getStatus().name(),
-                    "USD", // 假设货币
+                    "USD",
                     "REFUND"
             );
             paymentEventProducer.sendPaymentEventOrderly("REFUND", refundEvent, payment.getOrderId().toString());
@@ -170,7 +177,11 @@ public class PaymentServiceImpl implements PaymentService {
                 .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("支付记录不存在或未完成"));
-        // 此处可添加额外逻辑，例如通知 order_service 更新订单状态
+        // 此处可添加额外逻辑，例如通知订单服务更新状态
+    }
+
+    private int calculateServiceFee(int amount) {
+        return (int) Math.round(amount * 0.10);
     }
 
     private String generateMD5(String input) {
@@ -183,6 +194,7 @@ public class PaymentServiceImpl implements PaymentService {
             }
             return sb.toString();
         } catch (Exception e) {
+            logger.error("生成 MD5 签名失败", e);
             throw new RuntimeException("生成 MD5 签名失败", e);
         }
     }

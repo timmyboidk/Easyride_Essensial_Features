@@ -22,5 +22,8 @@ public class Wallet {
     private Integer balance;
 
     private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
 }
 

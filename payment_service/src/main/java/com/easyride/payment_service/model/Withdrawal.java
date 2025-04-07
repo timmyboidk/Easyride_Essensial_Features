@@ -32,5 +32,6 @@ public class Withdrawal {
     private LocalDateTime requestedAt;
 
     private LocalDateTime processedAt;
+
 }
 

@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 public class RocketMqConfig {
     @Bean
     public RocketMQTemplate rocketMQTemplate() {
-        // 你也可以在此进行更多定制配置
+
         return new RocketMQTemplate();
     }
 }
