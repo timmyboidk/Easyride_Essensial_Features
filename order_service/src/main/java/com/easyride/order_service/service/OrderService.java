@@ -21,5 +21,8 @@ public interface OrderService {
     void updateOrderStatus(Long orderId, OrderStatus status);
 
     // 其他订单相关的方法
+    void processDriverAssigned(DriverAssignedEventDto event);
+    void processOrderMatchFailed(Long orderId, String reason);
+    void processPaymentConfirmation(Long orderId, Double finalAmount, String paymentTransactionId);
 }
 

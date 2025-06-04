@@ -28,20 +28,24 @@ public class Order {
     private Driver driver;
 
     private double startLatitude;
-
     private double startLongitude;
-
     private double endLatitude;
-
     private double endLongitude;
 
-    private LocalDateTime orderTime;
+    private LocalDateTime orderTime; // Time the order was placed
+    private LocalDateTime scheduledTime; // New: Time for the scheduled ride
+    private LocalDateTime actualPickupTime;
+    private LocalDateTime actualDropOffTime;
+
 
     private double estimatedCost;
+    private double finalCost; // New
 
     private double estimatedDistance;
+    private double actualDistance; // New
 
-    private double estimatedDuration;
+    private double estimatedDuration; // in minutes
+    private double actualDuration; // in minutes // New
 
     @Enumerated(EnumType.STRING)
     private VehicleType vehicleType;
@@ -52,12 +56,30 @@ public class Order {
     @Enumerated(EnumType.STRING)
     private PaymentMethod paymentMethod;
 
+    private String passengerNotes;
+    private String cancellationReason; // New
+    private Long cancelledByUserId; // New
+    @Enumerated(EnumType.STRING)
+    private Role cancelledByRole; // New
+
+
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
-
-    private Long createdBy;
-
+    private Long createdBy; // passengerId
     private Long updatedBy;
+
+    @Version
+    private Long version; // For optimistic locking
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+        if (this.orderTime == null) this.orderTime = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }
 

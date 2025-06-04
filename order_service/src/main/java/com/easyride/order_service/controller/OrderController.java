@@ -1,50 +1,100 @@
 package com.easyride.order_service.controller;
 
-import com.easyride.order_service.dto.*;
+import com.easyride.order_service.dto.*; // Ensure ApiResponse is here
 import com.easyride.order_service.model.OrderStatus;
 import com.easyride.order_service.service.OrderService;
-import org.springframework.web.bind.annotation.*;
-
 import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/orders")
 public class OrderController {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
     private final OrderService orderService;
 
-    // 使用构造函数注入
     public OrderController(OrderService orderService) {
         this.orderService = orderService;
     }
 
-    // 创建订单
     @PostMapping("/create")
-    public OrderResponseDto createOrder(@Valid @RequestBody OrderCreateDto orderCreateDto) {
-        return orderService.createOrder(orderCreateDto);
+    public ApiResponse<OrderResponseDto> createOrder(@Valid @RequestBody OrderCreateDto orderCreateDto) {
+        // Assuming passengerId comes from authenticated principal or is validated if passed in DTO
+        // For simplicity, if passengerId is in DTO, ensure it matches authenticated user or requires specific role.
+        // Long passengerId = getAuthenticatedPassengerId();
+        // orderCreateDto.setPassengerId(passengerId); // Set it if not already part of DTO or override
+        log.info("Received request to create order: {}", orderCreateDto);
+        OrderResponseDto responseDto = orderService.createOrder(orderCreateDto);
+        log.info("Order created successfully with ID: {}", responseDto.getOrderId());
+        return ApiResponse.success("订单创建请求已提交，等待匹配司机", responseDto);
     }
 
-    // 司机接受订单
     @PostMapping("/{orderId}/accept")
-    public void acceptOrder(@PathVariable Long orderId, @RequestParam Long driverId) {
-        orderService.acceptOrder(orderId, driverId);
+    public ApiResponse<String> acceptOrder(@PathVariable Long orderId, @RequestParam Long driverId) {
+        // This endpoint might be called by MatchingService internally or an Admin.
+        // If called by driver, driverId should come from authenticated principal.
+        log.info("Driver {} attempting to accept order {}", driverId, orderId);
+        orderService.acceptOrder(orderId, driverId); // This logic will change based on prompt 3
+        log.info("Order {} accepted by driver {}", orderId, driverId);
+        return ApiResponse.successMessage("订单已接单");
     }
 
-    // 获取订单详情
     @GetMapping("/{orderId}")
-    public OrderResponseDto getOrderDetails(@PathVariable Long orderId) {
-        return orderService.getOrderDetails(orderId);
+    public ApiResponse<OrderResponseDto> getOrderDetails(@PathVariable Long orderId) {
+        log.info("Fetching details for order ID: {}", orderId);
+        OrderResponseDto responseDto = orderService.getOrderDetails(orderId);
+        return ApiResponse.success(responseDto);
     }
 
-    // 取消订单
     @PostMapping("/{orderId}/cancel")
-    public void cancelOrder(@PathVariable Long orderId) {
-        orderService.cancelOrder(orderId);
+    public ApiResponse<String> cancelOrder(@PathVariable Long orderId) {
+        // Logic to determine who is cancelling and if allowed (e.g. passengerId from principal)
+        // Long cancellingUserId = getAuthenticatedUserId();
+        log.info("User attempting to cancel order ID: {}", orderId);
+        orderService.cancelOrder(orderId /*, cancellingUserId, userRole */);
+        log.info("Order ID: {} cancelled successfully.", orderId);
+        return ApiResponse.successMessage("订单已取消");
     }
 
-    // 更新订单状态
     @PostMapping("/{orderId}/status")
-    public void updateOrderStatus(@PathVariable Long orderId, @RequestParam OrderStatus status) {
-        orderService.updateOrderStatus(orderId, status);
+    public ApiResponse<String> updateOrderStatus(@PathVariable Long orderId, @RequestBody UpdateOrderStatusDto statusDto) {
+        // Should be restricted, e.g., only driver can update to ARRIVED, IN_PROGRESS
+        // Long principalId = getAuthenticatedUserId();
+        log.info("Attempting to update status for order ID: {} to {}", orderId, statusDto.getStatus());
+        orderService.updateOrderStatus(orderId, statusDto.getStatus() /*, principalId, principalRole */);
+        log.info("Order ID: {} status updated to {}.", orderId, statusDto.getStatus());
+        return ApiResponse.successMessage("订单状态已更新");
     }
+
+    @PostMapping("/{orderId}/location")
+    public ApiResponse<String> updateTripLocation(@PathVariable Long orderId, @Valid @RequestBody TripLocationUpdateDto locationUpdateDto) {
+        // Assuming driver is authenticated and their ID matches the order's driver ID
+        // Long driverId = getAuthenticatedDriverId();
+        log.info("Driver updating location for order ID: {}. Location: {}", orderId, locationUpdateDto);
+        orderService.updateTripLocation(orderId, /*driverId,*/ locationUpdateDto);
+        return ApiResponse.successMessage("位置更新成功");
+    }
+
+    @GetMapping("/{orderId}/driver-location")
+    public ApiResponse<LocationDto> getDriverLocationForOrder(@PathVariable Long orderId) {
+        // Passenger fetching driver location
+        log.info("Passenger fetching driver location for order ID: {}", orderId);
+        LocationDto driverLocation = orderService.getDriverLocationForOrder(orderId);
+        return ApiResponse.success(driverLocation);
+    }
+
+    // Helper method to get authenticated user ID (conceptual)
+    private Long getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof OrderDetailsImpl) {
+            OrderDetailsImpl userDetails = (OrderDetailsImpl) authentication.getPrincipal();
+            return userDetails.getId();
+        }
+        throw new IllegalStateException("User not authenticated or details not available.");
+    }
+
 }
