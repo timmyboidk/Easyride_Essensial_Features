@@ -15,27 +15,40 @@ public abstract class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String username;
+    @Column(unique = true, nullable = false)
+    private String username; // Can be username or phone number for login
 
-    private String password;
+    @Column(unique = true, nullable = true) // Phone number can be primary identifier
+    private String phoneNumber;
 
+    private String password; // May be null if using OTP only login initially
+
+    @Column(unique = true, nullable = false)
     private String email;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private Role role;
 
+    @Column(nullable = false)
     private boolean enabled = true;
 
     private LocalDateTime createdAt;
-
     private LocalDateTime updatedAt;
+    private Long createdBy;
+    private Long updatedBy;
 
-    private Long createdBy;  // 创建者 ID
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 
-    private Long updatedBy;  // 更新者 ID
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 
-
-    public User(String username, String password, String email, Role role, boolean enabled, LocalDateTime createdAt, LocalDateTime updatedAt) {
+    public User(String username, String password, String email, Role role, boolean enabled, LocalDateTime createdAt, LocalDateTime updatedAt, String phoneNumber) {
         this.username = username;
         this.password = password;
         this.email = email;
@@ -43,5 +56,6 @@ public abstract class User {
         this.enabled = enabled;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
+        this.phoneNumber = phoneNumber; // Added
     }
 }

@@ -1,7 +1,13 @@
 package com.easyride.user_service.model;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import java.time.LocalDateTime;
 
 @Entity
@@ -9,12 +15,21 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class Driver extends User {
 
-    // 司机特有的字段
+    private String driverLicenseNumber;
+    private String vehicleInfo; // e.g., "Toyota Camry 2020, Plate XYZ123"
 
-    public Driver(String username, String password, String email) {
-        super(username, password, email, Role.DRIVER, true, LocalDateTime.now(), LocalDateTime.now());
+    // Paths or identifiers for stored documents
+    private String driverLicenseDocumentPath;
+    private String vehicleDocumentPath;
+    // Potentially other documents: insurance, background check results path etc.
+
+    @Enumerated(EnumType.STRING)
+    private DriverApprovalStatus approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Default
+
+    public Driver(String username, String password, String email, String phoneNumber) {
+        super(username, password, email, Role.DRIVER, true, LocalDateTime.now(), LocalDateTime.now(), phoneNumber);
+        this.approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Or PENDING_REVIEW after DTO is processed
     }
 }
