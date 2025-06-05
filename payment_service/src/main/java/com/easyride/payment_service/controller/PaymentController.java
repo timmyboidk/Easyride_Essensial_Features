@@ -7,6 +7,8 @@ import com.easyride.payment_service.util.EncryptionUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import com.easyride.payment_service.dto.ApiResponse;
+
 
 import java.util.Map;
 
@@ -14,31 +16,33 @@ import java.util.Map;
 @RequestMapping("/payments")
 public class PaymentController {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentController.class);
     private final PaymentService paymentService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EncryptionUtil encryptionUtil
 
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService, EncryptionUtil encryptionUtil) {
         this.paymentService = paymentService;
+        this.encryptionUtil = encryptionUtil;
+
     }
 
     /**
      * 发起支付请求（请求体和响应体均为加密数据）
      */
     @PostMapping("/pay")
-    public String processPayment(@Valid @RequestBody String encryptedRequest) {
+   public ApiResponse<EncryptedResponseDto> processPayment(@RequestBody EncryptedRequestDto encryptedRequest) {
         try {
-            // 解密请求体，获取原始 JSON 字符串
-            String decryptedRequest = EncryptionUtil.decrypt(encryptedRequest);
-            // 解析 JSON 为 PaymentRequestDto 对象
-            PaymentRequestDto paymentRequestDto = objectMapper.readValue(decryptedRequest, PaymentRequestDto.class);
+            log.info("Received encrypted payment request.");
+       String decryptedPayload = encryptionUtil.decrypt(encryptedRequest.getPayload());
+        PaymentRequestDto paymentRequestDto = objectMapper.readValue(decryptedPayload, PaymentRequestDto.class); // Assuming objectMapper
 
-            // 调用支付服务处理支付请求
-            PaymentResponseDto responseDto = paymentService.processPayment(paymentRequestDto);
+        log.info("Processing payment for order ID: {}", paymentRequestDto.getOrderId());
+        PaymentResponseDto responseDto = paymentService.processPayment(paymentRequestDto);
 
-            // 将响应对象转换成 JSON 字符串
-            String jsonResponse = objectMapper.writeValueAsString(responseDto);
-            // 对响应 JSON 进行加密，并返回加密后的字符串
-            return EncryptionUtil.encrypt(jsonResponse);
+        String encryptedResponsePayload = encryptionUtil.encrypt(objectMapper.writeValueAsString(responseDto));
+        log.info("Payment processed successfully for order ID: {}. Sending encrypted response.", paymentRequestDto.getOrderId());
+        return ApiResponse.success(new EncryptedResponseDto(encryptedResponsePayload));
         } catch (Exception e) {
             throw new RuntimeException("支付处理失败", e);
         }
@@ -48,15 +52,20 @@ public class PaymentController {
      * 接收支付网关的异步通知（此接口保持原样，不加解密）
      */
     @PostMapping("/notify")
-    public void handlePaymentNotification(@RequestBody Map<String, String> notificationData) {
-        paymentService.handlePaymentNotification(notificationData);
+    public ApiResponse<Void> handlePaymentNotification(@RequestBody String notificationPayload) {
+        log.info("Received payment notification: {}", notificationPayload);
+       paymentService.handlePaymentNotification(notificationPayload);
+        return ApiResponse.successMessage("Notification received");
     }
 
     /**
      * 退款请求（目前退款接口不进行请求体加密，若有需要可类似 processPayment 做加解密）
      */
     @PostMapping("/refund/{paymentId}")
-    public void refundPayment(@PathVariable Long paymentId, @RequestParam Integer amount) {
-        paymentService.refundPayment(paymentId, amount);
+    public ApiResponse<PaymentResponseDto> refundPayment(@PathVariable String paymentId, /* @RequestBody RefundRequestDto refundRequest */) {
+       log.info("Processing refund for payment ID: {}", paymentId);
+       PaymentResponseDto responseDto = paymentService.refundPayment(paymentId /*, refundRequest.getAmount() */);
+        log.info("Refund processed for payment ID: {}", paymentId);
+        return ApiResponse.success("退款处理成功", responseDto);
     }
 }

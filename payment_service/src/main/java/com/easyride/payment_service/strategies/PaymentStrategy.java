@@ -1,16 +1,11 @@
-package com.easyride.payment_service.service;
+package com.easyride.payment_service.strategies;
 
+import com.easyride.payment_service.dto.PaymentRequestDto;
+import com.easyride.payment_service.dto.PaymentResponseDto; // You'll need a common response structure
+import com.easyride.payment_service.model.PassengerPaymentMethod; // For charging stored methods
 
 public interface PaymentStrategy {
-    PaymentResult process(PaymentRequest request);
-}
-
-@Service
-@ConditionalOnProperty(name = "payment.method", havingValue = "paypal")
-public class PayPalStrategy implements PaymentStrategy {
-
-    @Override
-    public PaymentResult process(PaymentRequest request) {
-        // PayPal SDK 集成
-    }
+    PaymentResponseDto processPayment(PaymentRequestDto paymentRequest, PassengerPaymentMethod paymentMethodDetails);
+    PaymentResponseDto refundPayment(String transactionId, Double amount, String currency); // transactionId from original payment
+    boolean supports(String paymentMethodType); // e.g., "CREDIT_CARD_STRIPE", "PAYPAL"
 }

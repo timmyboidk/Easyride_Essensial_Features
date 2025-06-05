@@ -9,7 +9,13 @@ public interface PaymentService {
     PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto);
     void handlePaymentNotification(Map<String, String> notificationData);
     void refundPayment(Long paymentId, Integer amount);
+
+    PaymentResponseDto refundPayment(String internalPaymentId /*or orderId*/, Double amountToRefund);
+
     void processOrderPayment(Long orderId); // 新增方法
+
+    // ... (inside PaymentService interface)
+    void associateDriverWithOrderPayment(Long orderId, Long driverId);
 
     @Service
     public class PaymentService {
