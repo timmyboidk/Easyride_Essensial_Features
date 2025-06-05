@@ -1,25 +1,18 @@
 package com.easyride.location_service.service;
 
-import com.easyride.location_service.model.LocationResponse;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
+import com.easyride.location_service.dto.DriverLocationUpdateDto;
+import com.easyride.location_service.dto.LocationDataDto;
+import com.easyride.location_service.model.LocationResponse; // Existing for geocoding
 
-@Service
-public class LocationService {
+public interface LocationService {
+    // Existing geocoding method
+    LocationResponse getLocationInfo(double latitude, double longitude);
 
-    @Value("${google.maps.api.key}")
-    private String apiKey;
+    // New methods for real-time tracking
+    void updateDriverLocation(Long driverId, DriverLocationUpdateDto locationUpdateDto);
+    LocationDataDto getDriverLocation(Long driverId);
 
-    private final RestTemplate restTemplate = new RestTemplate();
-
-    public LocationResponse getLocationInfo(double latitude, double longitude) {
-        String url = String.format(
-                "https://maps.googleapis.com/maps/api/geocode/json?latlng=%s,%s&key=%s",
-                latitude, longitude, apiKey);
-
-        // 调用谷歌地图API
-        LocationResponse response = restTemplate.getForObject(url, LocationResponse.class);
-        return response;
-    }
+    // Method to store trip path (could be internal or exposed)
+    void recordTripLocation(Long orderId, Long driverId, double latitude, double longitude, Instant timestamp);
+    List<LocationDataDto> getTripPath(Long orderId); // Example
 }
