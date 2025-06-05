@@ -4,6 +4,7 @@ import com.easyride.order_service.dto.OrderCreateDto;
 import com.easyride.order_service.dto.OrderResponseDto;
 import com.easyride.order_service.model.*;
 import com.easyride.order_service.repository.*;
+import com.easyride.order_service.rocket.OrderEventProducer;
 import com.easyride.order_service.util.DistanceCalculator;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;

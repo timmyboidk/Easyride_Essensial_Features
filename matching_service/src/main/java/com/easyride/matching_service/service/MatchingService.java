@@ -18,7 +18,9 @@ public interface MatchingService {
      * 手动/自动接单处理
      * 例如，如果司机点击接受订单，可在这里更新状态
      */
-    void acceptOrder(Long orderId, Long driverId);
-
-    // 其他可扩展方法，如抢单逻辑
+    void makeOrderAvailableForGrabbing(MatchRequestDto matchRequest);
+    List<AvailableOrderDto> getAvailableOrdersForDriver(/* Long driverId, DriverPreferences preferences */);
+    boolean acceptOrder(Long orderId, Long driverId); // For grabbing
+    // ... (inside MatchingService interface)
+    void updateDriverStatus(Long driverId, DriverStatusUpdateDto statusUpdateDto);
 }

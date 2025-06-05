@@ -70,23 +70,6 @@ public class OrderController {
         return ApiResponse.successMessage("订单状态已更新");
     }
 
-    @PostMapping("/{orderId}/location")
-    public ApiResponse<String> updateTripLocation(@PathVariable Long orderId, @Valid @RequestBody TripLocationUpdateDto locationUpdateDto) {
-        // Assuming driver is authenticated and their ID matches the order's driver ID
-        // Long driverId = getAuthenticatedDriverId();
-        log.info("Driver updating location for order ID: {}. Location: {}", orderId, locationUpdateDto);
-        orderService.updateTripLocation(orderId, /*driverId,*/ locationUpdateDto);
-        return ApiResponse.successMessage("位置更新成功");
-    }
-
-    @GetMapping("/{orderId}/driver-location")
-    public ApiResponse<LocationDto> getDriverLocationForOrder(@PathVariable Long orderId) {
-        // Passenger fetching driver location
-        log.info("Passenger fetching driver location for order ID: {}", orderId);
-        LocationDto driverLocation = orderService.getDriverLocationForOrder(orderId);
-        return ApiResponse.success(driverLocation);
-    }
-
     // Helper method to get authenticated user ID (conceptual)
     private Long getAuthenticatedUserId() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

@@ -20,3 +20,11 @@ rocketmq:
     group: matching-producer-group
   consumer:
     group: matching-consumer-group
+
+# matching_service/src/main/resources/application.yml
+matching:
+  max-match-radius-km: 15
+  max-driver-work-hours: 10 # Example
+  rating-weight: 0.5
+  distance-weight: 0.5
+  carpool-max-passengers: 3
