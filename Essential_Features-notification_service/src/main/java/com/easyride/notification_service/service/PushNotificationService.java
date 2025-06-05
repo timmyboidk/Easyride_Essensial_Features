@@ -1,63 +1,99 @@
 package com.easyride.notification_service.service;
 
+// APNS (Pushy) imports
 import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.PushNotificationResponse;
-import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
+import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
+import com.eatthepath.pushy.apns.util.TokenUtil;
+import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
+
+// FCM (Firebase) imports
+import com.google.firebase.messaging.*; // FirebaseMessaging, Message, Notification etc.
+import com.google.firebase.FirebaseApp; // To ensure app is initialized
+
+import com.easyride.notification_service.dto.NotificationPayloadDto; // New DTO
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-
 @Service
-public class PushNotificationService implements NotificationService {
+public class PushNotificationService  {
 
+    private static final Logger log = LoggerFactory.getLogger(PushNotificationService.class);
+
+    // APNS fields
     private final ApnsClient apnsClient;
+    private final String apnsBundleId;
 
-    @Value("${apns.bundleId}")
-    private String bundleId;
+    // FCM fields
+    private final FirebaseMessaging firebaseMessaging;
 
-    public PushNotificationService(ApnsClient apnsClient) {
+
+    @Autowired
+    public PushNotificationService(ApnsClient apnsClient,
+                                   @Value("${apns.bundleId}") String apnsBundleId,
+                                   FirebaseApp firebaseApp) { // Inject FirebaseApp
         this.apnsClient = apnsClient;
+        this.apnsBundleId = apnsBundleId;
+        this.firebaseMessaging = FirebaseMessaging.getInstance(firebaseApp);
     }
 
-    @Override
-    public boolean sendNotification(String deviceToken, String payload) {
+    public void sendApnsPush(String deviceToken, NotificationPayloadDto payload) {
+        final String apnsPayload = new SimpleApnsPayloadBuilder()
+                .setAlertTitle(payload.getTitle())
+                .setAlertBody(payload.getBody())
+                .setSound("default")
+                // .addCustomProperty("orderId", payload.getData().get("orderId")) // Example custom data
+                .build();
+
+        final String token = TokenUtil.sanitizeTokenString(deviceToken);
+        log.info("Sending APNS push to token {}: {}", token, apnsPayload);
+
+        final PushNotificationFuture<com.eatthepath.pushy.apns.SimpleApnsPushNotification, PushNotificationResponse<com.eatthepath.pushy.apns.SimpleApnsPushNotification>> sendNotificationFuture =
+                apnsClient.sendNotification(new com.eatthepath.pushy.apns.SimpleApnsPushNotification(token, apnsBundleId, apnsPayload));
+
         try {
-            SimpleApnsPushNotification notification = new SimpleApnsPushNotification(
-                    deviceToken, bundleId, payload);
+            final PushNotificationResponse<com.eatthepath.pushy.apns.SimpleApnsPushNotification> pushNotificationResponse =
+                    sendNotificationFuture.get(); // Wait for response
 
-            CompletableFuture<PushNotificationResponse<SimpleApnsPushNotification>> future =
-                    apnsClient.sendNotification(notification);
-
-            future.whenComplete((response, throwable) -> {
-                if (throwable != null) {
-                    // 发送失败，处理异常
-                    throwable.printStackTrace();
-                    return;
-                }
-
-                if (response.isAccepted()) {
-                    // 推送成功
-                    System.out.println("Push notification accepted by APNs.");
-                } else {
-                    // 推送被拒绝，处理错误原因
-                    System.err.println("Notification rejected by the APNs gateway: " + response.getRejectionReason());
-                    if (response.getTokenInvalidationTimestamp() != null) {
-                        // 令牌无效，需要从服务器中删除
-                        System.err.println("Token is invalid as of " + response.getTokenInvalidationTimestamp());
-                    }
-                }
-            });
-            return true;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            if (pushNotificationResponse.isAccepted()) {
+                log.info("APNS Push notification accepted by APNs gateway for token: {}", deviceToken);
+            } else {
+                log.warn("APNS Push notification rejected by APNs gateway for token {}. Reason: {}",
+                        deviceToken, pushNotificationResponse.getRejectionReason());
+                pushNotificationResponse.getTokenInvalidationTimestamp().ifPresent(timestamp ->
+                        log.warn("\t…and the token is invalid as of {}", timestamp));
+            }
+        } catch (final Exception e) {
+            log.error("Failed to send APNS push notification to token {}: ", deviceToken, e);
         }
     }
 
-    public void shutdown() throws Exception {
-        apnsClient.close().get(1, TimeUnit.MINUTES);
+    public void sendFcmPush(String deviceToken, NotificationPayloadDto payloadDto) {
+        Notification notification = Notification.builder()
+                .setTitle(payloadDto.getTitle())
+                .setBody(payloadDto.getBody())
+                .build();
+
+        Message.Builder messageBuilder = Message.builder()
+                .setNotification(notification)
+                .setToken(deviceToken); // FCM registration token
+
+        if (payloadDto.getData() != null && !payloadDto.getData().isEmpty()) {
+            messageBuilder.putAllData(payloadDto.getData());
+        }
+
+        Message message = messageBuilder.build();
+
+        try {
+            log.info("Sending FCM push to token {}: Title='{}', Body='{}'", deviceToken, payloadDto.getTitle(), payloadDto.getBody());
+            String response = firebaseMessaging.send(message);
+            log.info("Successfully sent FCM message: " + response);
+        } catch (FirebaseMessagingException e) {
+            log.error("Failed to send FCM message to token {}: ", deviceToken, e);
+            // Handle specific exceptions like UNREGISTERED, INVALID_ARGUMENT etc.
+        }
     }
 }
 
