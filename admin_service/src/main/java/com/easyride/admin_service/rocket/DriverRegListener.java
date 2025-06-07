@@ -1,29 +1,38 @@
 package com.easyride.admin_service.rocket;
 
-import com.easyride.admin_service.dto.DriverRegistrationEvent;
-import com.easyride.admin_service.service.AdminService;
+// Existing DTO: com.easyride.admin_service.dto.DriverRegistrationEvent
+// Better to use a more specific DTO from User Service if available
+// e.g., com.easyride.user_service.dto.DriverApplicationEventDto
+import com.easyride.admin_service.dto.DriverApplicationEventDto_Consumed; // New DTO mirroring what User Service sends
+import com.easyride.admin_service.service.AdminDriverManagementService;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
-import org.springframework.stereotype.Service;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
+@Component
+@RocketMQMessageListener(
+        topic = "user-topic", // As defined by User Service
+        consumerGroup = "${rocketmq.consumer.group}",
+        selectorExpression = "DRIVER_APPLICATION_SUBMITTED" // Matches tag from UserRocketProducer
+)
+public class DriverRegListener implements RocketMQListener<DriverApplicationEventDto_Consumed> {
 
-@Slf4j
-@Service
-@RocketMQMessageListener(topic = "user-topic", consumerGroup = "admin-service-consumer-group")
-public class DriverRegListener implements RocketMQListener<DriverRegistrationEvent> {
+    private static final Logger log = LoggerFactory.getLogger(DriverRegListener.class);
 
-    private final AdminService adminService;
-
-    public DriverRegListener(AdminService adminService) {
-        this.adminService = adminService;
-    }
+    @Autowired
+    private AdminDriverManagementService driverManagementService;
 
     @Override
-    public void onMessage(DriverRegistrationEvent event) {
-        log.info("[AdminService] Received DriverRegistrationEvent: {}", event);
-        // 1. 解析信息，event中可能包含 driverId, driverName, licenseNumber 等
-        // 2. 根据平台策略判断是否自动审核通过或需人工审核
-        // 3. adminService 可写一方法，如 adminService.approveDriverRegistration(event)
+    public void onMessage(DriverApplicationEventDto_Consumed event) {
+        log.info("Received DRIVER_APPLICATION_SUBMITTED event: DriverId={}, Username={}", event.getDriverId(), event.getUsername());
+        try {
+            driverManagementService.processNewDriverApplication(event);
+        } catch (Exception e) {
+            log.error("Error processing driver registration event for driverId {}: ", event.getDriverId(), e);
+            // Implement retry or DLQ logic
+        }
     }
 }
