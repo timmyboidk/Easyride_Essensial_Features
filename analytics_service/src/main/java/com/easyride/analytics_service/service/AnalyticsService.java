@@ -1,18 +1,20 @@
 package com.easyride.analytics_service.service;
 
-import com.easyride.analytics_service.dto.*;
-import com.easyride.analytics_service.model.AnalyticsRecord;
+import com.easyride.analytics_service.dto.*; // Your DTOs
 
 public interface AnalyticsService {
+    void recordAnalyticsData(AnalyticsRequestDto requestDto);
+    AnalyticsResponseDto queryAnalytics(AnalyticsQueryDto queryDto); // Keep if you have generic query
+    ReportExportDto generateReport(ReportRequestDto reportRequestDto); // Keep if generic
 
-    // 用于写入新数据记录，比如从其他微服务或MQ接收到相关运营数据
-    void recordAnalyticsData(AnalyticsRecord record);
+    // New specific metric methods
+    long getDailyActiveUsers(String date); // YYYY-MM-DD
+    long getMonthlyActiveUsers(String yearMonth); // YYYY-MM
+    double getAverageOrderValue(String startDate, String endDate); // YYYY-MM-DD
+    double getDriverAcceptanceRate(String startDate, String endDate); // %
+    double getUserRetentionRate(String cohortMonth, int periodInMonths); // e.g., cohort "2023-01", period 1 (for 1-month retention)
+    // Add methods for driver retention, etc.
 
-    // 用于前端或后台系统查询统计结果
-    AnalyticsResponseDto queryAnalytics(AnalyticsRequestDto requestDto);
-
-    // 生成报表并导出
-    ReportExportDto generateReport(AnalyticsRequestDto requestDto);
-
-
+    void calculateAndStoreDailyMetrics(); // For scheduler
+    void calculateAndStoreMonthlyMetrics(); // For scheduler
 }
