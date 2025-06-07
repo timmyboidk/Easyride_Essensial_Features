@@ -31,6 +31,14 @@ public class Evaluation {
     // 评价内容
     private String comment;
 
+    @Enumerated(EnumType.STRING)
+    private EvaluationStatus status = EvaluationStatus.ACTIVE; // Default to active
+
+    private String adminNotes; // Notes from admin after review
+    private Long reviewedByAdminId;
+    private LocalDateTime reviewTime;
+
+
     // 评价标签
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(

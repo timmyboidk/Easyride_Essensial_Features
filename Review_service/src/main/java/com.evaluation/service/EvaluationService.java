@@ -32,4 +32,7 @@ public interface EvaluationService {
      * @return 评价列表
      */
     List<EvaluationDTO> getEvaluationsByEvaluator(Long evaluatorId);
+
+    Page<EvaluationDTO> getAllEvaluationsForAdmin(Pageable pageable, String statusFilter);
+    EvaluationDTO adminUpdateEvaluationStatus(Long evaluationId, String newStatus, String adminNotes, Long adminId);
 }

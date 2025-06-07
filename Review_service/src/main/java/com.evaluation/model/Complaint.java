@@ -28,6 +28,14 @@ public class Complaint {
     // 申诉理由
     private String reason;
 
+    private String adminNotes;
+    private Long handledByAdminId;
+    private LocalDateTime resolutionTime;
+
+    // For appeal
+    @OneToOne(mappedBy = "complaint", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Appeal appeal;
+
     // 上传的证据路径
     @ElementCollection
     @CollectionTable(name = "complaint_evidence", joinColumns = @JoinColumn(name = "complaint_id"))

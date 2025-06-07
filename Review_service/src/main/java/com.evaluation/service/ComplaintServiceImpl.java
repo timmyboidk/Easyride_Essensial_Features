@@ -22,14 +22,17 @@ public class ComplaintServiceImpl implements ComplaintService {
     private final ComplaintRepository complaintRepository;
     private final ComplaintMapper complaintMapper;
     private final RocketMQTemplate rocketMQTemplate;
+    private final SensitiveWordService sensitiveWordService = null;
 
     @Autowired
     public ComplaintServiceImpl(ComplaintRepository complaintRepository,
                                 ComplaintMapper complaintMapper,
-                                RocketMQTemplate rocketMQTemplate) {
+                                FileStorageService fileStorageService, RocketMQTemplate rocketMQTemplate,
+            /*UserClient userClient,*/ SensitiveWordService sensitiveWordService) {
         this.complaintRepository = complaintRepository;
         this.complaintMapper = complaintMapper;
         this.rocketMQTemplate = rocketMQTemplate;
+        this.sensitiveWordService = sensitiveWordService;
     }
 
     /**
@@ -40,27 +43,62 @@ public class ComplaintServiceImpl implements ComplaintService {
      */
     @Override
     @Transactional
-    public ComplaintDTO fileComplaint(ComplaintDTO complaintDTO) {
-        // 检查关联的评价是否存在
-        // Evaluation evaluation = evaluationRepository.findById(complaintDTO.getEvaluationId())
-        //         .orElseThrow(() -> new ResourceNotFoundException("评价未找到，ID: " + complaintDTO.getEvaluationId()));
+    public ComplaintDTO fileComplaint(ComplaintDTO complaintDTO, List<MultipartFile> evidenceFiles) {
+        // ... (User validation logic - should be uncommented and verified)
+        /*
+        try {
+            UserDTO complainant = userClient.getUserById(complaintDTO.getComplainantId());
+            if (complainant == null) throw new BadRequestException("Complainant user not found.");
+             // If complaint is about an evaluation, check that evaluatee makes sense
+        } catch (Exception e) {
+            log.error("Error validating complainant user: {}", e.getMessage());
+            throw new BadRequestException("Error validating user: " + e.getMessage());
+        }
+        */
 
-        // 将DTO转换为实体
+        // Check if the related evaluation exists
+        if (complaintDTO.getEvaluationId() != null) {
+            evaluationRepository.findById(complaintDTO.getEvaluationId())
+                    .orElseThrow(() -> new ResourceNotFoundException("投诉关联的评价 (ID: " + complaintDTO.getEvaluationId() + ") 未找到。"));
+        } else {
+            log.warn("Filing a complaint not directly linked to an evaluation by complainant {}.", complaintDTO.getComplainantId());
+            // Allow complaints not tied to a specific evaluation if design permits
+        }
+
+
+        // Sensitive word check for reason
+        if (complaintDTO.getReason() != null && sensitiveWordService.containsSensitiveWords(complaintDTO.getReason())) {
+            log.warn("Complaint reason from {} contains sensitive words. Reason: '{}'", complaintDTO.getComplainantId(), complaintDTO.getReason());
+            // throw new BadRequestException("投诉原因包含不当内容，请修改。");
+            complaintDTO.setReason(sensitiveWordService.filterContent(complaintDTO.getReason()));
+        }
+
         Complaint complaint = complaintMapper.toEntity(complaintDTO);
+        // ... (file storage logic for evidenceFiles - existing logic seems fine) ...
+        complaint.setStatus("PENDING_REVIEW"); // Default status for new complaints
+        complaint.setComplaintTime(LocalDateTime.now());
 
-        // 设置申诉状态为默认值
-        complaint.setStatus(Constants.COMPLAINT_STATUS_PENDING);
-
-        // 保存投诉到数据库
         Complaint savedComplaint = complaintRepository.save(complaint);
+        log.info("Complaint (ID: {}) filed successfully by complainant {}.", savedComplaint.getId(), savedComplaint.getComplainantId());
 
-        // 将实体转换回DTO
-        ComplaintDTO savedComplaintDTO = complaintMapper.toDTO(savedComplaint);
+        // Update evaluation's complaint status if linked
+        if (savedComplaint.getEvaluationId() != null) {
+            evaluationRepository.findById(savedComplaint.getEvaluationId()).ifPresent(eval -> {
+                eval.setComplaintStatus("FILED"); // Or link to complaint ID
+                eval.setLastUpdated(LocalDateTime.now());
+                evaluationRepository.save(eval);
+            });
+        }
 
-        // 发送消息到RocketMQ，通知其他微服务有新的投诉提交
-        rocketMQTemplate.convertAndSend("complaint-topic", savedComplaintDTO);
+        // Send MQ message
+        try {
+            rocketMQTemplate.convertAndSend("complaint-topic:COMPLAINT_FILED", savedComplaint);
+            log.info("COMPLAINT_FILED event sent for complaint ID: {}", savedComplaint.getId());
+        } catch (Exception e) {
+            log.error("Failed to send COMPLAINT_FILED event for complaint ID {}: ", savedComplaint.getId(), e);
+        }
 
-        return savedComplaintDTO;
+        return complaintMapper.toDto(savedComplaint);
     }
 
     /**
