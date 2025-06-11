@@ -1,4 +1,9 @@
-package com.easyride.userservice.models;
+package com.easyride.user_service.model;
+
+import jakarta.persistence.*;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 public class Review {

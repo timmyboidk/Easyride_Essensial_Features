@@ -5,9 +5,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-// import com.easyride.user_service.client.NotificationServiceClient; // If using Feign
 import org.apache.rocketmq.spring.core.RocketMQTemplate; // For sending OTP via MQ to NotificationService
 import com.easyride.user_service.dto.NotificationRequestDto; // Define this DTO
+import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
@@ -18,8 +18,7 @@ public class OtpServiceImpl implements OtpService {
     private static final Logger log = LoggerFactory.getLogger(OtpServiceImpl.class);
     private static final long OTP_VALIDITY_MINUTES = 5;
     private final StringRedisTemplate redisTemplate;
-    // private final NotificationServiceClient notificationServiceClient; // Option 1: Feign
-    private final RocketMQTemplate rocketMQTemplate; // Option 2: RocketMQ
+    private final RocketMQTemplate rocketMQTemplate;
 
     @Autowired
     public OtpServiceImpl(StringRedisTemplate redisTemplate, RocketMQTemplate rocketMQTemplate) {

@@ -38,8 +38,7 @@ public class UserServiceImpl implements UserService {
                            UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            UserRocketProducer userRocketProducer,
-                           OtpService otpService
-            /*FileStorageService fileStorageService*/) {
+                           OtpService otpService) {
         this.passengerRepository = passengerRepository;
         this.driverRepository = driverRepository;
         this.adminRepository = adminRepository;
@@ -181,7 +180,5 @@ public class UserServiceImpl implements UserService {
     }
 
     // Implement other UserService methods based on prompts...
-}
-    }
 }
 

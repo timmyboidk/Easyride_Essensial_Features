@@ -1,5 +1,4 @@
 package com.easyride.user_service.service;
-
 import com.easyride.user_service.dto.*;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
