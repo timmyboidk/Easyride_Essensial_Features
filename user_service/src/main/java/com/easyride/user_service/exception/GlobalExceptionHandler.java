@@ -43,7 +43,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserAlreadyExistsException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiResponse<Object> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
-        log.warn("UserAlreadyExistsException: {}", ex.getMessage());
+        log.warn("OtpVerificationException: {}", ex.getMessage());
         return ApiResponse.error(HttpStatus.CONFLICT.value(), ex.getMessage());
     }
 

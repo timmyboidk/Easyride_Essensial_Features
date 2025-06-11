@@ -8,26 +8,14 @@ import com.easyride.user_service.security.UserDetailsImpl;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import com.easyride.user_service.dto.*;
-import com.easyride.user_service.exception.OtpVerificationException;
-import com.easyride.user_service.exception.ResourceNotFoundException;
 import com.easyride.user_service.exception.UserAlreadyExistsException;
-import com.easyride.user_service.model.*;
-import com.easyride.user_service.repository.*;
-import com.easyride.user_service.rocket.UserRocketProducer;
 // import com.easyride.user_service.util.FileStorageService; // If implementing file storage here
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class UserServiceImpl implements UserService {

@@ -7,9 +7,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface UserApi {
 
-    @PostMapping("/register")
-    String registerUser(@Valid @RequestBody UserRegistrationDto registrationDto);
-
     // 用户注册
     @PostMapping("/register") // from UserApi
     ApiResponse<UserRegistrationResponseDto> registerUser(@Valid @RequestPart("registrationDto") UserRegistrationDto registrationDto,
@@ -17,7 +14,7 @@ public interface UserApi {
                                                           @RequestPart(value = "vehicleDocumentFile", required = false) MultipartFile vehicleDocumentFile);
 
     @PostMapping("/login")
-    JwtAuthenticationResponse authenticateUser(@Valid @RequestBody LoginRequest loginRequest);
+    ApiResponse<JwtAuthenticationResponse> authenticateUser(@Valid @RequestBody LoginRequest loginRequest);
 
     // 其他 API 方法...
 }
