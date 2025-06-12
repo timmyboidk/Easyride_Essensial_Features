@@ -36,7 +36,8 @@ public class Order {
     private LocalDateTime scheduledTime; // New: Time for the scheduled ride
     private LocalDateTime actualPickupTime;
     private LocalDateTime actualDropOffTime;
-
+    private LocalDateTime driverAssignedTime;
+    private LocalDateTime driverEnRouteTime;
 
     private double estimatedCost;
     private double finalCost; // New

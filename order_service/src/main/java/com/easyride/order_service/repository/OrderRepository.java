@@ -1,5 +1,6 @@
 package com.easyride.order_service.repository;
 import com.easyride.order_service.model.Order;
+import com.easyride.order_service.model.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
@@ -9,9 +10,7 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
-    List<Order> findByStatus(String status);
-
-    List<Order> findByDriverIdAndStatus(Long driverId, String status);
-
     List<Order> findByPassengerId(Long passengerId);
+    List<Order> findByDriverId(Long driverId);
+    List<Order> findByStatus(OrderStatus status);
 }

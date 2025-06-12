@@ -1,4 +1,4 @@
-package com.easyride.user_service.model;
+package com.easyride.order_service.model;
 
 public enum Role {
     PASSENGER,

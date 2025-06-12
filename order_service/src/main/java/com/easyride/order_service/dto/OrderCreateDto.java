@@ -4,6 +4,8 @@ import com.easyride.order_service.model.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,6 +31,6 @@ public class OrderCreateDto {
 
     private LocalDateTime scheduledTime; // New: For scheduled rides (nullable for immediate rides)
 
-    private String passengerNotes
+    private String passengerNotes;
 }
 

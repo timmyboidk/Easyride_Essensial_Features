@@ -7,8 +7,6 @@ import com.easyride.order_service.dto.PricingContext;
 import com.easyride.order_service.exception.PricingException;
 import com.easyride.order_service.model.Order;
 import com.easyride.order_service.model.OrderStatus;
-import com.easyride.order_service.model.ServiceType;
-import com.easyride.order_service.model.VehicleType;
 import com.easyride.order_service.util.DistanceCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,12 +15,9 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.Map;
 
 //basic implemenation,subject to change in terms of business model
 //inject PricingService into OrderServiceImpl and use it in createOrder and when calculating final cost.
-//You'll need PricingException.java in the exception package.
 @Service
 public class PricingServiceImpl implements PricingService {
 
@@ -128,37 +123,31 @@ public class PricingServiceImpl implements PricingService {
     }
 
     @Override
-    public FinalPriceInfo calculateFinalPrice(Order order, PricingContext context) {
-        log.info("Calculating final price for order ID: {}", order.getId());
-        double actualDistanceKm = context.getActualDistanceKm() != null ? context.getActualDistanceKm() : order.getEstimatedDistance();
-        double actualDurationMinutes = 0;
-
-        if (order.getActualPickupTime() != null && order.getActualDropOffTime() != null) {
-            actualDurationMinutes = Duration.between(order.getActualPickupTime(), order.getActualDropOffTime()).toMinutes();
-        } else if (context.getActualDurationMinutes() != null) {
-            actualDurationMinutes = context.getActualDurationMinutes();
-        } else {
-            actualDurationMinutes = order.getEstimatedDuration();
+    public FinalPriceInfo calculateFinalPrice(Order order) {
+        if (order.getDriverAssignedTime() == null || order.getDropoffTime() == null) {
+            throw new PricingException("Cannot calculate final price without trip times.");
         }
 
-        // Recalculate using actuals, apply same logic as estimation or a more refined one
-        // For simplicity, using the same rate structure as estimation
-        double baseFare = BASE_FARE_NORMAL; // Adjust based on order.getServiceType()
-        double perKmRate = PER_KM_RATE_NORMAL;
-        double perMinuteRate = PER_MINUTE_RATE_NORMAL;
-        // ... (add switch for serviceType like in estimation) ...
+        LocalDateTime startTime = order.getDriverAssignedTime();
+        LocalDateTime endTime = order.getDropoffTime();
+        long durationInMinutes = Duration.between(startTime, endTime).toMinutes();
 
-        double finalCost = baseFare + (actualDistanceKm * perKmRate) + (actualDurationMinutes * perMinuteRate);
-        // ... (add surge logic if applicable based on actual trip times) ...
+        // Placeholder for actual traveled distance
+        double distance = 10.0;
 
-        log.info("Final price for order ID {}: cost={}, distance={}, duration={}", order.getId(), finalCost, actualDistanceKm, actualDurationMinutes);
-        return FinalPriceInfo.builder()
-                .finalCost(Math.max(finalCost, baseFare))
-                .actualDistance(actualDistanceKm)
-                .actualDuration(actualDurationMinutes)
-                .currency("USD")
-                .priceBreakdown("Base: ..., Distance: ..., Duration: ...") // Detailed breakdown
-                .build();
+        long distanceCost = (long) (PER_KILOMETER_RATE_CENTS * distance);
+        long timeCost = PER_MINUTE_RATE_CENTS * durationInMinutes;
+        long finalPrice = (long) (BASE_FARE_NORMAL + distanceCost + timeCost);
+
+        FinalPriceInfo finalPriceInfo = new FinalPriceInfo();
+        finalPriceInfo.setFinalPrice(finalPrice);
+        finalPriceInfo.setDistance(distance);
+        finalPriceInfo.setDurationMinutes(durationInMinutes);
+        finalPriceInfo.setBaseFare((long) BASE_FARE_NORMAL);
+        finalPriceInfo.setDistanceCost(distanceCost);
+        finalPriceInfo.setTimeCost(timeCost);
+
+        return finalPriceInfo;
     }
 
     //Implement calculateCancellationFee

@@ -10,10 +10,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class FinalPriceInfo {
-    private double finalCost;
-    private double actualDistance;
-    private double actualDuration;
-    private String currency;
-    private String priceBreakdown;
-    private double cancellationFee; // If applicable
+    private Long finalPrice;
+    private double distance;
+    private long durationMinutes;
+    private Long baseFare;
+    private Long distanceCost;
+    private Long timeCost;
 }

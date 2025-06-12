@@ -8,13 +8,12 @@ import lombok.*;
 @Table(name = "users")
 @Data
 public class User {
-
     @Id
     private Long id;
-
     private String username;
-
+    private String password;
     private String email;
-
-    private String role;
+    private String phoneNumber;
+    @Enumerated(EnumType.STRING)
+    private Role role;
 }
