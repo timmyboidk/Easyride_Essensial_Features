@@ -196,7 +196,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User updateUserProfile(String username, UserProfileUpdateDto profileUpdateDto) {
-        User user = findByUsername(username);
+        User user = findByUsername(username); // This correctly finds the user by username
         user.setEmail(profileUpdateDto.getEmail());
         // You can add more fields to update here, for example:
         // user.setAddress(profileUpdateDto.getAddress());

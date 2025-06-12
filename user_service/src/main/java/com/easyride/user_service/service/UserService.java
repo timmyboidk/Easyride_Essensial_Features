@@ -16,10 +16,7 @@ public interface UserService {
     String requestOtpForPasswordReset(String identifier); // Identifier can be email or phone
     void resetPasswordWithOtp(ResetPasswordRequestDto resetPasswordDto);
 
-    UserProfileUpdateDto updateUserProfile(Long userId, UserProfileUpdateDto profileUpdateDto);
-
-    User updateUserProfile(String username,UserProfileUpdateDto profileUpdateDto);
-    // Or more specific ones:
+    User updateUserProfile(String username, UserProfileUpdateDto profileUpdateDto);
     // PassengerProfileDto updatePassengerProfile(Long userId, PassengerProfileUpdateDto passengerProfileDto);
     // DriverProfileDto updateDriverProfile(Long userId, DriverProfileUpdateDto driverProfileDto, List<MultipartFile> documents);
 }
