@@ -5,8 +5,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.apache.rocketmq.spring.core.RocketMQTemplate; // For sending OTP via MQ to NotificationService
-import com.easyride.user_service.dto.NotificationRequestDto; // Define this DTO
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import com.easyride.user_service.dto.NotificationRequestDto;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
@@ -49,11 +49,7 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public void sendOtp(String phoneNumber, String otp) {
-        // This should ideally call the Notification Service
-        // Option 1: Feign Client (you'd need to define NotificationServiceClient)
-        // notificationServiceClient.sendSms(new SmsRequest(phoneNumber, "Your OTP is: " + otp));
-
-        // Option 2: Send a message to Notification Service via RocketMQ
+        // Send a message to Notification Service via RocketMQ
         String message = "Your EasyRide OTP is: " + otp + ". It is valid for " + OTP_VALIDITY_MINUTES + " minutes.";
         NotificationRequestDto notificationRequest = new NotificationRequestDto(phoneNumber, message, "SMS");
         // Assuming "notification-topic" and NotificationRequestDto are defined

@@ -1,10 +1,16 @@
 package com.easyride.user_service.service;
 
 import com.easyride.user_service.dto.*;
+import com.easyride.user_service.exception.OtpVerificationException;
+import com.easyride.user_service.exception.ResourceNotFoundException;
 import com.easyride.user_service.rocket.UserRocketProducer;
 import com.easyride.user_service.model.*;
 import com.easyride.user_service.repository.*;
+import com.easyride.user_service.security.JwtTokenProvider;
 import com.easyride.user_service.security.UserDetailsImpl;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -29,8 +35,6 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRocketProducer userRocketProducer;
     private final OtpService otpService;
-    // private final FileStorageService fileStorageService; // For handling document uploads
-
     @Autowired
     public UserServiceImpl(PassengerRepository passengerRepository,
                            DriverRepository driverRepository,
@@ -46,7 +50,6 @@ public class UserServiceImpl implements UserService {
         this.passwordEncoder = passwordEncoder;
         this.userRocketProducer = userRocketProducer;
         this.otpService = otpService;
-        // this.fileStorageService = fileStorageService;
     }
 
     @Override
@@ -90,19 +93,6 @@ public class UserServiceImpl implements UserService {
                 Driver driver = new Driver(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(), registrationDto.getPhoneNumber());
                 driver.setDriverLicenseNumber(registrationDto.getDriverLicenseNumber());
                 driver.setVehicleInfo(registrationDto.getVehicleInfo());
-                // driver.setApprovalStatus(DriverApprovalStatus.PENDING); // Add this field to Driver model
-
-                // Handle file uploads for DRIVER
-                // String licensePath = null;
-                // String vehicleDocPath = null;
-                // if (driverLicenseFile != null && !driverLicenseFile.isEmpty()) {
-                //     licensePath = fileStorageService.storeFile(driverLicenseFile, driver.getId(), "license");
-                //     driver.setDriverLicenseDocumentPath(licensePath);
-                // }
-                // if (vehicleDocumentFile != null && !vehicleDocumentFile.isEmpty()) {
-                //     vehicleDocPath = fileStorageService.storeFile(vehicleDocumentFile, driver.getId(), "vehicle_doc");
-                //     driver.setVehicleDocumentPath(vehicleDocPath);
-                // }
                 savedUserEntity = driverRepository.save(driver);
                 eventType = "DRIVER_APPLICATION_SUBMITTED"; // More specific event for drivers
                 // Create and send DriverApplicationEventDto
@@ -166,19 +156,51 @@ public class UserServiceImpl implements UserService {
                     return new ResourceNotFoundException("用户未找到");
                 });
 
-        // Create Authentication object for JWT generation
-        // Note: For OTP login, password is not used directly in this step.
-        // UserDetails are still needed for Spring Security context.
+
         UserDetailsImpl userDetails = UserDetailsImpl.build(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities()
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
+        JwtTokenProvider jwtTokenProvider = null;
         String jwt = jwtTokenProvider.generateToken(authentication);
         log.info("OTP login successful for phone number: {}. JWT generated.", loginDto.getPhoneNumber());
         return new JwtAuthenticationResponse(jwt);
     }
 
-    // Implement other UserService methods based on prompts...
+    @Override
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+    }
+
+    @Override
+    public String requestOtpForPasswordReset(String phoneNumber) {
+        if (!userRepository.existsByPhoneNumber(phoneNumber)) {
+            throw new ResourceNotFoundException("User not found with phone number: " + phoneNumber);
+        }
+        return otpService.generateOtp(phoneNumber);
+
+    }
+
+    @Override
+    public void resetPasswordWithOtp(ResetPasswordRequestDto requestDto) {
+        if (!otpService.validateOtp(requestDto.getPhoneNumber(), requestDto.getOtp())) {
+            throw new OtpVerificationException("Invalid OTP.");
+        }
+        User user = userRepository.findByPhoneNumber(requestDto.getPhoneNumber())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with phone number: " + requestDto.getPhoneNumber()));
+        user.setPassword(passwordEncoder.encode(requestDto.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    @Override
+    public User updateUserProfile(String username, UserProfileUpdateDto profileUpdateDto) {
+        User user = findByUsername(username);
+        user.setEmail(profileUpdateDto.getEmail());
+        // You can add more fields to update here, for example:
+        // user.setAddress(profileUpdateDto.getAddress());
+        return userRepository.save(user);
+    }
 }
 

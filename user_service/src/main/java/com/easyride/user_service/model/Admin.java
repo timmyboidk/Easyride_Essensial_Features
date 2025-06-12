@@ -1,20 +1,16 @@
 package com.easyride.user_service.model;
 
-import jakarta.persistence.*;
-import lombok.*;
-import java.time.LocalDateTime;
+import jakarta.persistence.Entity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "admins")
-@Getter
-@Setter
+@Data
 @NoArgsConstructor
-@AllArgsConstructor
+@EqualsAndHashCode(callSuper = true)
 public class Admin extends User {
-
-    // 管理员特有的字段
-
-    public Admin(String username, String password, String email) {
-        super(username, password, email, Role.ADMIN, true, LocalDateTime.now(), LocalDateTime.now());
+    public Admin(String username, String password, String email, String phoneNumber) {
+        super(username, password, email, phoneNumber, Role.ADMIN);
     }
 }

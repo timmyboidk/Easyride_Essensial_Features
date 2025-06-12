@@ -19,10 +19,12 @@ public class User {
     private String phoneNumber;
     @Enumerated(EnumType.STRING)
     private Role role;
-    public User(String username, String password, String email, String phoneNumber) {
+    private boolean enabled = true;
+    public User(String username, String password, String email, String phoneNumber, Role role) {
         this.username = username;
         this.password = password;
         this.email = email;
         this.phoneNumber = phoneNumber;
+        this.role = role;
     }
 }
