@@ -124,19 +124,19 @@ public class PricingServiceImpl implements PricingService {
 
     @Override
     public FinalPriceInfo calculateFinalPrice(Order order) {
-        if (order.getDriverAssignedTime() == null || order.getDropoffTime() == null) {
+        if (order.getDriverAssignedTime() == null || order.getOrderTime() == null) {
             throw new PricingException("Cannot calculate final price without trip times.");
         }
 
         LocalDateTime startTime = order.getDriverAssignedTime();
-        LocalDateTime endTime = order.getDropoffTime();
+        LocalDateTime endTime = order.getOrderTime();
         long durationInMinutes = Duration.between(startTime, endTime).toMinutes();
 
         // Placeholder for actual traveled distance
         double distance = 10.0;
 
-        long distanceCost = (long) (PER_KILOMETER_RATE_CENTS * distance);
-        long timeCost = PER_MINUTE_RATE_CENTS * durationInMinutes;
+        long distanceCost = (long) (PER_KM_RATE_NORMAL * distance);
+        long timeCost = (long) (PER_MINUTE_RATE_NORMAL * durationInMinutes);
         long finalPrice = (long) (BASE_FARE_NORMAL + distanceCost + timeCost);
 
         FinalPriceInfo finalPriceInfo = new FinalPriceInfo();
