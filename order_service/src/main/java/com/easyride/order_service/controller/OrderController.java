@@ -70,15 +70,4 @@ public class OrderController {
         log.info("Order ID: {} status updated to {}.", orderId, statusDto.getStatus());
         return ApiResponse.successMessage("订单状态已更新");
     }
-
-    // Helper method to get authenticated user ID (conceptual)
-    private Long getAuthenticatedUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof OrderDetailsImpl) {
-            OrderDetailsImpl userDetails = (OrderDetailsImpl) authentication.getPrincipal();
-            return userDetails.getId();
-        }
-        throw new IllegalStateException("User not authenticated or details not available.");
-    }
-
 }

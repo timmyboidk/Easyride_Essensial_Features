@@ -9,7 +9,7 @@ import lombok.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Passenger {
+public class Passenger extends User {
 
     @Id
     private Long id;

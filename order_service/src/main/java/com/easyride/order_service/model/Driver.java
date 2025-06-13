@@ -9,7 +9,7 @@ import lombok.*;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class Driver {
+public class Driver extends User {
 
     @Id
     private Long id;

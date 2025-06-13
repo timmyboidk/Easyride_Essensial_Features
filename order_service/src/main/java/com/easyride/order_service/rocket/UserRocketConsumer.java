@@ -1,15 +1,18 @@
 package com.easyride.order_service.rocket;
 
 import com.easyride.order_service.dto.UserEventDto;
-import com.easyride.order_service.model.*;
+import com.easyride.order_service.model.Driver;
+import com.easyride.order_service.model.Passenger;
+import com.easyride.order_service.model.Role;
+import com.easyride.order_service.model.User;
 import com.easyride.order_service.repository.DriverRepository;
 import com.easyride.order_service.repository.PassengerRepository;
-import com.easyride.order_service.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -20,46 +23,60 @@ import org.springframework.stereotype.Component;
 public class UserRocketConsumer implements RocketMQListener<UserEventDto> {
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
     private PassengerRepository passengerRepository;
 
     @Autowired
     private DriverRepository driverRepository;
 
-
     @Override
+    @Transactional
     public void onMessage(UserEventDto userEvent) {
-        log.info("Received user event: {}", userEvent);
+        if (userEvent.getRole() == null) {
+            log.error("Received user event with null role. Event: {}", userEvent);
+            return;
+        }
+
+        log.info("Received user event for user ID: {} and role: {}", userEvent.getId(), userEvent.getRole());
         try {
-            User user = userRepository.findById(userEvent.getUserId()).orElse(null);
-            if (user == null) {
-                // Create new user based on role
-                if (userEvent.getRole() == Role.PASSENGER) {
-                    Passenger passenger = new Passenger();
-                    updateUserData(passenger, userEvent);
-                    passengerRepository.save(passenger);
-                } else if (userEvent.getRole() == Role.DRIVER) {
-                    Driver driver = new Driver();
-                    updateUserData(driver, userEvent);
-                    driverRepository.save(driver);
-                }
+            Role userRole = Role.valueOf(userEvent.getRole().toUpperCase());
+
+            if (userRole == Role.PASSENGER) {
+                Passenger passenger = passengerRepository.findById(userEvent.getId())
+                        .orElseGet(() -> {
+                            log.info("Creating new local record for passenger with ID: {}", userEvent.getId());
+                            return new Passenger();
+                        });
+                updateUserData(passenger, userEvent);
+                passengerRepository.save(passenger);
+                log.info("Successfully processed passenger event for ID: {}", userEvent.getId());
+
+            } else if (userRole == Role.DRIVER) {
+                Driver driver = driverRepository.findById(userEvent.getId())
+                        .orElseGet(() -> {
+                            log.info("Creating new local record for driver with ID: {}", userEvent.getId());
+                            return new Driver();
+                        });
+                updateUserData(driver, userEvent);
+                driverRepository.save(driver);
+                log.info("Successfully processed driver event for ID: {}", userEvent.getId());
             } else {
-                // Update existing user
-                updateUserData(user, userEvent);
-                userRepository.save(user);
+                log.warn("Received user event with unhandled role: {}", userEvent.getRole());
             }
         } catch (Exception e) {
-            log.error("Error processing user event for userId: {}", userEvent.getUserId(), e);
+            log.error("Error processing user event for userId: {}. Error: {}", userEvent.getId(), e.getMessage(), e);
         }
     }
 
+    /**
+     * Helper method to update common user fields from the event DTO.
+     * @param user The user entity (Passenger or Driver) to update.
+     * @param userEvent The DTO containing the new data.
+     */
     private void updateUserData(User user, UserEventDto userEvent) {
-        user.setId(userEvent.getUserId());
+        user.setId(userEvent.getId()); // Correctly uses getId()
         user.setUsername(userEvent.getUsername());
         user.setEmail(userEvent.getEmail());
-        user.setPhoneNumber(userEvent.getPhoneNumber());
-        user.setRole(userEvent.getRole());
+        user.setRole(Role.valueOf(userEvent.getRole().toUpperCase())); // Correctly converts String to Enum
+        // Phone number is not set because it is not present in the provided UserEventDto
     }
 }
