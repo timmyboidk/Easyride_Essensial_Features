@@ -16,5 +16,4 @@ public class PricingContext {
     private LocalDateTime scheduledTime; // For potential peak hour charges
     private Double actualDistanceKm; // For final calculation
     private Double actualDurationMinutes; // For final calculation
-    // Add other factors: passengerId for VIP/discounts, promoCode etc.
 }

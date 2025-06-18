@@ -4,12 +4,20 @@ import com.easyride.order_service.dto.OrderCreateDto;
 import com.easyride.order_service.dto.OrderResponseDto;
 import com.easyride.order_service.model.*;
 import com.easyride.order_service.repository.*;
-import com.easyride.order_service.rocket.OrderEventProducer;
-import com.easyride.order_service.util.DistanceCalculator;
+import com.easyride.order_service.rocket.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.easyride.order_service.dto.*;
+import com.easyride.order_service.exception.OrderServiceException;
+import com.easyride.order_service.exception.ResourceNotFoundException;
+import com.easyride.order_service.model.*;
+import com.easyride.order_service.repository.DriverRepository;
+import com.easyride.order_service.repository.OrderRepository;
+import com.easyride.order_service.repository.PassengerRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class OrderServiceImpl implements OrderService {
@@ -19,6 +27,8 @@ public class OrderServiceImpl implements OrderService {
     private final DriverRepository driverRepository;
     private final UserRepository userRepository; // 新增
     private final PricingService pricingService;// 新增
+    private final OrderEventProducer orderEventProducer;
+    private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
     public OrderServiceImpl(OrderRepository orderRepository,
                             PassengerRepository passengerRepository,
@@ -30,8 +40,9 @@ public class OrderServiceImpl implements OrderService {
         this.passengerRepository = passengerRepository;
         this.driverRepository = driverRepository;
         this.userRepository = userRepository; // 初始化
-        this.orderEventProducer = orderEventProducer;
         this.pricingService = pricingService;
+        this.orderEventProducer = orderEventProducer;
+
     }
 
     @Override
@@ -65,12 +76,12 @@ public class OrderServiceImpl implements OrderService {
                 .serviceType(orderCreateDto.getServiceType())
                 .scheduledTime(orderCreateDto.getScheduledTime())
                 .build();
-         EstimatedPriceInfo estimatedPriceInfo = pricingService.calculateEstimatedPrice(pricingContext);
-         order.setEstimatedCost(estimatedPriceInfo.getEstimatedCost());
-         order.setEstimatedDistance(estimatedPriceInfo.getEstimatedDistance());
-         order.setEstimatedDuration(estimatedPriceInfo.getEstimatedDuration());
-
+        EstimatedPriceInfo estimatedPriceInfo = pricingService.calculateEstimatedPrice(pricingContext);
         Order order = new Order();
+        order.setEstimatedCost(estimatedPriceInfo.getEstimatedCost());
+        order.setEstimatedDistance(estimatedPriceInfo.getEstimatedDistance());
+        order.setEstimatedDuration(estimatedPriceInfo.getEstimatedDuration());
+
         order.setPassenger(passenger);
         order.setStartLatitude(orderCreateDto.getStartLocation().getLatitude());
         order.setStartLongitude(orderCreateDto.getStartLocation().getLongitude());
@@ -139,56 +150,58 @@ public class OrderServiceImpl implements OrderService {
                 order.getOrderTime(),
                 order.getPassenger().getName() // Example: include passenger name if needed by matching for context
         );
-
-    @Override
-    @Transactional
-    public void acceptOrder(Long orderId, Long driverId) {
-        // 查找订单
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("订单不存在"));
-
-        // 查找司机
-        Driver driver = driverRepository.findById(driverId)
-                .orElseThrow(() -> new RuntimeException("司机不存在"));
-
-        // 检查司机是否可用
-        if (!driver.isAvailable()) {
-            throw new RuntimeException("司机不可用");
-        }
-
-        // 更新订单状态并关联司机
-        order.setStatus(OrderStatus.ACCEPTED);
-        order.setDriver(driver);
-        order.setUpdatedAt(LocalDateTime.now());
-        order.setUpdatedBy(driverId);
-        orderRepository.save(order);
-
-        // 更新司机状态为不可用
-        driver.setAvailable(false);
-        driverRepository.save(driver);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public OrderResponseDto getOrderDetails(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("订单不存在"));
-
-        OrderResponseDto responseDto = new OrderResponseDto();
-        responseDto.setOrderId(order.getId());
-        responseDto.setStatus(order.getStatus());
-        responseDto.setPassengerName(order.getPassenger().getName());
-        responseDto.setDriverName(order.getDriver() != null ? order.getDriver().getName() : null);
-        responseDto.setEstimatedCost(order.getEstimatedCost());
-        responseDto.setEstimatedDistance(order.getEstimatedDistance());
-        responseDto.setEstimatedDuration(order.getEstimatedDuration());
-
-        return responseDto;
     }
 
         @Override
         @Transactional
-        public void cancelOrder(Long orderId /*, Long cancellingUserId, Role cancellingByRole */) {
+        public void acceptOrder (Long orderId, Long driverId){
+            // 查找订单
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new RuntimeException("订单不存在"));
+
+            // 查找司机
+            Driver driver = driverRepository.findById(driverId)
+                    .orElseThrow(() -> new RuntimeException("司机不存在"));
+
+            // 检查司机是否可用
+            if (!driver.isAvailable()) {
+                throw new RuntimeException("司机不可用");
+            }
+
+            // 更新订单状态并关联司机
+            order.setStatus(OrderStatus.ACCEPTED);
+            order.setDriver(driver);
+            order.setUpdatedAt(LocalDateTime.now());
+            order.setUpdatedBy(driverId);
+            orderRepository.save(order);
+
+            // 更新司机状态为不可用
+            driver.setAvailable(false);
+            driverRepository.save(driver);
+        }
+
+
+        @Override
+        @Transactional(readOnly = true)
+        public OrderResponseDto getOrderDetails (Long orderId){
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new RuntimeException("订单不存在"));
+
+            OrderResponseDto responseDto = new OrderResponseDto();
+            responseDto.setOrderId(order.getId());
+            responseDto.setStatus(order.getStatus());
+            responseDto.setPassengerName(order.getPassenger().getName());
+            responseDto.setDriverName(order.getDriver() != null ? order.getDriver().getName() : null);
+            responseDto.setEstimatedCost(order.getEstimatedCost());
+            responseDto.setEstimatedDistance(order.getEstimatedDistance());
+            responseDto.setEstimatedDuration(order.getEstimatedDuration());
+
+            return responseDto;
+        }
+
+        @Override
+        @Transactional
+        public void cancelOrder (Long orderId /*, Long cancellingUserId, Role cancellingByRole */){
             log.info("Processing cancellation for order ID: {}", orderId);
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("订单 " + orderId + " 未找到"));
@@ -242,23 +255,23 @@ public class OrderServiceImpl implements OrderService {
             orderEventProducer.sendOrderStatusUpdateEvent(cancelEvent);
         }
 
-    @Override
-    @Transactional
-    public void updateOrderStatus(Long orderId, OrderStatus status) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new RuntimeException("订单不存在"));
+        @Override
+        @Transactional
+        public void updateOrderStatus (Long orderId, OrderStatus status){
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new RuntimeException("订单不存在"));
 
-        order.setStatus(status);
-        order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
-    }
+            order.setStatus(status);
+            order.setUpdatedAt(LocalDateTime.now());
+            orderRepository.save(order);
+        }
 
         @Autowired // Add if not already present
         private DriverRepository driverRepository; // Assuming you have a local Driver model/repo
 
         @Override
         @Transactional
-        public void processDriverAssigned(DriverAssignedEventDto event) {
+        public void processDriverAssigned (DriverAssignedEventDto event){
             log.info("Processing driver assignment for order ID: {}", event.getOrderId());
             Order order = orderRepository.findById(event.getOrderId())
                     .orElseThrow(() -> {
@@ -325,7 +338,7 @@ public class OrderServiceImpl implements OrderService {
 
         @Override
         @Transactional
-        public void processOrderMatchFailed(Long orderId, String reason) {
+        public void processOrderMatchFailed (Long orderId, String reason){
             log.warn("Order match failed for order ID: {}. Reason: {}", orderId, reason);
             Order order = orderRepository.findById(orderId).orElse(null);
             if (order != null && (order.getStatus() == OrderStatus.PENDING_MATCH || order.getStatus() == OrderStatus.SCHEDULED)) {
@@ -350,13 +363,9 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        @Autowired // Add if not present
-        private OrderEventProducer orderEventProducer;
-
-
         @Override
         @Transactional
-        public void processPaymentConfirmation(Long orderId, Double finalAmount, String paymentTransactionId) {
+        public void processPaymentConfirmation (Long orderId, Double finalAmount, String paymentTransactionId){
             log.info("Processing payment confirmation for order ID: {}", orderId);
             Order order = orderRepository.findById(orderId)
                     .orElseThrow(() -> new ResourceNotFoundException("订单 " + orderId + " 未找到"));
@@ -364,21 +373,21 @@ public class OrderServiceImpl implements OrderService {
             if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.PAYMENT_SETTLED) {
 
                 order.setActualDropOffTime(LocalDateTime.now());
-                     // Calculate actual duration based on order.getActualPickupTime() and order.getActualDropOffTime()
-                     // Get actual distance if tracked, otherwise use estimate or allow driver input
-                     PricingContext finalPricingContext = PricingContext.builder()
-                            .startLocation(new LocationDto(order.getStartLatitude(), order.getStartLongitude()))
-                            .endLocation(new LocationDto(order.getEndLatitude(), order.getEndLongitude()))
-                            .vehicleType(order.getVehicleType())
-                            .serviceType(order.getServiceType())
-                            // .actualDistanceKm( ... ) // if available
-                            // .actualDurationMinutes( ... ) // if available
-                            .build();
-                     FinalPriceInfo finalPrice = pricingService.calculateFinalPrice(order, finalPricingContext);
-                     order.setFinalCost(finalPrice.getFinalCost());
-                     order.setActualDistance(finalPrice.getActualDistance());
-                     order.setActualDuration(finalPrice.getActualDuration());
-                     orderRepository.save(order);
+                // Calculate actual duration based on order.getActualPickupTime() and order.getActualDropOffTime()
+                // Get actual distance if tracked, otherwise use estimate or allow driver input
+                PricingContext finalPricingContext = PricingContext.builder()
+                        .startLocation(new LocationDto(order.getStartLatitude(), order.getStartLongitude()))
+                        .endLocation(new LocationDto(order.getEndLatitude(), order.getEndLongitude()))
+                        .vehicleType(order.getVehicleType())
+                        .serviceType(order.getServiceType())
+                        // .actualDistanceKm( ... ) // if available
+                        // .actualDurationMinutes( ... ) // if available
+                        .build();
+                FinalPriceInfo finalPrice = pricingService.calculateFinalPrice(order, finalPricingContext);
+                order.setFinalCost(finalPrice.getFinalCost());
+                order.setActualDistance(finalPrice.getActualDistance());
+                order.setActualDuration(finalPrice.getActualDuration());
+                orderRepository.save(order);
                 orderRepository.save(order);
 
                 log.info("Order ID {} status updated to PAYMENT_SETTLED. Final cost: {}", orderId, finalAmount);
@@ -395,7 +404,7 @@ public class OrderServiceImpl implements OrderService {
                 orderEventProducer.sendOrderPaymentSettledEvent(settledEvent);
             } else {
                 log.warn("Order {} is not in COMPLETED state to confirm payment. Current status: {}", orderId, order.getStatus());
-                // This could be an issue or late message, handle as per business logic
             }
         }
+
 }

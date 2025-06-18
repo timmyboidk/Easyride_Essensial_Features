@@ -140,9 +140,9 @@ public class PricingServiceImpl implements PricingService {
         long finalPrice = (long) (BASE_FARE_NORMAL + distanceCost + timeCost);
 
         FinalPriceInfo finalPriceInfo = new FinalPriceInfo();
-        finalPriceInfo.setFinalPrice(finalPrice);
-        finalPriceInfo.setDistance(distance);
-        finalPriceInfo.setDurationMinutes(durationInMinutes);
+        finalPriceInfo.setFinalCost(finalPrice);
+        finalPriceInfo.setDistanceCost((long) distance);
+        finalPriceInfo.setTimeCost(durationInMinutes);
         finalPriceInfo.setBaseFare((long) BASE_FARE_NORMAL);
         finalPriceInfo.setDistanceCost(distanceCost);
         finalPriceInfo.setTimeCost(timeCost);
