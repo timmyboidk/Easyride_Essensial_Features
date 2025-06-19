@@ -2,7 +2,6 @@ package com.easyride.order_service.service;
 
 import com.easyride.order_service.dto.EstimatedPriceInfo;
 import com.easyride.order_service.dto.FinalPriceInfo;
-import com.easyride.order_service.dto.LocationDto;
 import com.easyride.order_service.dto.PricingContext;
 import com.easyride.order_service.exception.PricingException;
 import com.easyride.order_service.model.Order;
@@ -123,7 +122,7 @@ public class PricingServiceImpl implements PricingService {
     }
 
     @Override
-    public FinalPriceInfo calculateFinalPrice(Order order) {
+    public FinalPriceInfo calculateFinalPrice(Order order, PricingContext finalPricingContext) { // Corrected signature
         if (order.getDriverAssignedTime() == null || order.getOrderTime() == null) {
             throw new PricingException("Cannot calculate final price without trip times.");
         }
@@ -132,8 +131,9 @@ public class PricingServiceImpl implements PricingService {
         LocalDateTime endTime = order.getOrderTime();
         long durationInMinutes = Duration.between(startTime, endTime).toMinutes();
 
-        // Placeholder for actual traveled distance
-        double distance = 10.0;
+        double distance = DistanceCalculator.calculateDistance(
+                finalPricingContext.getStartLocation().getLatitude(), finalPricingContext.getStartLocation().getLongitude(),
+                finalPricingContext.getEndLocation().getLatitude(), finalPricingContext.getEndLocation().getLongitude());
 
         long distanceCost = (long) (PER_KM_RATE_NORMAL * distance);
         long timeCost = (long) (PER_MINUTE_RATE_NORMAL * durationInMinutes);
@@ -141,8 +141,8 @@ public class PricingServiceImpl implements PricingService {
 
         FinalPriceInfo finalPriceInfo = new FinalPriceInfo();
         finalPriceInfo.setFinalCost(finalPrice);
-        finalPriceInfo.setDistanceCost((long) distance);
-        finalPriceInfo.setTimeCost(durationInMinutes);
+        finalPriceInfo.setActualDistance(distance);
+        finalPriceInfo.setActualDuration(durationInMinutes);
         finalPriceInfo.setBaseFare((long) BASE_FARE_NORMAL);
         finalPriceInfo.setDistanceCost(distanceCost);
         finalPriceInfo.setTimeCost(timeCost);
