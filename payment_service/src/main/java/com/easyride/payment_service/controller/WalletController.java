@@ -1,10 +1,9 @@
 package com.easyride.payment_service.controller;
 
-import com.easyride.payment_service.dto.WalletDto;
+import com.easyride.payment_service.dto.*;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.service.WalletService;
 import org.springframework.web.bind.annotation.*;
-import com.easyride.payment_service.dto.ApiResponse;
 
 // @RestController
 

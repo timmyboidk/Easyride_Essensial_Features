@@ -1,6 +1,6 @@
 package com.easyride.payment_service.controller;
 
-import com.easyride.payment_service.dto.AddPaymentMethodRequestDto;
+import com.easyride.payment_service.dto.*;
 import com.easyride.payment_service.dto.PaymentMethodResponseDto;
 import com.easyride.payment_service.service.PassengerPaymentMethodService;
 import jakarta.validation.Valid;
@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
-import com.easyride.user_service.dto.ApiResponse;
 
 @RestController
 @RequestMapping("/passengers/{passengerId}/payment-methods") // Or use @AuthenticationPrincipal
@@ -25,7 +24,7 @@ public class PaymentMethodController {
     }
 
     @PostMapping
-    public com.easyride.user_service.dto.ApiResponse<PaymentMethodResponseDto> addPaymentMethod(
+    public com.easyride.payment_service.dto.ApiResponse<PaymentMethodResponseDto> addPaymentMethod(
             @PathVariable Long passengerId, // Or get from @AuthenticationPrincipal UserPrincipal principal
             @Valid @RequestBody AddPaymentMethodRequestDto requestDto) {
         // Long actualPassengerId = principal.getId();

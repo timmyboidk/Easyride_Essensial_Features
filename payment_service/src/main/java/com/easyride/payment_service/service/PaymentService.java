@@ -2,7 +2,11 @@ package com.easyride.payment_service.service;
 
 import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.dto.PaymentResponseDto;
+import com.easyride.payment_service.strategies.PaymentStrategy;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Map;
 
 public interface PaymentService {
