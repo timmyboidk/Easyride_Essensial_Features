@@ -7,22 +7,20 @@ spring:
     username: your_mysql_username
     password: your_mysql_password
     driver-class-name: com.mysql.cj.jdbc.Driver
-
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
-
-
-rocketmq:
-  name-server: 127.0.0.1:9876
-  producer:
-    group: payment-producer-group
   security:
     oauth2:
       resourceserver:
         jwt:
           issuer-uri: https://your-issuer.com/
+
+rocketmq:
+  name-server: 127.0.0.1:9876
+  producer:
+    group: payment-producer-group
 
 logging:
   level:

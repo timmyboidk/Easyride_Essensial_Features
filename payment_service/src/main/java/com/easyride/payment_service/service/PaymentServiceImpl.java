@@ -17,9 +17,12 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.Map;
+import com.easyride.payment_service.dto.*;
+import com.easyride.payment_service.exception.*;
+import com.easyride.payment_service.model.PassengerPaymentMethod;
+import java.util.Optional;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
@@ -55,35 +58,21 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional
-    @Override
-    @Transactional
     public PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto) {
-        // ... (idempotency check) ...
-        log.info("Processing payment for orderId: {}", paymentRequestDto.getOrderId());
+        logger.info("Processing payment for orderId: {}", paymentRequestDto.getOrderId());
 
-        // Fetch stored payment method if paymentMethodId is provided
         PassengerPaymentMethod storedPaymentMethod = null;
-        if (paymentRequestDto.getPaymentMethodId() != null) { // Assume DTO has paymentMethodId for stored methods
+        if (paymentRequestDto.getPaymentMethodId() != null) {
             storedPaymentMethod = passengerPaymentMethodRepository
                     .findByIdAndPassengerId(paymentRequestDto.getPaymentMethodId(), paymentRequestDto.getPassengerId())
                     .orElseThrow(() -> new PaymentServiceException("选择的支付方式无效或不存在"));
-        } else if (paymentRequestDto.getPaymentGatewayNonce() != null) {
-            // This is a new card/method being added OR a one-time payment.
-            // The PassengerPaymentMethodService.addPaymentMethod handles creating a permanent token.
-            // For one-time payments with a nonce, the strategy needs to handle the nonce directly.
-            // This flow needs refinement: does payment imply adding the method, or can it be one-off?
-            // For now, let's assume a stored method is used, or nonce flow is part of a specific strategy.
-            log.info("Payment with nonce - strategy must support direct nonce processing or method must be added first.");
-            // For a strategy to use a nonce directly, it might not need a full PassengerPaymentMethod object.
-        } else {
+        } else if (paymentRequestDto.getPaymentGatewayNonce() == null) {
             throw new PaymentServiceException("有效的支付方式ID或支付网关nonce必须提供。");
         }
 
-        // The 'paymentMethodDetails' passed to strategy needs to be the User's chosen stored method.
         PaymentResponseDto strategyResponse = strategyProcessor.processPayment(paymentRequestDto, storedPaymentMethod);
 
         Payment payment = new Payment();
-        // ... (populate payment entity from paymentRequestDto and strategyResponse) ...
         payment.setOrderId(paymentRequestDto.getOrderId());
         payment.setPassengerId(paymentRequestDto.getPassengerId());
         payment.setAmount(paymentRequestDto.getAmount());
@@ -91,34 +80,28 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setStatus(strategyResponse.getStatus());
         payment.setTransactionId(strategyResponse.getTransactionId());
         payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed());
-        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod()); // Or from storedPaymentMethod.getMethodType()
+        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod());
         payment.setCreatedAt(LocalDateTime.now());
 
         paymentRepository.save(payment);
-        log.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
+        logger.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
 
         if (strategyResponse.getStatus() == PaymentStatus.COMPLETED) {
-            // Wallet update for driver earnings
             try {
-                // Critical: Need DRIVER_ID associated with the orderId.
-                // This should come from the consumed OrderCompletedEvent or an API call to OrderService.
-                // For now, assuming getDriverIdByOrderId is a placeholder for this logic.
-                Long driverId = getDriverIdByOrderId(paymentRequestDto.getOrderId()); // Needs real implementation
+                Long driverId = getDriverIdByOrderId(paymentRequestDto.getOrderId());
                 if (driverId != null) {
-                    walletService.addFunds(driverId, paymentRequestDto.getAmount()); // Amount here is ride fare
+                    walletService.addFunds(driverId, paymentRequestDto.getAmount());
                 } else {
-                    log.warn("Could not determine driver ID for order {}. Wallet not updated.", paymentRequestDto.getOrderId());
+                    logger.warn("Could not determine driver ID for order {}. Wallet not updated.", paymentRequestDto.getOrderId());
                 }
             } catch (Exception e) {
-                log.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(), e.getMessage(), e);
-                // This is a critical failure if payment succeeded but wallet update failed. Needs robust handling (e.g., retry, reconciliation job).
+                logger.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(), e.getMessage(), e);
             }
 
             PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
                     "PAYMENT_COMPLETED", payment.getStatus().name(), payment.getAmount(), payment.getCurrency(), LocalDateTime.now());
             paymentEventProducer.sendPaymentEvent(event);
         } else if (strategyResponse.getStatus() == PaymentStatus.FAILED) {
-            // Prompt 5: Publish PAYMENT_FAILED event
             PaymentFailedEventDto failedEvent = new PaymentFailedEventDto(
                     paymentRequestDto.getOrderId(),
                     paymentRequestDto.getPassengerId(),
@@ -127,83 +110,72 @@ public class PaymentServiceImpl implements PaymentService {
                     strategyResponse.getMessage() != null ? strategyResponse.getMessage() : "支付处理失败",
                     LocalDateTime.now()
             );
-            paymentEventProducer.sendPaymentFailedEvent(failedEvent); // New method in producer
+            paymentEventProducer.sendPaymentFailedEvent(failedEvent);
         }
-        // Handle requiresAction scenario (e.g., 3DS) by returning appropriate info in strategyResponse
 
-        return strategyResponse; // Return the response from the strategy
-    }
-    @Override
-    public void handlePaymentNotification(Map<String, String> notificationData) {
-        // 根据实际需求实现异步通知处理
+        return strategyResponse;
     }
 
     @Override
-    public PaymentResponseDto refundPayment(String internalPaymentId /*or orderId*/, Double amountToRefund) {
-        log.info("Attempting refund for internal payment ID: {}", internalPaymentId);
-        Payment payment = paymentRepository.findById(internalPaymentId) // Or find by orderId if that's the input
+    public void handlePaymentNotification(String notificationPayload) {
+        // TODO: Implement asynchronous notification handling
+    }
+
+    @Override
+    @Transactional
+    public PaymentResponseDto refundPayment(String internalPaymentId, Integer amountToRefund) {
+        logger.info("Attempting refund for internal payment ID: {}", internalPaymentId);
+        Payment payment = paymentRepository.findById(Long.parseLong(internalPaymentId))
                 .orElseThrow(() -> new ResourceNotFoundException("支付记录 " + internalPaymentId + " 未找到"));
 
-        if(payment.getStatus() != PaymentStatus.COMPLETED && payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
+        if (payment.getStatus() != PaymentStatus.COMPLETED && payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
             throw new PaymentServiceException("支付状态为 " + payment.getStatus() + ", 无法退款。");
         }
-        // Use amount from payment record if full refund, or validate amountToRefund
-        Double refundAmount = (amountToRefund == null || amountToRefund <= 0) ? payment.getAmount() : amountToRefund;
-        if (refundAmount > payment.getAmount() - (payment.getRefundedAmount() != null ? payment.getRefundedAmount() : 0.0) ) {
+
+        Integer refundAmount = (amountToRefund == null || amountToRefund <= 0) ? payment.getAmount() : amountToRefund;
+        if (refundAmount > (payment.getAmount() - Optional.ofNullable(payment.getRefundedAmount()).orElse(0))) {
             throw new PaymentServiceException("退款金额超过可退款余额。");
         }
 
-
         PaymentResponseDto strategyRefundResponse = strategyProcessor.refundPayment(
-                payment.getTransactionId(), // Gateway's transaction ID
-                payment.getPaymentGateway(), // e.g. "STRIPE"
+                payment.getTransactionId(),
+                payment.getPaymentGateway(),
                 refundAmount,
                 payment.getCurrency()
         );
 
         if (strategyRefundResponse.getStatus() == PaymentStatus.REFUNDED || strategyRefundResponse.getStatus() == PaymentStatus.PARTIALLY_REFUNDED) {
-            payment.setStatus(strategyRefundResponse.getStatus()); // Update based on full or partial
-            payment.setRefundedAmount((payment.getRefundedAmount() != null ? payment.getRefundedAmount() : 0.0) + refundAmount);
+            payment.setStatus(strategyRefundResponse.getStatus());
+            payment.setRefundedAmount(Optional.ofNullable(payment.getRefundedAmount()).orElse(0) + refundAmount);
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
-            // Deduct from driver's wallet IF funds were already credited and policy dictates deduction on refund
-            if (payment.getDriverId() != null) { // Assuming driverId was stored on Payment
+            if (payment.getDriverId() != null) {
                 try {
                     walletService.subtractFunds(payment.getDriverId(), refundAmount);
                 } catch (Exception e) {
-                    log.error("Error subtracting refunded amount from driver {} wallet for payment {}: {}",
+                    logger.error("Error subtracting refunded amount from driver {} wallet for payment {}: {}",
                             payment.getDriverId(), payment.getId(), e.getMessage(), e);
-                    // Critical issue: needs monitoring and possible manual intervention.
                 }
             }
 
-            // Publish PAYMENT_REFUNDED event
             PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
                     "PAYMENT_REFUNDED", payment.getStatus().name(), refundAmount, payment.getCurrency(), LocalDateTime.now());
             paymentEventProducer.sendPaymentEvent(event);
-            log.info("Refund successful for payment record {}", payment.getId());
+            logger.info("Refund successful for payment record {}", payment.getId());
         } else {
-            log.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
-            // Optionally update payment status to REFUND_FAILED if needed
+            logger.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
         }
         return strategyRefundResponse;
     }
 
-    // TODO: Implement getDriverIdByOrderId(Long orderId)
-    // This needs to get info from Order Service (e.g. via an event that PaymentService consumes when an order is finalized for payment)
-    // or by having OrderService store DriverId in a shared cache, or via a direct API call (less ideal for high volume).
     private Long getDriverIdByOrderId(Long orderId) {
-        // Placeholder - This is critical and needs a robust solution.
-        // Option 1: OrderEventConsumer populates a map or cache.
-        // Option 2: If PaymentService subscribes to an "ORDER_READY_FOR_PAYMENT" event that includes driverId.
-        log.warn("getDriverIdByOrderId for order {} is a placeholder. Real implementation needed.", orderId);
-        // Try to get from the payment record if it was populated earlier (e.g. by OrderEventConsumer)
-        Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId).stream().findFirst();
+        Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
         if (paymentOpt.isPresent() && paymentOpt.get().getDriverId() != null) {
             return paymentOpt.get().getDriverId();
         }
-        return null; // Indicates driver ID couldn't be determined
+        // TODO: Implement fallback logic to get driver ID, e.g., from another service.
+        return null;
     }
 
     @Override

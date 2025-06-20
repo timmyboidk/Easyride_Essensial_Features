@@ -21,5 +21,7 @@ public class PaymentRequestDto {
     private String currency; // USD, CNY, etc.
 
     // 其他支付渠道需要的参数
+    private Long paymentMethodId;
+    private String paymentGatewayNonce;
 }
 
