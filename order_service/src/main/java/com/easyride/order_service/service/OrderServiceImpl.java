@@ -211,10 +211,10 @@ public class OrderServiceImpl implements OrderService {
         log.info("Driver {} successfully assigned to order {}.", event.getDriverId(), event.getOrderId());
 
         OrderEventDto orderStatusUpdateEvent = new OrderEventDto(
-                order.getId(), order.getPassenger().getId(), order.getDriver().getId(),
-                OrderStatus.DRIVER_ASSIGNED, LocalDateTime.now(), "司机已接单，正在前来",
-                order.getStartLatitude(), order.getStartLongitude()
-        );
+                        order.getId(), order.getPassenger().getId(), order.getDriver().getId(),
+                        OrderStatus.DRIVER_ASSIGNED, "司机已接单，正在前来", LocalDateTime.now(),
+                        order.getStartLatitude(), order.getStartLongitude()
+                );
         orderEventProducer.sendOrderStatusUpdateEvent(orderStatusUpdateEvent);
     }
 
