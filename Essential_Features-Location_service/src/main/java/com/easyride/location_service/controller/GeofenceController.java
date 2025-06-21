@@ -3,12 +3,12 @@ package com.easyride.location_service.controller;
 import com.easyride.location_service.dto.ApiResponse;
 import com.easyride.location_service.model.Geofence;
 import com.easyride.location_service.service.GeofenceService;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
 import java.util.List;
 
 @RestController

@@ -18,7 +18,8 @@ public class PaymentEventProducer {
     private RocketMQTemplate rocketMQTemplate;
 
     public void sendPaymentEvent(PaymentEventDto event) {
-        String tag = event.getStatus() != null ? event.getStatus() : "UNKNOWN_STATUS";
+        // Use eventType for the tag, as it's more descriptive
+        String tag = event.getEventType() != null ? event.getEventType() : "UNKNOWN_EVENT";
         rocketMQTemplate.convertAndSend(PAYMENT_TOPIC + ":" + tag, event);
         log.info("Sent PaymentEvent (Tag: {}): {}", tag, event);
     }
@@ -29,7 +30,7 @@ public class PaymentEventProducer {
     }
 
     public void sendPaymentEventOrderly(PaymentEventDto event, String shardingKey) {
-        String tag = event.getStatus() != null ? event.getStatus() : "ORDERLY_UPDATE";
+        String tag = event.getEventType() != null ? event.getEventType() : "ORDERLY_UPDATE";
         rocketMQTemplate.syncSendOrderly(PAYMENT_TOPIC + ":" + tag,
                 MessageBuilder.withPayload(event).build(),
                 shardingKey);

@@ -1,4 +1,4 @@
-package com.easyride.user_service.dto;
+package com.easyride.location_service.dto;
 
 import lombok.Getter;
 import lombok.NoArgsConstructor;

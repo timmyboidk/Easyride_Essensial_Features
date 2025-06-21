@@ -1,9 +1,11 @@
-package com.easyride.locationService.dto;
+package com.easyride.location_service.rocket;
 
 import com.easyride.locationService.dto.LocationResponseEvent;
-import lombok.extern.slf4j.Slf4j;
+import com.easyride.location_service.model.LocationResponse;
+import com.easyride.location_service.service.LocationService;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.stereotype.Service;
 
 @Service

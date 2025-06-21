@@ -1,7 +1,8 @@
 package com.easyride.location_service.dto;
 
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+
+import javax.validation.constraints.NotNull;
 import java.time.Instant; // Use Instant for timestamps
 
 @Data

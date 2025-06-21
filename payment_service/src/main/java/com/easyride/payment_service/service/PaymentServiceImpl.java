@@ -54,6 +54,7 @@ public class PaymentServiceImpl implements PaymentService {
         this.passengerPaymentMethodRepository = passengerPaymentMethodRepository;
     }
 
+
     @Override
     @Transactional
     public PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto) {
@@ -74,14 +75,14 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setOrderId(paymentRequestDto.getOrderId());
         payment.setPassengerId(paymentRequestDto.getPassengerId());
         payment.setAmount(paymentRequestDto.getAmount());
-        payment.setCurrency(paymentRequestDto.getCurrency()); // Fixed
+        payment.setCurrency(paymentRequestDto.getCurrency());
         payment.setStatus(strategyResponse.getStatus());
-        payment.setTransactionId(strategyResponse.getTransactionId()); // Fixed
-        payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed()); // Fixed
-        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod()); // Fixed
+        payment.setTransactionId(strategyResponse.getTransactionId());
+        payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed());
+        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod());
         payment.setCreatedAt(LocalDateTime.now());
-
         paymentRepository.save(payment);
+
         log.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
 
         if (strategyResponse.getStatus() == PaymentStatus.COMPLETED) {
@@ -98,9 +99,10 @@ public class PaymentServiceImpl implements PaymentService {
                 log.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(), e.getMessage(), e);
             }
 
-            PaymentEventDto event = new PaymentEventDto(payment.getId().toString(), payment.getOrderId().toString(),
-                    "PAYMENT_COMPLETED", payment.getStatus().name());
+            PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
+                    "PAYMENT_COMPLETED", payment.getStatus().name(), payment.getAmount(), payment.getCurrency(), LocalDateTime.now());
             paymentEventProducer.sendPaymentEvent(event);
+
         } else if (strategyResponse.getStatus() == PaymentStatus.FAILED) {
             PaymentFailedEventDto failedEvent = new PaymentFailedEventDto(
                     paymentRequestDto.getOrderId(),
@@ -135,8 +137,10 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentServiceException("支付状态为 " + payment.getStatus() + ", 无法退款。");
         }
 
-        Integer refundAmount = (amountToRefund == null || amountToRefund <= 0) ? payment.getAmount() : amountToRefund;
-        if (refundAmount > (payment.getAmount() - Optional.ofNullable(payment.getRefundedAmount()).orElse(0))) {
+        Integer currentRefundableAmount = payment.getAmount() - Optional.ofNullable(payment.getRefundedAmount()).orElse(0);
+        Integer refundAmount = (amountToRefund == null || amountToRefund <= 0) ? currentRefundableAmount : amountToRefund;
+
+        if (refundAmount > currentRefundableAmount) {
             throw new PaymentServiceException("退款金额超过可退款余额。");
         }
 
@@ -148,8 +152,12 @@ public class PaymentServiceImpl implements PaymentService {
         );
 
         if (strategyRefundResponse.getStatus() == PaymentStatus.REFUNDED || strategyRefundResponse.getStatus() == PaymentStatus.PARTIALLY_REFUNDED) {
-            payment.setStatus(strategyRefundResponse.getStatus());
             payment.setRefundedAmount(Optional.ofNullable(payment.getRefundedAmount()).orElse(0) + refundAmount);
+            if (payment.getRefundedAmount().equals(payment.getAmount())) {
+                payment.setStatus(PaymentStatus.REFUNDED);
+            } else {
+                payment.setStatus(PaymentStatus.PARTIALLY_REFUNDED);
+            }
             payment.setUpdatedAt(LocalDateTime.now());
             paymentRepository.save(payment);
 
@@ -166,9 +174,9 @@ public class PaymentServiceImpl implements PaymentService {
                     "PAYMENT_REFUNDED", payment.getStatus().name(), refundAmount, payment.getCurrency(), LocalDateTime.now());
             paymentEventProducer.sendPaymentEvent(event);
             log.info("Refund successful for payment record {}", payment.getId());
-        } else
+        } else {
             log.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
-
+        }
         return strategyRefundResponse;
     }
 

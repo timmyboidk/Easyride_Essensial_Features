@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 public class PaymentFailedEventDto {
     private Long orderId;
     private Long passengerId;
-    private Double amount;
+    private Integer amount; // Changed from Double to Integer
     private String currency;
     private String failureReason;
     private LocalDateTime timestamp;
