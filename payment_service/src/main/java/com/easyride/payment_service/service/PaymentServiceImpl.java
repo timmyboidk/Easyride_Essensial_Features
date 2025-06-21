@@ -1,8 +1,9 @@
 package com.easyride.payment_service.service;
 
-import com.easyride.payment_service.dto.PaymentEventDto;
-import com.easyride.payment_service.dto.PaymentRequestDto;
-import com.easyride.payment_service.dto.PaymentResponseDto;
+import com.easyride.payment_service.dto.*;
+import com.easyride.payment_service.exception.PaymentServiceException;
+import com.easyride.payment_service.exception.ResourceNotFoundException;
+import com.easyride.payment_service.model.PassengerPaymentMethod;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
@@ -19,15 +20,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Map;
-import com.easyride.payment_service.dto.*;
-import com.easyride.payment_service.exception.*;
-import com.easyride.payment_service.model.PassengerPaymentMethod;
 import java.util.Optional;
 
 @Service
 public class PaymentServiceImpl implements PaymentService {
 
-    private static final Logger logger = LoggerFactory.getLogger(PaymentServiceImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
 
     private final PaymentRepository paymentRepository;
     private final WalletService walletService;
@@ -59,7 +57,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponseDto processPayment(PaymentRequestDto paymentRequestDto) {
-        logger.info("Processing payment for orderId: {}", paymentRequestDto.getOrderId());
+        log.info("Processing payment for orderId: {}", paymentRequestDto.getOrderId());
 
         PassengerPaymentMethod storedPaymentMethod = null;
         if (paymentRequestDto.getPaymentMethodId() != null) {
@@ -76,30 +74,32 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setOrderId(paymentRequestDto.getOrderId());
         payment.setPassengerId(paymentRequestDto.getPassengerId());
         payment.setAmount(paymentRequestDto.getAmount());
-        payment.setCurrency(paymentRequestDto.getCurrency());
+        payment.setCurrency(paymentRequestDto.getCurrency()); // Fixed
         payment.setStatus(strategyResponse.getStatus());
-        payment.setTransactionId(strategyResponse.getTransactionId());
-        payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed());
-        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod());
+        payment.setTransactionId(strategyResponse.getTransactionId()); // Fixed
+        payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed()); // Fixed
+        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod()); // Fixed
         payment.setCreatedAt(LocalDateTime.now());
 
         paymentRepository.save(payment);
-        logger.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
+        log.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
 
         if (strategyResponse.getStatus() == PaymentStatus.COMPLETED) {
             try {
                 Long driverId = getDriverIdByOrderId(paymentRequestDto.getOrderId());
                 if (driverId != null) {
+                    payment.setDriverId(driverId);
+                    paymentRepository.save(payment);
                     walletService.addFunds(driverId, paymentRequestDto.getAmount());
                 } else {
-                    logger.warn("Could not determine driver ID for order {}. Wallet not updated.", paymentRequestDto.getOrderId());
+                    log.warn("Could not determine driver ID for order {}. Wallet not updated.", paymentRequestDto.getOrderId());
                 }
             } catch (Exception e) {
-                logger.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(), e.getMessage(), e);
+                log.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(), e.getMessage(), e);
             }
 
-            PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
-                    "PAYMENT_COMPLETED", payment.getStatus().name(), payment.getAmount(), payment.getCurrency(), LocalDateTime.now());
+            PaymentEventDto event = new PaymentEventDto(payment.getId().toString(), payment.getOrderId().toString(),
+                    "PAYMENT_COMPLETED", payment.getStatus().name());
             paymentEventProducer.sendPaymentEvent(event);
         } else if (strategyResponse.getStatus() == PaymentStatus.FAILED) {
             PaymentFailedEventDto failedEvent = new PaymentFailedEventDto(
@@ -118,13 +118,16 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     public void handlePaymentNotification(String notificationPayload) {
-        // TODO: Implement asynchronous notification handling
+        // This method should parse the notification and update payment status accordingly.
+        // For example, finding the payment by an ID in the payload and updating its status.
+        log.info("Received payment notification payload: {}", notificationPayload);
+        // TODO: Implement parsing and handling logic
     }
 
     @Override
     @Transactional
     public PaymentResponseDto refundPayment(String internalPaymentId, Integer amountToRefund) {
-        logger.info("Attempting refund for internal payment ID: {}", internalPaymentId);
+        log.info("Attempting refund for internal payment ID: {}", internalPaymentId);
         Payment payment = paymentRepository.findById(Long.parseLong(internalPaymentId))
                 .orElseThrow(() -> new ResourceNotFoundException("支付记录 " + internalPaymentId + " 未找到"));
 
@@ -154,7 +157,7 @@ public class PaymentServiceImpl implements PaymentService {
                 try {
                     walletService.subtractFunds(payment.getDriverId(), refundAmount);
                 } catch (Exception e) {
-                    logger.error("Error subtracting refunded amount from driver {} wallet for payment {}: {}",
+                    log.error("Error subtracting refunded amount from driver {} wallet for payment {}: {}",
                             payment.getDriverId(), payment.getId(), e.getMessage(), e);
                 }
             }
@@ -162,12 +165,12 @@ public class PaymentServiceImpl implements PaymentService {
             PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
                     "PAYMENT_REFUNDED", payment.getStatus().name(), refundAmount, payment.getCurrency(), LocalDateTime.now());
             paymentEventProducer.sendPaymentEvent(event);
-            logger.info("Refund successful for payment record {}", payment.getId());
-        } else {
-            logger.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
-        }
-        return strategyRefundResponse;
+            log.info("Refund successful for payment record {}", payment.getId());
+        } else
+            log.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
     }
+        return strategyRefundResponse;
+
 
     private Long getDriverIdByOrderId(Long orderId) {
         Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
@@ -192,52 +195,17 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public void associateDriverWithOrderPayment(Long orderId, Long driverId) {
-        // Find an existing PENDING payment record for this order or create a shell if necessary
-        Payment payment = paymentRepository.findByOrderIdAndStatus(orderId, PaymentStatus.PENDING)
-                .stream().findFirst() // Should ideally be unique pending payment per order
-                .orElseGet(() -> {
-                    // This case might not be ideal. Payment record should exist from initial /pay call.
-                    // If flow is: Order completes -> this consumer -> processPayment, then a PENDING payment might not exist yet.
-                    // This method is more for if payment processing and driverId association are separate steps.
-                    log.warn("No PENDING payment found for order {} to associate driver. This might be okay if processPayment creates it.", orderId);
-                    // Consider if a shell payment should be created or if processPayment handles all creation.
-                    // For now, assume processPayment will create the Payment record.
-                    // This method could simply cache orderId -> driverId mapping for processPayment to use.
-                    // For simplicity now, let's assume Payment record might exist or will be created by processPayment
-                    // and we will update it if found.
-                    return null;
-                });
-
-        if (payment != null) {
-            payment.setDriverId(driverId); // Add driverId to Payment model
+        paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
+            payment.setDriverId(driverId);
             paymentRepository.save(payment);
             log.info("Associated driver ID {} with payment for order ID {}", driverId, orderId);
-        } else {
-            // If no pending payment, we might cache this mapping for when processPayment is called
-            // Example: redisTemplate.opsForValue().set("order_driver_map:" + orderId, driverId.toString());
-            log.info("Driver ID {} for order {} noted. Will be used when payment is processed.", driverId, orderId);
-        }
+        });
     }
 
-    // Modify getDriverIdByOrderId to use this cached/stored info
     private Long getDriverIdByOrderId(Long orderId) {
-        // Attempt 1: Check if Payment record already has it (set by associateDriverWithOrderPayment)
-        Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId).stream()
-                .filter(p -> p.getDriverId() != null)
-                .findFirst();
-        if (paymentOpt.isPresent()) {
-            return paymentOpt.get().getDriverId();
-        }
-
-        // Attempt 2: Check a temporary cache if associateDriver... stored it there
-        // String cachedDriverId = redisTemplate.opsForValue().get("order_driver_map:" + orderId);
-        // if (cachedDriverId != null) {
-        //     redisTemplate.delete("order_driver_map:" + orderId); // Consume it
-        //     return Long.parseLong(cachedDriverId);
-        // }
-
-        log.warn("getDriverIdByOrderId for order {} could not resolve driver ID. Wallet update may be impacted.", orderId);
-        return null;
+        return paymentRepository.findByOrderId(orderId)
+                .map(Payment::getDriverId)
+                .orElse(null); // Return null if not found
     }
 
 }

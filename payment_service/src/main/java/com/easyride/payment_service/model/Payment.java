@@ -23,8 +23,14 @@ public class Payment {
     private Long orderId;
 
     private Long passengerId;
+    private Long driverId;
 
     private Integer amount;
+    private Integer refundedAmount;
+    private String currency;
+    private String transactionId;
+    private String paymentGateway;
+    private String paymentMethodUsed;
 
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;

@@ -1,6 +1,5 @@
 package com.easyride.payment_service.rocketmq;
 
-// import com.easyride.payment_service.dto.OrderEventDto; // This might be too generic
 import com.easyride.payment_service.dto.OrderDetailsForPaymentDto;
 import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.service.PaymentService;
@@ -13,9 +12,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RocketMQMessageListener(
-        topic = "order-topic", // Listen to events from Order Service
+        topic = "order-topic",
         consumerGroup = "payment-service-order-consumer-group",
-        // Tag might be ORDER_COMPLETED_FOR_PAYMENT or similar from Order Service
         selectorExpression = "ORDER_COMPLETED_FOR_PAYMENT"
 )
 public class OrderEventConsumer implements RocketMQListener<OrderDetailsForPaymentDto> {
@@ -32,31 +30,20 @@ public class OrderEventConsumer implements RocketMQListener<OrderDetailsForPayme
     public void onMessage(OrderDetailsForPaymentDto orderDetailsEvent) {
         log.info("Received OrderDetailsForPaymentEvent: {}", orderDetailsEvent);
         try {
-            // Construct PaymentRequestDto from the event
             PaymentRequestDto paymentRequest = new PaymentRequestDto();
             paymentRequest.setOrderId(orderDetailsEvent.getOrderId());
             paymentRequest.setPassengerId(orderDetailsEvent.getPassengerId());
-            paymentRequest.setAmount(orderDetailsEvent.getFinalAmount());
+            // Convert Double to Integer (cents)
+            paymentRequest.setAmount((int) (orderDetailsEvent.getFinalAmount() * 100));
             paymentRequest.setCurrency(orderDetailsEvent.getCurrency());
-            paymentRequest.setPaymentMethod(orderDetailsEvent.getPaymentMethodTypeString()); // Map this to strategy key
-            paymentRequest.setPaymentMethodId(orderDetailsEvent.getChosenPaymentMethodId()); // ID of stored payment method
-            // PaymentService will use passengerId and paymentMethodId to fetch full PassengerPaymentMethod
+            paymentRequest.setPaymentMethod(orderDetailsEvent.getPaymentMethodTypeString());
+            paymentRequest.setPaymentMethodId(orderDetailsEvent.getChosenPaymentMethodId());
 
-            // Store driverId with the payment record if not already done,
-            // or pass it to wallet service directly if payment succeeds immediately.
-            // One way is to update the Payment entity with driverId here or in processPayment.
-            // For now, processPayment will attempt to get it.
-
-            // We can also update our local Payment record with driverId if it exists,
-            // before processing, so WalletService can use it.
             paymentService.associateDriverWithOrderPayment(orderDetailsEvent.getOrderId(), orderDetailsEvent.getDriverId());
-
-
             paymentService.processPayment(paymentRequest);
 
         } catch (Exception e) {
             log.error("Error processing OrderDetailsForPaymentEvent for orderId {}: ", orderDetailsEvent.getOrderId(), e);
-            // Handle error, DLQ, etc.
         }
     }
 }

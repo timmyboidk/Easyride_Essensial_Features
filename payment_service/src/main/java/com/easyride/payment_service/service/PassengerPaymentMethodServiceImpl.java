@@ -5,6 +5,7 @@ import com.easyride.payment_service.dto.PaymentMethodResponseDto;
 import com.easyride.payment_service.exception.ResourceNotFoundException;
 import com.easyride.payment_service.exception.PaymentServiceException; // Create this custom exception
 import com.easyride.payment_service.model.PassengerPaymentMethod;
+import com.easyride.payment_service.model.PaymentMethodType;
 import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
 import com.easyride.payment_service.util.PaymentGatewayUtil; // You'll need to enhance this
 

@@ -1,7 +1,7 @@
 package com.easyride.payment_service.rocketmq;
 
 import com.easyride.payment_service.dto.PaymentEventDto;
-import com.easyride.payment_service.dto.PaymentFailedEventDto; // New
+import com.easyride.payment_service.dto.PaymentFailedEventDto;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +18,7 @@ public class PaymentEventProducer {
     private RocketMQTemplate rocketMQTemplate;
 
     public void sendPaymentEvent(PaymentEventDto event) {
-        // Tag can be event.getStatus() or event.getEventType() if DTO has it
-        String tag = event.getPaymentStatus() != null ? event.getPaymentStatus() : "UNKNOWN_STATUS";
+        String tag = event.getStatus() != null ? event.getStatus() : "UNKNOWN_STATUS";
         rocketMQTemplate.convertAndSend(PAYMENT_TOPIC + ":" + tag, event);
         log.info("Sent PaymentEvent (Tag: {}): {}", tag, event);
     }
@@ -30,8 +29,7 @@ public class PaymentEventProducer {
     }
 
     public void sendPaymentEventOrderly(PaymentEventDto event, String shardingKey) {
-        // Example of sending orderly message, shardingKey could be orderId or passengerId
-        String tag = event.getPaymentStatus() != null ? event.getPaymentStatus() : "ORDERLY_UPDATE";
+        String tag = event.getStatus() != null ? event.getStatus() : "ORDERLY_UPDATE";
         rocketMQTemplate.syncSendOrderly(PAYMENT_TOPIC + ":" + tag,
                 MessageBuilder.withPayload(event).build(),
                 shardingKey);

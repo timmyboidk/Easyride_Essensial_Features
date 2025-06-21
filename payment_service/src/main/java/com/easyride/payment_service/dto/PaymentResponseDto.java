@@ -16,7 +16,7 @@ public class PaymentResponseDto {
     private String paymentId;
     private String orderId;
     private PaymentStatus status;
-    private Double amount;
+    private Integer amount;
     private String currency;
     private String transactionId; // Gateway's transaction ID
     private String message;

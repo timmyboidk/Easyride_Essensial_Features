@@ -1,6 +1,7 @@
 package com.easyride.payment_service.util;
 
 import lombok.Setter;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.SecretKeySpec;
@@ -8,6 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.function.Function;
 
+@Component
 public class EncryptionUtil {
     // 默认加解密函数，生产环境使用默认实现
     private static final String ALGORITHM = "AES";
