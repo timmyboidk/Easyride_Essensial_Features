@@ -168,8 +168,9 @@ public class PaymentServiceImpl implements PaymentService {
             log.info("Refund successful for payment record {}", payment.getId());
         } else
             log.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
-    }
+
         return strategyRefundResponse;
+    }
 
 
     private Long getDriverIdByOrderId(Long orderId) {
@@ -200,12 +201,6 @@ public class PaymentServiceImpl implements PaymentService {
             paymentRepository.save(payment);
             log.info("Associated driver ID {} with payment for order ID {}", driverId, orderId);
         });
-    }
-
-    private Long getDriverIdByOrderId(Long orderId) {
-        return paymentRepository.findByOrderId(orderId)
-                .map(Payment::getDriverId)
-                .orElse(null); // Return null if not found
     }
 
 }
