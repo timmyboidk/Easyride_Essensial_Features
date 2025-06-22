@@ -31,12 +31,12 @@ public class UserEventListener implements RocketMQListener<ConsumedUserEventDto>
     public void onMessage(ConsumedUserEventDto event) {
         log.info("Received ConsumedUserEvent: {}", event);
         try {
-            AnalyticsRequestDto analyticsRequest = new AnalyticsRequestDto();
-            analyticsRequest.setRecordTime(event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now());
-
             Map<String, String> dimensions = new HashMap<>();
             dimensions.put("userId", String.valueOf(event.getUserId()));
             dimensions.put("userRole", event.getRole());
+
+            AnalyticsRequestDto analyticsRequest = new AnalyticsRequestDto();
+            analyticsRequest.setRecordTime(event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now());
             analyticsRequest.setDimensions(dimensions);
 
             if ("USER_CREATED".equals(event.getEventType())) {
@@ -46,7 +46,7 @@ public class UserEventListener implements RocketMQListener<ConsumedUserEventDto>
                     analyticsRequest.setRecordType(RecordType.USER_REGISTRATION.name());
                 }
                 analyticsRequest.setMetricName("registration_count");
-                analyticsRequest.setMetricValue(1.0); // Count as 1
+                analyticsRequest.setMetricValue(1.0);
             } else if ("DRIVER_APPLICATION_APPROVED".equals(event.getEventType())) {
                 analyticsRequest.setRecordType(RecordType.DRIVER_APPROVED.name());
                 analyticsRequest.setMetricName("approved_driver_count");

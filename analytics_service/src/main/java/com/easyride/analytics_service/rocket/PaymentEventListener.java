@@ -31,14 +31,13 @@ public class PaymentEventListener implements RocketMQListener<ConsumedPaymentEve
     public void onMessage(ConsumedPaymentEventDto event) {
         log.info("Received ConsumedPaymentEvent: {}", event);
         try {
-            AnalyticsRequestDto analyticsRequest = new AnalyticsRequestDto();
-            analyticsRequest.setRecordTime(event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now());
-
             Map<String, String> dimensions = new HashMap<>();
             dimensions.put("orderId", String.valueOf(event.getOrderId()));
             dimensions.put("passengerId", String.valueOf(event.getPassengerId()));
-            // dimensions.put("driverId", String.valueOf(event.getDriverId())); // If available
             dimensions.put("currency", event.getCurrency());
+
+            AnalyticsRequestDto analyticsRequest = new AnalyticsRequestDto();
+            analyticsRequest.setRecordTime(event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now());
             analyticsRequest.setDimensions(dimensions);
 
             switch (event.getEventType()) {
@@ -56,8 +55,7 @@ public class PaymentEventListener implements RocketMQListener<ConsumedPaymentEve
                 case "PAYMENT_REFUNDED":
                     analyticsRequest.setRecordType(RecordType.PAYMENT_REFUNDED.name());
                     analyticsRequest.setMetricName("refunded_payment_value");
-                    analyticsRequest.setMetricValue(event.getAmount()); // Refunded amount
-                    // Could also add a count metric for number of refunds
+                    analyticsRequest.setMetricValue(event.getAmount());
                     break;
                 default:
                     log.warn("Unhandled payment event type: {}", event.getEventType());

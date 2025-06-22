@@ -31,36 +31,35 @@ public class ReviewEventListener implements RocketMQListener<ConsumedReviewEvent
     public void onMessage(ConsumedReviewEventDto event) {
         log.info("Received ConsumedReviewEvent: {}", event);
         try {
-            AnalyticsRequestDto analyticsRequest = new AnalyticsRequestDto();
-            analyticsRequest.setRecordTime(event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now());
-
             Map<String, String> dimensions = new HashMap<>();
             dimensions.put("orderId", String.valueOf(event.getOrderId()));
             dimensions.put("evaluatorId", String.valueOf(event.getEvaluatorId()));
             dimensions.put("evaluateeId", String.valueOf(event.getEvaluateeId()));
+
+            AnalyticsRequestDto analyticsRequest = new AnalyticsRequestDto();
+            analyticsRequest.setRecordTime(event.getTimestamp() != null ? event.getTimestamp() : LocalDateTime.now());
             analyticsRequest.setDimensions(dimensions);
 
             if ("EVALUATION_CREATED".equals(event.getEventType())) {
                 analyticsRequest.setRecordType(RecordType.REVIEW_SUBMITTED.name());
                 analyticsRequest.setMetricName("review_count");
-                analyticsRequest.setMetricValue(1.0); // Count of reviews
+                analyticsRequest.setMetricValue(1.0);
                 analyticsService.recordAnalyticsData(analyticsRequest);
 
-                // Record the actual rating score
                 AnalyticsRequestDto ratingScoreRequest = new AnalyticsRequestDto();
                 ratingScoreRequest.setRecordTime(analyticsRequest.getRecordTime());
-                ratingScoreRequest.setDimensions(new HashMap<>(dimensions)); // Copy dimensions
+                ratingScoreRequest.setDimensions(new HashMap<>(dimensions));
 
-                if ("PASSENGER".equalsIgnoreCase(event.getEvaluatorRole())) { // Passenger reviewed Driver
+                if ("PASSENGER".equalsIgnoreCase(event.getEvaluatorRole())) {
                     ratingScoreRequest.setRecordType(RecordType.AVERAGE_RATING_DRIVER.name());
                     ratingScoreRequest.getDimensions().put("ratedEntityType", "DRIVER");
                     ratingScoreRequest.getDimensions().put("ratedEntityId", String.valueOf(event.getEvaluateeId()));
-                } else { // Driver reviewed Passenger
+                } else {
                     ratingScoreRequest.setRecordType(RecordType.AVERAGE_RATING_PASSENGER.name());
                     ratingScoreRequest.getDimensions().put("ratedEntityType", "PASSENGER");
                     ratingScoreRequest.getDimensions().put("ratedEntityId", String.valueOf(event.getEvaluateeId()));
                 }
-                ratingScoreRequest.setMetricName("rating_score_sum"); // Store sum to calculate average later
+                ratingScoreRequest.setMetricName("rating_score_sum");
                 ratingScoreRequest.setMetricValue(Double.valueOf(event.getScore()));
                 analyticsService.recordAnalyticsData(ratingScoreRequest);
             } else {

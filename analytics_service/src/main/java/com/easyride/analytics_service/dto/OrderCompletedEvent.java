@@ -19,4 +19,9 @@ public class OrderCompletedEvent {
     private Double orderAmount;
     private String region;
     private LocalDateTime completedTime;
+    private double finalAmount;
+    private LocalDateTime orderCompletionTime;
+    private Long driverId;
+    private String serviceType;
+    private String vehicleType;
 }

@@ -1,34 +1,36 @@
 package com.easyride.analytics_service.service;
 
-// ... imports ...
+import com.easyride.analytics_service.dto.*;
 import com.easyride.analytics_service.model.AnalyticsRecord;
 import com.easyride.analytics_service.model.RecordType;
+import com.easyride.analytics_service.repository.AnalyticsRepository;
+import com.easyride.analytics_service.util.PrivacyUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate; // For HyperLogLog (DAU/MAU)
-import org.springframework.scheduling.annotation.Scheduled; // For batch calcs
+import org.springframework.stereotype.Service;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class AnalyticsServiceImpl implements AnalyticsService {
-    // ... existing fields (repository, privacyUtil) ...
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsServiceImpl.class);
+    private final AnalyticsRepository analyticsRepository;
     private final RedisTemplate<String, String> redisTemplate; // For unique user tracking with HLL or Sets
 
     @Autowired
-    public AnalyticsServiceImpl(AnalyticsRepository analyticsRepository, PrivacyUtil privacyUtil, RedisTemplate<String, String> redisTemplate) {
+    public AnalyticsServiceImpl(AnalyticsRepository analyticsRepository, RedisTemplate<String, String> redisTemplate) {
         this.analyticsRepository = analyticsRepository;
-        this.privacyUtil = privacyUtil;
         this.redisTemplate = redisTemplate;
     }
 
-    // Existing recordAnalyticsData method
     @Override
     public void recordAnalyticsData(AnalyticsRequestDto requestDto) {
-        // ... (existing logic) ...
-        // For DAU/MAU: if event is a user login or significant action:
         if (RecordType.ACTIVE_USER_LOGIN.name().equals(requestDto.getRecordType())) {
             String userId = requestDto.getDimensions().get("userId");
             if (userId != null) {
@@ -36,20 +38,47 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 String currentMonthKey = "mau:" + YearMonth.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
                 redisTemplate.opsForHyperLogLog().add(todayKey, userId);
                 redisTemplate.opsForHyperLogLog().add(currentMonthKey, userId);
-                // Set TTL for these keys if needed, e.g., DAU keys expire after 2 days, MAU after ~40 days.
+            }
+        } else {
+            AnalyticsRecord record = new AnalyticsRecord();
+            record.setRecordType(RecordType.valueOf(requestDto.getRecordType()));
+            record.setMetricName(requestDto.getMetricName());
+            record.setMetricValue(requestDto.getMetricValue());
+            record.setRecordTime(requestDto.getRecordTime());
+            if (requestDto.getDimensions() != null) {
+                requestDto.getDimensions().forEach((key, value) -> {
+                    record.setDimensionKey(key);
+                    record.setDimensionValue(value);
+                    // This is a simplified approach; a real implementation might need a more complex way to handle multiple dimensions
+                    PrivacyUtil.anonymizeRecord(record);
+                    analyticsRepository.save(record);
+                });
+            } else {
+                analyticsRepository.save(record);
             }
         }
     }
 
+
     @Override
-    public long getDailyActiveUsers(String dateStr) { // date in YYYY-MM-DD
+    public AnalyticsResponseDto queryAnalytics(AnalyticsQueryDto queryDto) {
+        return null;
+    }
+
+    @Override
+    public ReportExportDto generateReport(ReportRequestDto reportRequestDto) {
+        return null;
+    }
+
+    @Override
+    public long getDailyActiveUsers(String dateStr) { // date in yyyy-MM-dd
         String dauKey = "dau:" + dateStr;
         Long size = redisTemplate.opsForHyperLogLog().size(dauKey);
         return size != null ? size : 0L;
     }
 
     @Override
-    public long getMonthlyActiveUsers(String yearMonthStr) { // yearMonth in YYYY-MM
+    public long getMonthlyActiveUsers(String yearMonthStr) { // yearMonth in yyyy-MM
         String mauKey = "mau:" + yearMonthStr;
         Long size = redisTemplate.opsForHyperLogLog().size(mauKey);
         return size != null ? size : 0L;
@@ -77,9 +106,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDateTime startDate = LocalDate.parse(startDateStr).atStartOfDay();
         LocalDateTime endDate = LocalDate.parse(endDateStr).plusDays(1).atStartOfDay();
 
-        // Needs: Count of orders offered to drivers (or all created orders eligible for matching)
-        // And: Count of orders accepted by drivers
-        // These metrics need to be recorded from OrderService or MatchingService events
         long totalOrderRequests = analyticsRepository.countByRecordTypeAndRecordTimeBetween(
                 RecordType.ORDER_REQUEST, startDate, endDate); // Or a more specific "orders_offered_to_drivers"
         long totalOrdersAccepted = analyticsRepository.countByRecordTypeAndRecordTimeBetween(
@@ -98,51 +124,73 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         // 1. Get users who registered in the cohort month
         List<AnalyticsRecord> cohortRegistrations = analyticsRepository.findByRecordTypeAndRecordTimeBetween(
                 RecordType.USER_REGISTRATION, cohortStartDate, cohortEndDate);
-        Set<String> cohortUserIds = cohortRegistrations.stream()
-                .map(ar -> ar.getDimensions().get("userId"))
+        var cohortUserIds = cohortRegistrations.stream()
+                .filter(ar -> "userId".equals(ar.getDimensionKey()))
+                .map(AnalyticsRecord::getDimensionValue)
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
 
         if (cohortUserIds.isEmpty()) return 0.0;
 
-        // 2. Check how many of these cohort users were active in the target retention month
+        // 2. Calculate retention using HyperLogLog
+        String cohortHllKey = "retention_cohort:" + cohortMonthStr;
+        String[] cohortUserIdsArray = cohortUserIds.toArray(new String[0]);
+        redisTemplate.opsForHyperLogLog().add(cohortHllKey, cohortUserIdsArray);
+        long cohortSize = redisTemplate.opsForHyperLogLog().size(cohortHllKey);
+
+        if (cohortSize == 0) {
+            redisTemplate.delete(cohortHllKey);
+            return 0.0;
+        }
+
         YearMonth retentionCheckMonth = cohortMonth.plusMonths(periodInMonths);
         String retentionMauKey = "mau:" + retentionCheckMonth.format(DateTimeFormatter.ofPattern("yyyy-MM"));
+        long retentionMauSize = redisTemplate.opsForHyperLogLog().size(retentionMauKey);
 
-        long retainedUsersCount = cohortUserIds.stream()
-                .filter(userId -> {
-                    Long isMember = redisTemplate.opsForHyperLogLog().count(retentionMauKey, userId); // HLL pfcount userIdKey -> 1 if present, 0 if not
-                    return isMember != null && isMember > 0; // Check if user ID was added to that month's HLL
-                })
-                .count();
+        String unionHllKey = "retention_union:" + cohortMonthStr;
+        redisTemplate.opsForHyperLogLog().union(unionHllKey, cohortHllKey, retentionMauKey);
+        long unionSize = redisTemplate.opsForHyperLogLog().size(unionHllKey);
 
-        return ((double) retainedUsersCount / cohortUserIds.size()) * 100.0;
+        long intersectionSize = cohortSize + retentionMauSize - unionSize;
+
+        // Clean up temporary HLL keys
+        redisTemplate.delete(cohortHllKey);
+        redisTemplate.delete(unionHllKey);
+
+        return ((double) intersectionSize / cohortSize) * 100.0;
     }
 
-
-    // ... (implement generateReport, queryAnalytics as needed)
-
-    // Placeholder for methods called by scheduler
     @Override
-    // @Scheduled(cron = "0 0 1 * * ?") // Run daily at 1 AM
     public void calculateAndStoreDailyMetrics() {
         log.info("Calculating and storing daily summary metrics...");
-        // Example: Calculate daily revenue, total orders from raw records and store as a single daily summary record
-        // This helps in faster querying for dashboards rather than always aggregating raw data.
     }
 
     @Override
-    // @Scheduled(cron = "0 0 2 1 * ?") // Run monthly on 1st day at 2 AM
     public void calculateAndStoreMonthlyMetrics() {
         log.info("Calculating and storing monthly summary metrics...");
-        // Example: MAU (if not relying solely on HLL for final reporting), monthly retention, etc.
     }
 
+    @Override
     public DashboardSummaryDto getAdminDashboardSummary(String dateRangePreset) { // e.g., "TODAY", "LAST_7_DAYS"
         LocalDateTime startDate, endDate;
-        // ... determine startDate, endDate from preset ...
+        LocalDate today = LocalDate.now();
+        switch (dateRangePreset) {
+            case "TODAY":
+                startDate = today.atStartOfDay();
+                endDate = today.plusDays(1).atStartOfDay();
+                break;
+            case "LAST_7_DAYS":
+                startDate = today.minusDays(7).atStartOfDay();
+                endDate = today.plusDays(1).atStartOfDay();
+                break;
+            default:
+                // Default to today
+                startDate = today.atStartOfDay();
+                endDate = today.plusDays(1).atStartOfDay();
+                break;
+        }
 
-        // Example metrics
+
         long totalOrders = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.COMPLETED_ORDERS_COUNT, startDate, endDate);
         double totalRevenue = analyticsRepository.findByRecordTypeAndRecordTimeBetween(RecordType.ORDER_REVENUE, startDate, endDate)
                 .stream().mapToDouble(AnalyticsRecord::getMetricValue).sum();
@@ -153,21 +201,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     }
 
     private long getActiveDriversInRange(LocalDateTime startDate, LocalDateTime endDate) {
-        // This would require tracking driver activity (e.g., logins, completed trips, online time)
-        // One way: query unique driverIds from COMPLETED_ORDERS_COUNT or DRIVER_ONLINE_SESSION records in the range
-        // Example:
-        // List<AnalyticsRecord> driverActivity = analyticsRepository.findDistinctDriversByRecordTypesAndRecordTimeBetween(
-        //     List.of(RecordType.COMPLETED_ORDERS_COUNT, RecordType.DRIVER_ONLINE_SESSION), // Define this query
-        //     startDate, endDate
-        // );
-        // return driverActivity.stream().map(ar -> ar.getDimensions().get("driverId")).distinct().count();
-        return 0L; // Placeholder
+        return 0L;
     }
 
-    // Method to provide data for a time-series chart (e.g., orders per day)
-    public List<TimeSeriesDataPointDto> getOrdersTrend(String startDateStr, String endDateStr, String granularity) { // granularity: "HOURLY", "DAILY"
-        // Query AnalyticsRecord for COMPLETED_ORDERS_COUNT, group by hour/day, sum metricValue
-        // ...
-        return List.of(); // Placeholder
+    @Override
+    public List<TimeSeriesDataPointDto> getOrdersTrend(String startDateStr, String endDateStr, String granularity) {
+        return List.of();
     }
 }
