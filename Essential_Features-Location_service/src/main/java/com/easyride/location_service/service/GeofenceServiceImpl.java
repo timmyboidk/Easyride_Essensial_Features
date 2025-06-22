@@ -39,6 +39,31 @@ public class GeofenceServiceImpl implements GeofenceService {
     // ... Implement updateGeofence, deleteGeofence, getAllActiveGeofences, getActiveGeofencesByType ...
 
     @Override
+    @Transactional
+    public Geofence updateGeofence(Long id, Geofence geofenceDetails) {
+        log.info("Updating geofence with id: {}", id);
+        Geofence existingGeofence = geofenceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Geofence not found with id: " + id));
+
+        existingGeofence.setName(geofenceDetails.getName());
+        existingGeofence.setType(geofenceDetails.getType());
+        existingGeofence.setPolygonCoordinatesJson(geofenceDetails.getPolygonCoordinatesJson());
+        existingGeofence.setActive(geofenceDetails.isActive());
+        existingGeofence.setDescription(geofenceDetails.getDescription());
+
+        return geofenceRepository.save(existingGeofence);
+    }
+
+    @Override
+    @Transactional
+    public void deleteGeofence(Long id) {
+        log.info("Deleting geofence with id: {}", id);
+        Geofence geofence = geofenceRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Geofence not found with id: " + id));
+        geofenceRepository.delete(geofence);
+    }
+
+    @Override
     public List<Geofence> getAllActiveGeofences() {
         return geofenceRepository.findByIsActiveTrue();
     }
@@ -87,9 +112,7 @@ public class GeofenceServiceImpl implements GeofenceService {
             return new ArrayList<>();
         }
         try {
-            // Expecting JSON like [[lat1, lon1], [lat2, lon2], ...]
-            List<List<Double>> pointsList = objectMapper.readValue(polygonJson, new TypeReference<List<List<Double>>>() {
-            });
+            List<List<Double>> pointsList = objectMapper.readValue(polygonJson, new TypeReference<List<List<Double>>>() {});
             return pointsList.stream()
                     .filter(p -> p.size() == 2)
                     .map(p -> new Geofence.Coordinate(p.get(0), p.get(1)))
@@ -99,11 +122,10 @@ public class GeofenceServiceImpl implements GeofenceService {
             return new ArrayList<>();
         }
     }
-
     // Ray Casting Algorithm for Point in Polygon
     private boolean isPointInPolygon(double testLat, double testLon, List<Geofence.Coordinate> polygon) {
         if (polygon == null || polygon.size() < 3) {
-            return false; // Not a polygon
+            return false;
         }
         int i, j;
         boolean result = false;
@@ -117,5 +139,4 @@ public class GeofenceServiceImpl implements GeofenceService {
         }
         return result;
     }
-    // Implement other methods (update, delete)
 }

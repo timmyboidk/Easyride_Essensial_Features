@@ -2,11 +2,9 @@ package com.easyride.location_service.service;
 
 import com.easyride.location_service.dto.DriverLocationUpdateDto;
 import com.easyride.location_service.dto.LocationDataDto;
-import com.easyride.location_service.model.LocationResponse; // Existing
-import com.easyride.location_service.exception.ResourceNotFoundException; // Create this
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.easyride.location_service.model.LocationResponse;
+import com.easyride.location_service.exception.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,13 +15,12 @@ import org.springframework.data.redis.core.ListOperations; // For trip path
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate; // Or WebClient
-
-import jakarta.annotation.PostConstruct; // if using ValueOperations bean
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.Map;
 
 @Service
 public class LocationServiceImpl implements LocationService {
@@ -41,7 +38,8 @@ public class LocationServiceImpl implements LocationService {
     private ValueOperations<String, Object> valueOps;
     private ListOperations<String, Object> listOps; // For storing trip paths
     private final ObjectMapper objectMapper;
-
+    @Autowired // Add SafetyService
+    private SafetyService safetyService;
 
     @Autowired
     public LocationServiceImpl(RestTemplate restTemplate, RedisTemplate<String, Object> redisTemplate, ObjectMapper objectMapper) {
@@ -49,13 +47,6 @@ public class LocationServiceImpl implements LocationService {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
     }
-
-    @PostConstruct
-    private void init() {
-        valueOps = redisTemplate.opsForValue();
-        listOps = redisTemplate.opsForList();
-    }
-
 
     @Override
     public LocationResponse getLocationInfo(double latitude, double longitude) {
@@ -85,21 +76,17 @@ public class LocationServiceImpl implements LocationService {
                 updateDto.getLatitude(),
                 updateDto.getLongitude(),
                 timestamp,
-                updateDto.getOrderId(), // Store orderId if provided
-                null // Formatted address not typically stored with every real-time update
+                updateDto.getOrderId(),
+                null
         );
 
         valueOps.set(key, locationData, DRIVER_LOCATION_TTL_SECONDS, TimeUnit.SECONDS);
         log.info("Updated location for driver {}: {}", driverId, locationData);
 
-        // If an order is active, also record it as part of the trip path
         if (updateDto.getOrderId() != null) {
             recordTripLocation(updateDto.getOrderId(), driverId, updateDto.getLatitude(), updateDto.getLongitude(), timestamp);
+            safetyService.checkRouteDeviation(updateDto.getOrderId(), driverId, updateDto.getLatitude(), updateDto.getLongitude());
         }
-
-        // TODO: Consider publishing a DRIVER_LOCATION_UPDATED event to a topic
-        // if other services need to react in real-time (e.g., for map display on passenger app via WebSockets)
-        // Example: rocketMQTemplate.convertAndSend("driver-location-stream-topic", locationData);
     }
 
     @Override
@@ -167,18 +154,5 @@ public class LocationServiceImpl implements LocationService {
                 .collect(Collectors.toList());
     }
 
-    @Autowired // Add SafetyService
-    private SafetyService safetyService;
 
-    @Override
-    public void updateDriverLocation(Long driverId, DriverLocationUpdateDto updateDto) {
-        // ... (existing update logic) ...
-        valueOps.set(key, locationData, DRIVER_LOCATION_TTL_SECONDS, TimeUnit.SECONDS);
-        log.info("Updated location for driver {}: {}", driverId, locationData);
-
-        if (updateDto.getOrderId() != null) {
-            recordTripLocation(updateDto.getOrderId(), driverId, updateDto.getLatitude(), updateDto.getLongitude(), timestamp);
-            // Check for route deviation if an order is active
-            safetyService.checkRouteDeviation(updateDto.getOrderId(), driverId, updateDto.getLatitude(), updateDto.getLongitude());
-        }
 }

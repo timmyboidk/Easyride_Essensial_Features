@@ -2,7 +2,9 @@ package com.easyride.location_service.service;
 
 import com.easyride.location_service.dto.DriverLocationUpdateDto;
 import com.easyride.location_service.dto.LocationDataDto;
-import com.easyride.location_service.model.LocationResponse; // Existing for geocoding
+import com.easyride.location_service.model.LocationResponse;
+import java.time.Instant;
+import java.util.List;
 
 public interface LocationService {
     // Existing geocoding method
