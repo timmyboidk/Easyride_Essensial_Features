@@ -14,6 +14,7 @@ import lombok.*;
 public class LocationResponseEvent {
 
     private String correlationId;
+    private String locationType;          // "START" or "END"
     private String formattedAddress;      // 谷歌地图 API 返回的地址
     private String placeId;              // 例如 Google Place ID
     // 也可加入更多字段，如行政区、城市、邮编等

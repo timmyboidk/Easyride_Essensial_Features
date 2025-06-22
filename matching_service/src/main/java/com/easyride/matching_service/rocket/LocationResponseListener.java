@@ -33,11 +33,11 @@ public class LocationResponseListener implements RocketMQListener<LocationRespon
     @Override
     public void onMessage(LocationResponseEvent event) {
         log.info("Received LocationResponseEvent for orderId {} (type: {}): Address='{}'",
-                event.getOriginalRequestId(), // Assuming originalRequestId is orderId
-                event.getLocationType(), // Assuming you add a field like "START" or "END"
+                event.getCorrelationId(), // Corrected: Use correlationId instead of non-existent originalRequestId
+                event.getLocationType(),
                 event.getFormattedAddress());
 
-        Long orderId = event.getOriginalRequestId(); // Assuming this convention
+        Long orderId = Long.parseLong(event.getCorrelationId()); // Corrected: Parse string ID to Long
         String orderKey = PENDING_ORDER_GEOCODING_KEY_PREFIX + orderId;
 
         try {
@@ -48,18 +48,17 @@ public class LocationResponseListener implements RocketMQListener<LocationRespon
             }
             MatchRequestDto matchRequest = objectMapper.readValue(cachedOrderJson, MatchRequestDto.class);
 
-            boolean startUpdated = matchRequest.getStartAddressFormatted() != null;
-            boolean endUpdated = matchRequest.getEndAddressFormatted() != null;
-
             if ("START".equalsIgnoreCase(event.getLocationType())) {
                 matchRequest.setStartAddressFormatted(event.getFormattedAddress());
-                startUpdated = true;
             } else if ("END".equalsIgnoreCase(event.getLocationType())) {
                 matchRequest.setEndAddressFormatted(event.getFormattedAddress());
-                endUpdated = true;
             }
 
-            if (startUpdated && endUpdated) {
+            // Check if both addresses are now populated
+            boolean isReadyForMatching = matchRequest.getStartAddressFormatted() != null &&
+                    matchRequest.getEndAddressFormatted() != null;
+
+            if (isReadyForMatching) {
                 log.info("Both start and end locations geocoded for orderId: {}. Triggering matching.", orderId);
                 redisTemplate.delete(orderKey); // Remove from cache
                 matchingService.findAndAssignDriver(matchRequest); // Now call the matching logic

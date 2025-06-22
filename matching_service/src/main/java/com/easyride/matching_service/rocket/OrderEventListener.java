@@ -1,9 +1,8 @@
 package com.easyride.matching_service.rocket;
 
 import com.easyride.matching_service.dto.LocationRequestEvent;
-import com.easyride.matching_service.dto.MatchRequestDto; // Use this
-import com.easyride.matching_service.dto.OrderCreatedEvent; // This is the incoming event from Order Service
-// import com.easyride.matching_service.service.MatchingService; // Will be called by LocationResponseListener
+import com.easyride.matching_service.dto.MatchRequestDto;
+import com.easyride.matching_service.dto.OrderCreatedEvent; //  incoming event from Order Service
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
@@ -56,8 +55,8 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
                 orderEvent.getEndLatitude(),
                 orderEvent.getEndLongitude(),
                 null, // End address to be geocoded
-                orderEvent.getVehicleType().name(), // Assuming VehicleType is an enum in OrderCreatedEvent
-                orderEvent.getServiceType().name(), // Assuming ServiceType is an enum
+                orderEvent.getVehicleType(), // Corrected: Removed .name()
+                orderEvent.getServiceType(), // Corrected: Removed .name()
                 orderEvent.getEstimatedCost(),
                 orderEvent.getScheduledTime(),
                 orderEvent.getOrderTime(),
@@ -74,7 +73,7 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
 
             // Send LocationRequestEvents for start and end locations
             LocationRequestEvent startLocReq = new LocationRequestEvent(
-                    orderEvent.getOrderId(), // Use orderId as originalRequestId
+                    orderEvent.getOrderId().toString(), // Corrected: Use toString() for correlationId
                     "START",
                     orderEvent.getStartLatitude(),
                     orderEvent.getStartLongitude()
@@ -83,7 +82,7 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
             log.info("Sent LocationRequestEvent for START location of orderId {}", orderEvent.getOrderId());
 
             LocationRequestEvent endLocReq = new LocationRequestEvent(
-                    orderEvent.getOrderId(),
+                    orderEvent.getOrderId().toString(), // Corrected: Use toString() for correlationId
                     "END",
                     orderEvent.getEndLatitude(),
                     orderEvent.getEndLongitude()

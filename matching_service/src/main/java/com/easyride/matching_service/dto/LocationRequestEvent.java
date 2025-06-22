@@ -14,6 +14,7 @@ import java.util.UUID;
 public class LocationRequestEvent {
 
     private String correlationId;    // 用于跟踪请求与响应
+    private String locationType;     // "START" or "END"
     private Double latitude;
     private Double longitude;
 }

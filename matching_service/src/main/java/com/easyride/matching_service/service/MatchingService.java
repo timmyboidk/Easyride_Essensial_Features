@@ -1,26 +1,50 @@
 package com.easyride.matching_service.service;
 
+import com.easyride.matching_service.dto.AvailableOrderDto;
+import com.easyride.matching_service.dto.DriverAssignedEventDto;
+import com.easyride.matching_service.dto.DriverStatusUpdateDto;
 import com.easyride.matching_service.dto.MatchRequestDto;
+import java.util.List;
 
 public interface MatchingService {
 
     /**
-     * 自动匹配逻辑：根据乘客位置、订单需求等计算并返回最合适的司机ID
+     * Finds the best-suited driver for a given match request, assigns the order,
+     * and returns the assignment details.
+     *
+     * @param request The details of the match request.
+     * @return A DTO containing details of the driver assignment, or null if no driver was found.
      */
-    Long matchDriver(MatchRequestDto request);
+    DriverAssignedEventDto findAndAssignDriver(MatchRequestDto request);
 
     /**
-     * 更新司机状态信息，如位置、可用性等
+     * Updates a driver's status, including their availability and location.
+     *
+     * @param driverId        The ID of the driver to update.
+     * @param statusUpdateDto A DTO containing the updated status information.
      */
-    void updateDriverStatus(Long driverId, double lat, double lon, boolean available, double rating, String vehicleType);
+    void updateDriverStatus(Long driverId, DriverStatusUpdateDto statusUpdateDto);
 
     /**
-     * 手动/自动接单处理
-     * 例如，如果司机点击接受订单，可在这里更新状态
+     * Makes an order available for drivers to see and "grab" or accept manually.
+     *
+     * @param matchRequest The details of the order to make available.
      */
     void makeOrderAvailableForGrabbing(MatchRequestDto matchRequest);
-    List<AvailableOrderDto> getAvailableOrdersForDriver(/* Long driverId, DriverPreferences preferences */);
-    boolean acceptOrder(Long orderId, Long driverId); // For grabbing
-    // ... (inside MatchingService interface)
-    void updateDriverStatus(Long driverId, DriverStatusUpdateDto statusUpdateDto);
+
+    /**
+     * Retrieves a list of orders that are currently available for a driver to accept.
+     *
+     * @return A list of available orders.
+     */
+    List<AvailableOrderDto> getAvailableOrdersForDriver();
+
+    /**
+     * Allows a driver to accept or "grab" an available order.
+     *
+     * @param orderId  The ID of the order to accept.
+     * @param driverId The ID of the driver accepting the order.
+     * @return true if the order was successfully accepted, false otherwise.
+     */
+    boolean acceptOrder(Long orderId, Long driverId);
 }
