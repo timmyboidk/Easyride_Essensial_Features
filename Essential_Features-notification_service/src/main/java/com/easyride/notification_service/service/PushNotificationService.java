@@ -6,6 +6,8 @@ import com.eatthepath.pushy.apns.PushNotificationResponse;
 import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
 import com.eatthepath.pushy.apns.util.TokenUtil;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
+import com.eatthepath.pushy.apns.SimpleApnsPushNotification;
+import com.eatthepath.pushy.apns.ApnsPushNotification;
 
 // FCM (Firebase) imports
 import com.google.firebase.messaging.*; // FirebaseMessaging, Message, Notification etc.
@@ -18,7 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 @Service
-public class PushNotificationService  {
+public class PushNotificationService implements NotificationService {
 
     private static final Logger log = LoggerFactory.getLogger(PushNotificationService.class);
 
@@ -39,6 +41,21 @@ public class PushNotificationService  {
         this.firebaseMessaging = FirebaseMessaging.getInstance(firebaseApp);
     }
 
+    @Override
+    public boolean sendNotification(String deviceToken, String message) {
+        // Create a simple payload.
+        NotificationPayloadDto payload = NotificationPayloadDto.builder()
+                .title("Notification")
+                .body(message)
+                .build();
+
+        // In a real application, you would need a mechanism to determine
+        // if the token is for APNs (Apple) or FCM (Android).
+        // For this example, we'll just call the APNs method.
+        sendApnsPush(deviceToken, payload);
+        return true;
+    }
+
     public void sendApnsPush(String deviceToken, NotificationPayloadDto payload) {
         final String apnsPayload = new SimpleApnsPayloadBuilder()
                 .setAlertTitle(payload.getTitle())
@@ -50,11 +67,11 @@ public class PushNotificationService  {
         final String token = TokenUtil.sanitizeTokenString(deviceToken);
         log.info("Sending APNS push to token {}: {}", token, apnsPayload);
 
-        final PushNotificationFuture<com.eatthepath.pushy.apns.SimpleApnsPushNotification, PushNotificationResponse<com.eatthepath.pushy.apns.SimpleApnsPushNotification>> sendNotificationFuture =
-                apnsClient.sendNotification(new com.eatthepath.pushy.apns.SimpleApnsPushNotification(token, apnsBundleId, apnsPayload));
+        final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
+                apnsClient.sendNotification(new SimpleApnsPushNotification(token, apnsBundleId, apnsPayload));
 
         try {
-            final PushNotificationResponse<com.eatthepath.pushy.apns.SimpleApnsPushNotification> pushNotificationResponse =
+            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
                     sendNotificationFuture.get(); // Wait for response
 
             if (pushNotificationResponse.isAccepted()) {

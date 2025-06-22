@@ -24,39 +24,44 @@ public class EmailNotificationService implements NotificationService {
 
     @Override
     public boolean sendNotification(String recipient, String message) {
-        return sendEmail(recipient, message);
+        // Overloaded method for backward compatibility or simple notifications
+        return sendEmail(recipient, "Notification", message);
     }
 
     /**
-     * 发送邮件的实现方法
+     * Sends an email with a specified subject and body.
+     * @param recipient The recipient's email address.
+     * @param subject The subject of the email.
+     * @param message The body of the email.
+     * @return true if the email was sent successfully, false otherwise.
      */
-    public boolean sendEmail(String recipient, String message) {
+    public boolean sendEmail(String recipient, String subject, String message) {
         try {
-            // 设置邮件服务器属性
+            // Set mail server properties
             Properties properties = new Properties();
             properties.put("mail.smtp.host", smtpHost);
             properties.put("mail.smtp.port", smtpPort);
             properties.put("mail.smtp.auth", "true");
             properties.put("mail.smtp.starttls.enable", "true");
 
-            // 创建认证对象
+            // Create an authenticator
             Authenticator authenticator = new Authenticator() {
                 protected PasswordAuthentication getPasswordAuthentication() {
                     return new PasswordAuthentication(username, password);
                 }
             };
 
-            // 创建 Session 对象
+            // Create a Session object
             Session session = Session.getInstance(properties, authenticator);
 
-            // 创建邮件
+            // Create the email
             MimeMessage mimeMessage = new MimeMessage(session);
             mimeMessage.setFrom(new InternetAddress(username));
             mimeMessage.setRecipient(Message.RecipientType.TO, new InternetAddress(recipient));
-            mimeMessage.setSubject("Notification");
+            mimeMessage.setSubject(subject);
             mimeMessage.setText(message);
 
-            // 发送邮件
+            // Send the email
             Transport.send(mimeMessage);
             System.out.println("Email sent successfully to: " + recipient);
             return true;
@@ -67,4 +72,3 @@ public class EmailNotificationService implements NotificationService {
         }
     }
 }
-
