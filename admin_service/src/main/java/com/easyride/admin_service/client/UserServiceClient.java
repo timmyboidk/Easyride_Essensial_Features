@@ -2,10 +2,8 @@ package com.easyride.admin_service.client;
 
 import com.easyride.admin_service.dto.*; // Common DTOs for communication
 import org.springframework.cloud.openfeign.FeignClient;
-import org.springframework.data.domain.Page; // If User Service returns Page
+import org.springframework.data.domain.Page;
 import org.springframework.web.bind.annotation.*;
-// Assuming a common ApiResponse DTO
-// import com.easyride.common.dto.ApiResponse;
 
 
 // Name should be the application name of User Service
