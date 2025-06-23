@@ -90,7 +90,7 @@ public class ComplaintServiceImpl implements ComplaintService {
             log.error("Failed to send COMPLAINT_FILED event for complaint ID {}: ", savedComplaint.getId(), e);
         }
 
-        return complaintMapper.toDto(savedComplaint);
+        return complaintMapper.toDTO(savedComplaint);
     }
 
     @Override

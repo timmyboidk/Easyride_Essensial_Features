@@ -6,6 +6,8 @@ import com.evaluation.service.ComplaintService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
 import javax.validation.Valid;
 import java.util.List;
 
@@ -25,10 +27,13 @@ public class ComplaintController {
      * @param complaintDTO 投诉数据
      * @return 创建的投诉信息
      */
-    @PostMapping
+    @PostMapping(consumes = {"multipart/form-data"})
     public ResponseEntity<ApiResponse<ComplaintDTO>> fileComplaint(
-            @Valid @RequestBody ComplaintDTO complaintDTO) {
-        ComplaintDTO createdComplaint = complaintService.fileComplaint(complaintDTO);
+            @Valid @RequestPart("complaint") ComplaintDTO complaintDTO,
+            @RequestPart(name = "evidenceFiles", required = false) List<MultipartFile> evidenceFiles) {
+
+        ComplaintDTO createdComplaint = complaintService.fileComplaint(complaintDTO, evidenceFiles);
+
         ApiResponse<ComplaintDTO> response = new ApiResponse<>(
                 201,
                 "投诉已提交",
