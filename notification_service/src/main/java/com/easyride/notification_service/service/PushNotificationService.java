@@ -1,19 +1,19 @@
 package com.easyride.notification_service.service;
 
 // APNS (Pushy) imports
+
+import com.easyride.notification_service.dto.NotificationPayloadDto;
 import com.eatthepath.pushy.apns.ApnsClient;
 import com.eatthepath.pushy.apns.PushNotificationResponse;
 import com.eatthepath.pushy.apns.util.SimpleApnsPayloadBuilder;
+import com.eatthepath.pushy.apns.util.SimpleApnsPushNotification;
 import com.eatthepath.pushy.apns.util.TokenUtil;
 import com.eatthepath.pushy.apns.util.concurrent.PushNotificationFuture;
-import com.eatthepath.pushy.apns.SimpleApnsPushNotification;
-import com.eatthepath.pushy.apns.ApnsPushNotification;
-
-// FCM (Firebase) imports
-import com.google.firebase.messaging.*; // FirebaseMessaging, Message, Notification etc.
-import com.google.firebase.FirebaseApp; // To ensure app is initialized
-
-import com.easyride.notification_service.dto.NotificationPayloadDto; // New DTO
+import com.google.firebase.FirebaseApp;
+import com.google.firebase.messaging.FirebaseMessaging;
+import com.google.firebase.messaging.FirebaseMessagingException;
+import com.google.firebase.messaging.Message;
+import com.google.firebase.messaging.Notification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
