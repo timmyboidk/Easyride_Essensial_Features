@@ -53,8 +53,6 @@ public class EvaluationServiceImpl implements EvaluationService {
      */
     @Override
     @Transactional
-    @Override
-    @Transactional
     public EvaluationDTO createEvaluation(EvaluationDTO evaluationDTO) {
         log.info("Attempting to create evaluation from evaluator {} to evaluatee {}", evaluationDTO.getEvaluatorId(), evaluationDTO.getEvaluateeId());
         // Validate user existence (uncomment when UserClient is confirmed working)

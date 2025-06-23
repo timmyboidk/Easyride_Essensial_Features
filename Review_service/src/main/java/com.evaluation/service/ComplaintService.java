@@ -1,7 +1,9 @@
 package com.evaluation.service;
 
 import com.evaluation.dto.ComplaintDTO;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 /**
@@ -13,9 +15,10 @@ public interface ComplaintService {
      * 提交新的投诉
      *
      * @param complaintDTO 投诉数据传输对象
+     * @param evidenceFiles 证据文件
      * @return 创建后的投诉数据传输对象
      */
-    ComplaintDTO fileComplaint(ComplaintDTO complaintDTO);
+    ComplaintDTO fileComplaint(ComplaintDTO complaintDTO, List<MultipartFile> evidenceFiles);
 
     /**
      * 根据评价ID获取所有相关投诉
@@ -32,4 +35,8 @@ public interface ComplaintService {
      * @return 投诉列表
      */
     List<ComplaintDTO> getComplaintsByComplainant(Long complainantId);
+
+    Page<ComplaintDTO> getAllComplaintsForAdmin(Pageable pageable, String status);
+
+    ComplaintDTO adminUpdateComplaintStatus(Long complaintId, String newStatus, String adminNotes, Long adminId);
 }
