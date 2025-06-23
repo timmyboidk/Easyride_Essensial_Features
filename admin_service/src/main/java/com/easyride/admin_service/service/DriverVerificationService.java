@@ -27,8 +27,10 @@ public class DriverVerificationService {
         BackgroundCheckResult checkResult = backgroundCheckService.performCheck(driverId, licenseInfo);
 
         // 3. 更新司机状态
-        driverService.updateVerificationStatus(driverId, checkResult.getStatus());
+        // Corrected from checkResult.getStatus() to checkResult.status()
+        driverService.updateVerificationStatus(driverId, checkResult.status());
 
-        return new DriverVerificationResult(driverId, checkResult.getStatus(), licenseInfo);
+        // Corrected from checkResult.getStatus() to checkResult.status()
+        return new DriverVerificationResult(driverId, checkResult.status(), licenseInfo);
     }
 }

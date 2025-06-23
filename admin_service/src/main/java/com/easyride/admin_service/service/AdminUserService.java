@@ -1,7 +1,6 @@
 package com.easyride.admin_service.service;
 
 import com.easyride.admin_service.dto.*; // DTOs used within Admin Service
-import org.springframework.data.domain.Page; // For returning paged results
 
 public interface AdminUserService {
     UserPageDto_FromUserService listUsers(int page, int size, String role, String searchTerm);
