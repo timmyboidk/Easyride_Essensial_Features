@@ -1,23 +1,30 @@
 package com.easyride.payment_service.service;
 
 import com.easyride.payment_service.dto.WalletDto;
+import com.easyride.payment_service.repository.*;
 import com.easyride.payment_service.model.Payment;
+import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.model.Wallet;
 import com.easyride.payment_service.repository.WalletRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
+    private final PaymentRepository paymentRepository;
 
-    public WalletServiceImpl(WalletRepository walletRepository) {
+    public WalletServiceImpl(WalletRepository walletRepository, PaymentRepository paymentRepository) {
         this.walletRepository = walletRepository;
+        this.paymentRepository = paymentRepository;
     }
 
     @Override
@@ -70,12 +77,26 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     public List<Payment> getEarnings(Long driverId, LocalDateTime from, LocalDateTime to) {
-        // TODO: 实现查询指定时间范围内的收入记录，此处暂返回空列表
-        return new ArrayList<>();
+        // This now correctly calls the findAll() method on the instance variable 'paymentRepository'
+        return paymentRepository.findAll().stream()
+                .filter(payment -> driverId.equals(payment.getDriverId()))
+                .filter(payment -> payment.getStatus() == PaymentStatus.COMPLETED)
+                .filter(payment -> payment.getCreatedAt() != null && !payment.getCreatedAt().isBefore(from) && !payment.getCreatedAt().isAfter(to))
+                .collect(Collectors.toList());
     }
 
     private Long getDriverIdByOrderId(Long orderId) {
-        // TODO: 通过与 order_service 通信，获取订单对应的司机ID
-        return orderId; // 示例实现
+        // Implementation uses the existing repository method to find the payment by orderId.
+        // This is the only way to get the driverId without adding a Feign client.
+        Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
+
+        if (paymentOpt.isPresent()) {
+            return paymentOpt.get().getDriverId();
+        } else {
+            // If no payment record is found, we cannot determine the driver ID.
+            log.error("Could not find driver ID for order {}. No payment record exists.", orderId);
+            // The original TODO suggested communicating with order_service
+            return null;
+        }
     }
 }

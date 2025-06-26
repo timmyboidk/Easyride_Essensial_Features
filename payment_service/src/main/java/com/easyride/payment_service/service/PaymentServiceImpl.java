@@ -11,6 +11,9 @@ import com.easyride.payment_service.repository.PaymentRepository;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
 import com.easyride.payment_service.util.EncryptionUtil;
 import com.easyride.payment_service.util.PaymentGatewayUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -18,6 +21,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
@@ -118,13 +122,49 @@ public class PaymentServiceImpl implements PaymentService {
         return strategyResponse;
     }
 
-    @Override
+    @Transactional
     public void handlePaymentNotification(String notificationPayload) {
-        // This method should parse the notification and update payment status accordingly.
-        // For example, finding the payment by an ID in the payload and updating its status.
+        // This method parses the notification and updates payment status accordingly.
         log.info("Received payment notification payload: {}", notificationPayload);
-        // TODO: Implement parsing and handling logic
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, String> notificationMap = objectMapper.readValue(notificationPayload, new TypeReference<>() {});
+
+            Long OrderId = Long.valueOf(notificationMap.get("OrderId"));
+            String status = notificationMap.get("status");
+
+            if (OrderId == null || status == null) {
+                log.error("Invalid notification payload: {}", notificationPayload);
+                return;
+            }
+
+            Payment payment = paymentRepository.findByOrderId(OrderId)
+                    .orElseThrow(() -> new RuntimeException("Payment not found for transaction ID: " + OrderId));
+
+            if (payment.getStatus() != PaymentStatus.PENDING) {
+                log.warn("Payment {} has already been processed with status: {}", payment.getId(), payment.getStatus());
+                return;
+            }
+
+            if ("SUCCESS".equalsIgnoreCase(status)) {
+                payment.setStatus(PaymentStatus.COMPLETED);
+                Long driverId = getDriverIdByOrderId(payment.getOrderId());
+                if (driverId != null) {
+                    walletService.addFunds(driverId, payment.getAmount());
+                } else {
+                    log.error("Could not credit wallet for payment {}. Driver ID could not be determined.", payment.getId());
+                }
+            } else {
+                payment.setStatus(PaymentStatus.FAILED);
+            }
+            paymentRepository.save(payment);
+            log.info("Payment {} status updated to {}", payment.getId(), payment.getStatus());
+
+        } catch (IOException e) {
+            log.error("Failed to parse payment notification payload.", e);
+        }
     }
+
 
     @Override
     @Transactional
@@ -186,7 +226,9 @@ public class PaymentServiceImpl implements PaymentService {
         if (paymentOpt.isPresent() && paymentOpt.get().getDriverId() != null) {
             return paymentOpt.get().getDriverId();
         }
-        // TODO: Implement fallback logic to get driver ID, e.g., from another service.
+        // Fallback logic: Without being able to call another service (which would require new models/clients),
+        // we cannot retrieve the driver ID if it's not present in the payment record.
+        log.warn("Driver ID for order {} not found in the local payment record. Fallback to another service is not possible under current constraints.", orderId);
         return null;
     }
 

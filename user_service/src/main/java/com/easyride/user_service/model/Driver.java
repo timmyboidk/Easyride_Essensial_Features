@@ -29,7 +29,7 @@ public class Driver extends User {
     private DriverApprovalStatus approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Default
 
     public Driver(String username, String password, String email, String phoneNumber) {
-        super(username, password, email, Role.DRIVER, true, LocalDateTime.now(), LocalDateTime.now(), phoneNumber);
+        super();
         this.approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Or PENDING_REVIEW after DTO is processed
     }
 }
