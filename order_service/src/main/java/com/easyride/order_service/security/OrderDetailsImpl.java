@@ -34,6 +34,10 @@ public class OrderDetailsImpl implements UserDetails {
                 authorities);
     }
 
+    public long getId() {
+        return id;
+    }
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;

@@ -4,7 +4,7 @@ import com.easyride.order_service.dto.OrderCreatedEvent;
 import com.easyride.order_service.dto.OrderEventDto;
 import com.easyride.order_service.dto.OrderPaymentSettledEvent;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
-import lombok.Value;
+import org.springframework.beans.factory.annotation.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;

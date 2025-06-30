@@ -25,7 +25,7 @@ public class OrderDetailServiceImpl implements UserDetailsService {
 
     @Transactional
     public OrderDetailsImpl loadUserById(Long id) {
-        User user = UserRepository.findById(id)
+        User user = userRepository.findById(id)
                 .orElseThrow(() -> new UsernameNotFoundException("用户未找到，ID：" + id));
         return OrderDetailsImpl.build(user);
     }
