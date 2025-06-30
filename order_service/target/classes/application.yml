@@ -24,6 +24,10 @@ rocketmq:
   name-server: 127.0.0.1:9876
   producer:
     group: user-producer-group  # 对于 user_service，可设置为 user-producer-group
+    topics:
+      order-created: order-created-topic-dev # 开发环境的topic
+      order-status: order-status-topic-dev
+      payment-settled: payment-settled-topic-dev
   consumer:
     group: order-service-group   # 对于 order_service 中的消费者
 
