@@ -7,12 +7,14 @@ spring:
 
   # 若使用数据库
   datasource:
-    url: jdbc:mysql://localhost:3306/matching_db?useSSL=false&characterEncoding=UTF-8
-    username: root
-    password: root
+    url: jdbc:mysql://localhost:3306/payment_service_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: matching
+    password: 2721388927
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: true
 
 rocketmq:
   name-server: localhost:9876
