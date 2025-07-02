@@ -23,12 +23,7 @@ spring:
 rocketmq:
   name-server: 127.0.0.1:9876
   producer:
-    group: location-producer-group  # 对于 user_service，可设置为 user-producer-group
-    topics:
-  consumer:
-    group: location-service-group   # 对于 order_service 中的消费者
-
-
+    group: location-producer-group
 
 jwt:
   secret: your_very_long_jwt_secret_key_that_is_at_least_32_characters_long
@@ -38,3 +33,8 @@ logging:
   level:
     root: INFO
     org.springframework.web: DEBUG
+    
+google:
+  maps:
+    api:
+      key: YOUR_Maps_API_KEY_HERE
