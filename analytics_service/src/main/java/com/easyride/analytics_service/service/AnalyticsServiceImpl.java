@@ -21,10 +21,10 @@ import java.util.stream.Collectors;
 public class AnalyticsServiceImpl implements AnalyticsService {
     private static final Logger log = LoggerFactory.getLogger(AnalyticsServiceImpl.class);
     private final AnalyticsRepository analyticsRepository;
-    private final RedisTemplate<String, String> redisTemplate; // For unique user tracking with HLL or Sets
+    private final RedisTemplate<String, Object> redisTemplate;// For unique user tracking with HLL or Sets
 
     @Autowired
-    public AnalyticsServiceImpl(AnalyticsRepository analyticsRepository, RedisTemplate<String, String> redisTemplate) {
+    public AnalyticsServiceImpl(AnalyticsRepository analyticsRepository, RedisTemplate<String, Object> redisTemplate) {
         this.analyticsRepository = analyticsRepository;
         this.redisTemplate = redisTemplate;
     }
