@@ -8,7 +8,6 @@ import com.evaluation.model.Evaluation;
 import com.evaluation.model.Tag;
 import com.evaluation.repository.EvaluationRepository;
 import com.evaluation.repository.TagRepository;
-import com.evaluation.util.Constants;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
