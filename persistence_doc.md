@@ -116,6 +116,8 @@ EasyRide Persistence Design Document
     -   `dropoff_location_lat` (DECIMAL(10, 8), NOT NULL): Dropoff location latitude.
 
     -   `dropoff_location_lon` (DECIMAL(11, 8), NOT NULL): Dropoff location longitude.
+ 
+    -   `passenger_count` (TINYINT, NOT NULL, DEFAULT 1): Number of passengers.
 
     -   `estimated_fare` (DECIMAL(10, 2), NOT NULL): Estimated fare.
 
