@@ -51,7 +51,7 @@ public class OrderServiceImpl implements OrderService {
                     log.warn("Passenger entity not found for ID {}, creating a placeholder.", orderCreateDto.getPassengerId());
                     Passenger newP = new Passenger();
                     newP.setId(orderCreateDto.getPassengerId());
-                    newP.setName("Passenger " + orderCreateDto.getPassengerId()); // Placeholder name
+                    newP.setUsername("Passenger " + orderCreateDto.getPassengerId()); // Placeholder name
                     return passengerRepository.save(newP);
                 });
 
@@ -190,7 +190,7 @@ public class OrderServiceImpl implements OrderService {
             log.warn("Driver entity not found locally for ID {}, creating a placeholder.", event.getDriverId());
             Driver newDriver = new Driver();
             newDriver.setId(event.getDriverId());
-            newDriver.setName(event.getDriverName() != null ? event.getDriverName() : "Driver " + event.getDriverId());
+            newDriver.setUsername(event.getDriverName() != null ? event.getDriverName() : "Driver " + event.getDriverId());
             newDriver.setAvailable(false);
             return driverRepository.save(newDriver);
         });
@@ -251,6 +251,7 @@ public class OrderServiceImpl implements OrderService {
             order.setFinalCost(finalPrice.getFinalCost());
             order.setActualDistance(finalPrice.getActualDistance());
             order.setActualDuration(finalPrice.getActualDuration());
+            order.setStatus(OrderStatus.PAYMENT_SETTLED);
             orderRepository.save(order);
 
             log.info("Order ID {} status updated to PAYMENT_SETTLED. Final cost: {}", orderId, finalAmount);
@@ -283,7 +284,7 @@ public class OrderServiceImpl implements OrderService {
                 order.getEstimatedCost(),
                 order.getScheduledTime(),
                 order.getOrderTime(),
-                order.getPassenger().getName()
+                order.getPassenger().getUsername()
         );
     }
 
@@ -291,8 +292,8 @@ public class OrderServiceImpl implements OrderService {
         return new OrderResponseDto(
                 order.getId(),
                 order.getStatus(),
-                order.getPassenger().getName(),
-                order.getDriver() != null ? order.getDriver().getName() : null,
+                order.getPassenger().getUsername(),
+                order.getDriver() != null ? order.getDriver().getUsername() : null,
                 order.getEstimatedCost(),
                 order.getEstimatedDistance(),
                 order.getEstimatedDuration()

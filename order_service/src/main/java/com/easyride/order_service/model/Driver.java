@@ -10,11 +10,10 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Driver extends User {
-
-    @Id
-    private Long id;
-
-    private String name;
+    // id 和 name/username 字段已从父类 User 继承，此处无需重复定义
+    // @Id
+    // private Long id;
+    // private String name;
 
     @Enumerated(EnumType.STRING)
     private VehicleType vehicleType;
