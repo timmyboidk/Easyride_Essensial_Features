@@ -22,6 +22,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
+import com.easyride.admin_service.dto.DriverApplicationReviewedEvent;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.beans.factory.annotation.Value;
+import com.easyride.admin_service.dto.DriverApplicationEventDto_Consumed;
+
 
 import java.time.LocalDateTime;
 
@@ -31,18 +36,23 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
 
     private final DriverApplicationRepository applicationRepository;
     private final DriverVerificationService driverVerificationService;
-    private final RestTemplate restTemplate;
+//    private final RestTemplate restTemplate;
+
+    @Autowired
+    private RocketMQTemplate rocketMQTemplate;
+
+    @Value("${rocketmq.topic.driver-review}")
+    private String driverReviewTopic;
 
     @Value("${service-urls.user-service}")
     private String userServiceBaseUrl;
 
     @Autowired
     public AdminDriverManagementServiceImpl(DriverApplicationRepository applicationRepository,
-                                            DriverVerificationService driverVerificationService,
-                                            RestTemplate restTemplate) {
+                                            DriverVerificationService driverVerificationService) {
         this.applicationRepository = applicationRepository;
         this.driverVerificationService = driverVerificationService;
-        this.restTemplate = restTemplate;
+//        this.restTemplate = restTemplate;
     }
 
     @Override
@@ -87,24 +97,23 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
             throw new IllegalStateException("Application cannot be approved as it is not pending review.");
         }
 
-        // Here you could add calls to driverVerificationService if needed
-        // boolean backgroundCheckOk = driverVerificationService.verifyBackground(driverId);
-        // if (!backgroundCheckOk) { ... }
-
-        // Update User Service BEFORE committing local transaction
-        AdminDriverUpdateDto userUpdate = new AdminDriverUpdateDto();
-        userUpdate.setApprovalStatus("APPROVED");
-        userUpdate.setEnabled(true);
-        updateDriverStatusInUserService(driverId, userUpdate, "approve");
-
-        // If User Service update is successful, update local status
+        // 1. 更新本地数据库状态
         app.setStatus(DriverApplicationStatus.APPROVED);
         app.setReviewedByAdminId(adminId);
         app.setReviewTime(LocalDateTime.now());
         app.setAdminNotes(notes);
         applicationRepository.save(app);
+        log.info("Driver application {} approved locally.", driverId);
 
-        log.info("Driver application {} approved locally and in User Service.", driverId);
+
+        // 2. 创建并发送消息到 MQ，通知 user_service
+        DriverApplicationReviewedEvent event = new DriverApplicationReviewedEvent(
+                driverId,
+                "APPROVED",
+                notes
+        );
+        rocketMQTemplate.convertAndSend(driverReviewTopic, event);
+        log.info("Sent DRIVER_APPLICATION_REVIEWED (APPROVED) event for driver {}", driverId);
     }
 
     @Override
@@ -113,49 +122,32 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         log.info("Admin {} attempting to reject driver application for ID {} with reason: {}", adminId, driverId, reason);
         DriverApplication app = findApplicationById(driverId);
 
-        // Update User Service BEFORE committing local transaction
-        AdminDriverUpdateDto userUpdate = new AdminDriverUpdateDto();
-        userUpdate.setApprovalStatus("REJECTED");
-        userUpdate.setEnabled(false); // Or based on business rules
-        updateDriverStatusInUserService(driverId, userUpdate, "reject");
-
-        // If User Service update is successful, update local status
+        // 1. 更新本地数据库状态
         app.setStatus(DriverApplicationStatus.REJECTED);
         app.setReviewedByAdminId(adminId);
         app.setReviewTime(LocalDateTime.now());
-        app.setAdminNotes("Reason: " + reason + ". Notes: " + notes);
+        String fullNotes = "Reason: " + reason + ". Notes: " + notes;
+        app.setAdminNotes(fullNotes);
         applicationRepository.save(app);
+        log.info("Driver application {} rejected locally.", driverId);
 
-        log.info("Driver application {} rejected locally and in User Service.", driverId);
+        // 2. 创建并发送消息到 MQ，通知 user_service
+        DriverApplicationReviewedEvent event = new DriverApplicationReviewedEvent(
+                driverId,
+                "REJECTED",
+                fullNotes
+        );
+        rocketMQTemplate.convertAndSend(driverReviewTopic, event);
+        log.info("Sent DRIVER_APPLICATION_REVIEWED (REJECTED) event for driver {}", driverId);
     }
 
+    // `updateDriverStatusInUserService` 方法已不再需要，可以安全删除
+    /*
     private void updateDriverStatusInUserService(Long driverId, AdminDriverUpdateDto updateDto, String action) {
-        String url = userServiceBaseUrl + "/admin/drivers/" + driverId;
-        log.debug("Executing PUT request to {} to {} driver.", url, action);
-        try {
-            HttpEntity<AdminDriverUpdateDto> requestEntity = new HttpEntity<>(updateDto);
-            ResponseEntity<ApiResponse<DriverDetailDto_FromUserService>> responseEntity = restTemplate.exchange(
-                    url,
-                    HttpMethod.PUT,
-                    requestEntity,
-                    new ParameterizedTypeReference<ApiResponse<DriverDetailDto_FromUserService>>() {}
-            );
-
-            ApiResponse<DriverDetailDto_FromUserService> apiResponse = responseEntity.getBody();
-
-            if (responseEntity.getStatusCode() != HttpStatus.OK || apiResponse == null) {
-                throw new ExternalServiceException(String.format("Failed to %s driver in User Service: Invalid response from server. Status: %s", action, responseEntity.getStatusCode()));
-            }
-            if (apiResponse.getCode() != 0) {
-                throw new ExternalServiceException(String.format("Failed to %s driver in User Service: %s", action, apiResponse.getMessage()));
-            }
-            log.info("Successfully updated driver {} status in User Service.", driverId);
-        } catch (RestClientException e) {
-            log.error("Error calling User Service to {} driver {}: {}", action, driverId, e.getMessage());
-            // Throwing exception here will cause the @Transactional method to roll back
-            throw new ExternalServiceException("Unable to connect to User Service to update driver status: " + e.getMessage());
-        }
+        ...
     }
+    */
+
 
     private DriverApplication findApplicationById(Long driverId) {
         return applicationRepository.findById(driverId)
@@ -172,4 +164,6 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         dto.setAdminNotes(app.getAdminNotes());
         return dto;
     }
+
+
 }

@@ -45,11 +45,12 @@ service-urls:
   # Analytics service URL if needed for direct calls (though often data flows one way to Analytics)
 
 rocketmq:
-  name-server: your-rocketmq-nameserver:9876
+  name-server: 127.0.0.1:9876 # 您的 RocketMQ 服务器地址
   producer:
-    group: admin-service-producer-group
-  consumer:
-    group: admin-service-consumer-group # Default group
+    group: admin_service_producer_group
+  # 定义业务 Topic
+  topic:
+    driver-review: DRIVER_APPLICATION_REVIEW_TOPIC
 
 # System configurations (examples, can be stored in DB too)
 easyride:
