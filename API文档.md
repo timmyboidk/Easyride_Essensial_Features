@@ -520,6 +520,43 @@ EasyRide 后端 API 文档 (终版)
 
     ```
 
+    #### **`GET /transactions` **
+
+-   **功能**: 获取当前认证司机的钱包交易历史记录（分页）。
+-   **认证**: 需要司机角色的JWT。
+-   **查询参数**:
+    -   `page` (int, 可选, 默认 0): 页码。
+    -   `size` (int, 可选, 默认 20): 每页大小。
+-   **成功响应 (200 OK)**:
+    ```json
+    {
+      "code": 0,
+      "message": "Success",
+      "data": {
+        "content": [
+          {
+            "transaction_id": 101,
+            "type": "INCOME",
+            "amount": 55.50,
+            "related_order_id": 1002,
+            "status": "COMPLETED",
+            "transaction_date": "2025-07-15T12:30:00Z"
+          },
+          {
+            "transaction_id": 102,
+            "type": "WITHDRAWAL",
+            "amount": -500.00,
+            "related_withdrawal_id": 45,
+            "status": "COMPLETED",
+            "transaction_date": "2025-07-14T10:00:00Z"
+          }
+        ],
+        "totalPages": 5,
+        "totalElements": 98
+      }
+    }
+    ```
+
 #### `POST /withdrawals`
 
 -   **功能**: 司机发起提现请求。
