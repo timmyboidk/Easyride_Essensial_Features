@@ -35,5 +35,17 @@ public class WalletController {
         LocalDateTime toDate = LocalDateTime.parse(to);
         return walletService.getEarnings(driverId, fromDate, toDate);
     }
+
+    @GetMapping("/transactions")
+    public ResponseEntity<ApiResponse<Page<WalletTransaction>>> getTransactions(
+            @AuthenticationPrincipal UserDetails userDetails, // 或者其他获取当前用户的方式
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        // 从 userDetails 获取 driverId
+        Long currentDriverId = ...;
+        Pageable pageable = PageRequest.of(page, size);
+        Page<WalletTransaction> transactions = walletService.getWalletTransactions(currentDriverId, pageable);
+        return ResponseEntity.ok(new ApiResponse<>(0, "Success", transactions));
+    }
 }
 

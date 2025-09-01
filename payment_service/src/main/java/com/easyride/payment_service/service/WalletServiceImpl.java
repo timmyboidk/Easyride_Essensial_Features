@@ -1,6 +1,8 @@
 package com.easyride.payment_service.service;
 
 import com.easyride.payment_service.dto.WalletDto;
+import com.easyride.payment_service.exception.ResourceNotFoundException;
+import com.easyride.payment_service.model.WalletTransaction;
 import com.easyride.payment_service.repository.*;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
@@ -10,6 +12,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
 
+import java.awt.print.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -21,10 +24,12 @@ public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
     private final PaymentRepository paymentRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
 
-    public WalletServiceImpl(WalletRepository walletRepository, PaymentRepository paymentRepository) {
+    public WalletServiceImpl(WalletRepository walletRepository, PaymentRepository paymentRepository,WalletTransactionRepository walletTransactionRepository) {
         this.walletRepository = walletRepository;
         this.paymentRepository = paymentRepository;
+        this.walletTransactionRepository = walletTransactionRepository;
     }
 
     @Override
@@ -99,4 +104,12 @@ public class WalletServiceImpl implements WalletService {
             return null;
         }
     }
+
+    @Override
+    public Page<WalletTransaction> getWalletTransactions(Long driverId, Pageable pageable) {
+        Wallet wallet = walletRepository.findByDriverId(driverId)
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet not found for driver " + driverId));
+        return walletTransactionRepository.findByWalletId(wallet.getId(), pageable);
+    }
+
 }
