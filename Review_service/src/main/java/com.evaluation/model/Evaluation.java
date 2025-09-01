@@ -58,6 +58,9 @@ public class Evaluation {
     // 更新时间
     private LocalDateTime updatedAt;
 
+    @Column(name = "tags", length = 255)
+    private String tags;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();

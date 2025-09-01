@@ -91,6 +91,11 @@ public class EvaluationServiceImpl implements EvaluationService {
         evaluation.setStatus(EvaluationStatus.ACTIVE); // New: Default status
         evaluation.setComplaintStatus("NONE"); // Existing
 
+        if (evaluationDTO.getTags() != null && !evaluationDTO.getTags().isEmpty()) {
+            String tagsAsString = String.join(",", evaluationDTO.getTags());
+            evaluation.setTags(tagsAsString);
+        }
+
         Evaluation savedEvaluation = evaluationRepository.save(evaluation);
         log.info("Evaluation (ID: {}) created successfully.", savedEvaluation.getId());
 
@@ -102,6 +107,8 @@ public class EvaluationServiceImpl implements EvaluationService {
             log.error("Failed to send EVALUATION_CREATED event for evaluation ID {}: ", savedEvaluation.getId(), e);
         }
         return evaluationMapper.toDto(savedEvaluation);
+
+
     }
     /**
      * 根据被评价者ID获取所有评价

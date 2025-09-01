@@ -21,7 +21,7 @@ public class EvaluationDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String complaintStatus;
-
+    private List<String> tags;
     /**
      * 全参构造函数
      *
