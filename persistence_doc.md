@@ -84,6 +84,8 @@ EasyRide Persistence Design Document
     -   `car_insurance_url` (VARCHAR(255), NOT NULL): Vehicle insurance policy URL.
 
     -   `verification_status` (ENUM('PENDING', 'APPROVED', 'REJECTED'), NOT NULL): Verification status.
+ 
+    -  `review_notes` (TEXT): Review Notes, to be filled in by the administrator.
 
     -   `service_rating_avg` (DECIMAL(3, 2)): Average service rating.
 
@@ -230,6 +232,8 @@ EasyRide Persistence Design Document
     -   `rating` (TINYINT, NOT NULL): Rating (1-5).
 
     -   `comment` (TEXT): Text review.
+         
+    -   `tags` (VARCHAR(255)): Rating Tags (e.g., “Clean vehicle, excellent service”).
 
     -   `review_time` (DATETIME, NOT NULL): Review time.
 
