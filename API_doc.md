@@ -1,4 +1,4 @@
-EasyRide Backend API Documentation (Final Version)
+EasyRide Backend API Documentation 
 =======================
 
 **Version**: 1.1
@@ -518,6 +518,43 @@ EasyRide Backend API Documentation (Final Version)
       }
     }
 
+    ```
+
+    #### **`GET /transactions` **
+
+-   **Function**: Retrieve the wallet transaction history of the currently authenticated driver (paginated).
+-   **Authentication**: JWT required for the driver role.
+-   **Query Parameters**:
+    -   `page` (int, optional, default 0): Page number.
+    -   `size` (int, optional, default 20): Page size.
+-   **Success Response (200 OK)**:
+    ```json
+    {
+      "code": 0,
+      "message": "Success",
+      "data": {
+        "content": [
+          {
+            "transaction_id": 101,
+            "type": "INCOME",
+            "amount": 55.50,
+            "related_order_id": 1002,
+            "status": "COMPLETED",
+            "transaction_date": "2025-07-15T12:30:00Z"
+          },
+          {
+            "transaction_id": 102,
+            "type": "WITHDRAWAL",
+            "amount": -500.00,
+            "related_withdrawal_id": 45,
+            "status": "COMPLETED",
+            "transaction_date": "2025-07-14T10:00:00Z"
+          }
+        ],
+        "totalPages": 5,
+        "totalElements": 98
+      }
+    }
     ```
 
 #### `POST /withdrawals`
