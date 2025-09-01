@@ -78,6 +78,7 @@ public class OrderServiceImpl implements OrderService {
         order.setServiceType(orderCreateDto.getServiceType());
         order.setPaymentMethod(orderCreateDto.getPaymentMethod());
         order.setPassengerNotes(orderCreateDto.getPassengerNotes());
+        order.setPassengerCount(orderCreateDto.getPassengerCount());
         order.setCreatedBy(passenger.getId());
 
         if (orderCreateDto.getScheduledTime() != null) {

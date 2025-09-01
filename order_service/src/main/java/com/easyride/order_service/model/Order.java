@@ -69,6 +69,9 @@ public class Order {
     private Long createdBy; // passengerId
     private Long updatedBy;
 
+    @Column(name = "passenger_count", nullable = false)
+    private Integer passengerCount;
+
     @Version
     private Long version; // For optimistic locking
 

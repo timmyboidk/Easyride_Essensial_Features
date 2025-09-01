@@ -32,5 +32,7 @@ public class OrderCreateDto {
     private LocalDateTime scheduledTime; // New: For scheduled rides (nullable for immediate rides)
 
     private String passengerNotes;
+
+    private Integer passengerCount;
 }
 
