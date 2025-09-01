@@ -35,6 +35,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRocketProducer userRocketProducer;
     private final OtpService otpService;
+    private final JwtTokenProvider jwtTokenProvider;
     @Autowired
     public UserServiceImpl(PassengerRepository passengerRepository,
                            DriverRepository driverRepository,
@@ -42,7 +43,8 @@ public class UserServiceImpl implements UserService {
                            UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
                            UserRocketProducer userRocketProducer,
-                           OtpService otpService) {
+                           OtpService otpService,
+                           JwtTokenProvider jwtTokenProvider) {
         this.passengerRepository = passengerRepository;
         this.driverRepository = driverRepository;
         this.adminRepository = adminRepository;
@@ -50,6 +52,7 @@ public class UserServiceImpl implements UserService {
         this.passwordEncoder = passwordEncoder;
         this.userRocketProducer = userRocketProducer;
         this.otpService = otpService;
+        this.jwtTokenProvider = jwtTokenProvider;
     }
 
     @Override
@@ -162,7 +165,7 @@ public class UserServiceImpl implements UserService {
                 userDetails, null, userDetails.getAuthorities()
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        JwtTokenProvider jwtTokenProvider = null;
+//        JwtTokenProvider jwtTokenProvider = null;
         String jwt = jwtTokenProvider.generateToken(authentication);
         log.info("OTP login successful for phone number: {}. JWT generated.", loginDto.getPhoneNumber());
         return new JwtAuthenticationResponse(jwt);

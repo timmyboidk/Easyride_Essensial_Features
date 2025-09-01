@@ -32,7 +32,7 @@ public class Driver extends User {
     private String reviewNotes;
 
     public Driver(String username, String password, String email, String phoneNumber) {
-        super();
+        super(username, password, email, phoneNumber, Role.DRIVER);
         this.approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Or PENDING_REVIEW after DTO is processed
     }
 

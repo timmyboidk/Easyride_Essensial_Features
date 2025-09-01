@@ -18,13 +18,15 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         // 对所有接口生效，可根据实际需求调整路径
-        registry.addInterceptor(signatureVerificationInterceptor).addPathPatterns("/**");
+        registry.addInterceptor(signatureVerificationInterceptor)
+                .addPathPatterns("/**") // 拦截所有路径...
+                .excludePathPatterns("/users/register", "/users/login", "/users/otp/**", "/users/login/otp"); // ...除了这些公共端点
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("*")  // 或指定前端应用域名
+                .allowedOrigins("http://localhost:3000", "https://ER-frontend-domain.com")  // <-- 明确指定前端来源
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

@@ -6,8 +6,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.*;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SecurityConfig {
@@ -31,5 +33,19 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    // 新增 SecurityFilterChain Bean
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable()) // 禁用 CSRF，因为我们使用 JWT
+                .authorizeHttpRequests(auth -> auth
+                        // 允许任何人访问所有以 /users/ 开头的公共认证URL
+                        .requestMatchers("/users/register", "/users/login", "/users/otp/**", "/users/login/otp").permitAll()
+                        // 其他所有请求，都必须经过身份验证
+                        .anyRequest().authenticated()
+                );
+        return http.build();
     }
 }

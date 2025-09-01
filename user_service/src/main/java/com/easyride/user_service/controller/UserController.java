@@ -58,7 +58,7 @@ public class UserController implements UserApi {
        Authentication authentication = authenticationManager.authenticate(
                new UsernamePasswordAuthenticationToken(
                        loginRequest.getUsername(),
-                       loginRequest.getPassword()
+                       loginRequest.getPassword()// <-- 这里使用了密码
                )
        );
        SecurityContextHolder.getContext().setAuthentication(authentication);
