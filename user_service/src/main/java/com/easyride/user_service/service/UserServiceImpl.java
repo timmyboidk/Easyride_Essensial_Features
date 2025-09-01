@@ -202,5 +202,26 @@ public class UserServiceImpl implements UserService {
         // user.setAddress(profileUpdateDto.getAddress());
         return userRepository.save(user);
     }
+
+    @Transactional
+    @Override
+    public Driver updateDriverProfile(Long driverId, DriverProfileUpdateDto updateDto) {
+        // 1. 根据 ID 查找司机，如果找不到则抛出异常
+        Driver driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + driverId));
+
+        // 2. 检查 DTO 中是否有 verificationStatus 字段，如果不为 null 则更新
+        if (updateDto.getVerificationStatus() != null) {
+            driver.setVerificationStatus(updateDto.getVerificationStatus());
+        }
+
+        // 3. 检查 DTO 中是否有 reviewNotes 字段，如果不为 null 则更新
+        if (updateDto.getReviewNotes() != null && !updateDto.getReviewNotes().isEmpty()) {
+            driver.setReviewNotes(updateDto.getReviewNotes());
+        }
+
+        // 4. 保存更新后的司机信息到数据库并返回
+        return driverRepository.save(driver);
+    }
 }
 

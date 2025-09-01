@@ -28,8 +28,14 @@ public class Driver extends User {
     @Enumerated(EnumType.STRING)
     private DriverApprovalStatus approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Default
 
+    @Column(name = "review_notes", columnDefinition = "TEXT")
+    private String reviewNotes;
+
     public Driver(String username, String password, String email, String phoneNumber) {
         super();
         this.approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Or PENDING_REVIEW after DTO is processed
+    }
+
+    public void setVerificationStatus(DriverApprovalStatus verificationStatus) {
     }
 }

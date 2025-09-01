@@ -1,5 +1,6 @@
 package com.easyride.user_service.service;
 import com.easyride.user_service.dto.*;
+import com.easyride.user_service.model.Driver;
 import com.easyride.user_service.model.User;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,4 +20,6 @@ public interface UserService {
     User updateUserProfile(String username, UserProfileUpdateDto profileUpdateDto);
     // PassengerProfileDto updatePassengerProfile(Long userId, PassengerProfileUpdateDto passengerProfileDto);
     // DriverProfileDto updateDriverProfile(Long userId, DriverProfileUpdateDto driverProfileDto, List<MultipartFile> documents);
+
+    Driver updateDriverProfile(Long driverId, DriverProfileUpdateDto updateDto);
 }
