@@ -4,7 +4,7 @@ import com.easyride.payment_service.dto.WalletDto;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.WalletTransaction;
 import jakarta.transaction.Transactional;
-import sun.jvm.hotspot.debugger.Page;
+import org.springframework.data.domain.Page;
 
 import java.awt.print.Pageable;
 import java.time.LocalDateTime;

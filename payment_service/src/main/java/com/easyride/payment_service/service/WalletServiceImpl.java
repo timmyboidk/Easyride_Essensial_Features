@@ -11,8 +11,9 @@ import com.easyride.payment_service.repository.WalletRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
 
-import java.awt.print.Pageable;
+import org.springframework.data.domain.Pageable;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -109,7 +110,7 @@ public class WalletServiceImpl implements WalletService {
     public Page<WalletTransaction> getWalletTransactions(Long driverId, Pageable pageable) {
         Wallet wallet = walletRepository.findByDriverId(driverId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet not found for driver " + driverId));
-        return walletTransactionRepository.findByWalletId(wallet.getId(), pageable);
+        return walletTransactionRepository.findByWalletId(wallet.getDriverId(), pageable);
     }
 
 }
