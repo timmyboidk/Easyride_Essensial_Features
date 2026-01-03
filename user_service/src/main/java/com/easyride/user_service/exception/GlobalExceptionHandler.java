@@ -1,22 +1,14 @@
 package com.easyride.user_service.exception;
 
-import org.springframework.http.*;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.context.request.WebRequest;
 import com.easyride.user_service.dto.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.WebRequest;
 
 import java.time.LocalDateTime;
-
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -43,7 +35,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UserAlreadyExistsException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ApiResponse<Object> handleUserAlreadyExistsException(UserAlreadyExistsException ex) {
-        log.warn("OtpVerificationException: {}", ex.getMessage());
+        log.warn("UserAlreadyExistsException: {}", ex.getMessage());
         return ApiResponse.error(HttpStatus.CONFLICT.value(), ex.getMessage());
     }
 
@@ -61,7 +53,6 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(HttpStatus.NOT_FOUND.value(), ex.getMessage());
     }
 
-
     // Catch-all for other exceptions
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -70,4 +61,3 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(HttpStatus.INTERNAL_SERVER_ERROR.value(), "服务器内部错误，请稍后再试");
     }
 }
-

@@ -30,9 +30,12 @@ public class UserRegistrationDto {
 
     private String otpCode; // For OTP verification during registration
 
-    // 如果角色是 DRIVER，可以添加额外的字段，例如驾驶证号码、车辆信息等
+    // Driver specific fields
+    private String realName;
+    private String idCardNumber;
     private String driverLicenseNumber;
-    private String vehicleInfo;
+    private String carModel;
+    private String carLicensePlate;
     // Consider adding fields for document IDs if files are uploaded separately
     // private String driverLicenseDocumentId;
     // private String vehicleDocumentId;

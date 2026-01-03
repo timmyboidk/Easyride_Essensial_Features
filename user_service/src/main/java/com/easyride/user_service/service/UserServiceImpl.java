@@ -36,15 +36,18 @@ public class UserServiceImpl implements UserService {
     private final UserRocketProducer userRocketProducer;
     private final OtpService otpService;
     private final JwtTokenProvider jwtTokenProvider;
+    private final FileStorageService fileStorageService;
+
     @Autowired
     public UserServiceImpl(PassengerRepository passengerRepository,
-                           DriverRepository driverRepository,
-                           AdminRepository adminRepository,
-                           UserRepository userRepository,
-                           PasswordEncoder passwordEncoder,
-                           UserRocketProducer userRocketProducer,
-                           OtpService otpService,
-                           JwtTokenProvider jwtTokenProvider) {
+            DriverRepository driverRepository,
+            AdminRepository adminRepository,
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder,
+            UserRocketProducer userRocketProducer,
+            OtpService otpService,
+            JwtTokenProvider jwtTokenProvider,
+            FileStorageService fileStorageService) {
         this.passengerRepository = passengerRepository;
         this.driverRepository = driverRepository;
         this.adminRepository = adminRepository;
@@ -53,14 +56,16 @@ public class UserServiceImpl implements UserService {
         this.userRocketProducer = userRocketProducer;
         this.otpService = otpService;
         this.jwtTokenProvider = jwtTokenProvider;
+        this.fileStorageService = fileStorageService;
     }
 
     @Override
     @Transactional
     public UserRegistrationResponseDto registerUser(UserRegistrationDto registrationDto,
-                                                    MultipartFile driverLicenseFile,
-                                                    MultipartFile vehicleDocumentFile) {
-        log.info("Registering user with phone: {} and email: {}", registrationDto.getPhoneNumber(), registrationDto.getEmail());
+            MultipartFile driverLicenseFile,
+            MultipartFile vehicleDocumentFile) {
+        log.info("Registering user with phone: {} and email: {}", registrationDto.getPhoneNumber(),
+                registrationDto.getEmail());
 
         if (userRepository.existsByPhoneNumber(registrationDto.getPhoneNumber())) {
             log.warn("Phone number {} already exists.", registrationDto.getPhoneNumber());
@@ -75,9 +80,11 @@ public class UserServiceImpl implements UserService {
             throw new UserAlreadyExistsException("用户名已存在");
         }
 
-        // OTP Verification (assuming OTP is sent separately and verified here during registration)
+        // OTP Verification (assuming OTP is sent separately and verified here during
+        // registration)
         // If OTP is part of registration DTO, it means it was sent and user entered it.
-        if (registrationDto.getOtpCode() != null && !otpService.validateOtp(registrationDto.getPhoneNumber(), registrationDto.getOtpCode())) {
+        if (registrationDto.getOtpCode() != null
+                && !otpService.validateOtp(registrationDto.getPhoneNumber(), registrationDto.getOtpCode())) {
             log.warn("OTP verification failed for phone number {}.", registrationDto.getPhoneNumber());
             throw new OtpVerificationException("无效的OTP验证码");
         }
@@ -89,26 +96,68 @@ public class UserServiceImpl implements UserService {
 
         switch (role) {
             case PASSENGER:
-                Passenger passenger = new Passenger(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(), registrationDto.getPhoneNumber());
+                Passenger passenger = new Passenger(registrationDto.getUsername(), encodedPassword,
+                        registrationDto.getEmail(), registrationDto.getPhoneNumber());
                 savedUserEntity = passengerRepository.save(passenger);
                 break;
             case DRIVER:
-                Driver driver = new Driver(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(), registrationDto.getPhoneNumber());
+                Driver driver = new Driver(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(),
+                        registrationDto.getPhoneNumber());
+
+                // Required fields validation or assuming @Valid handled basic null checks.
+                // File uploads
+                String licensePath = "";
+                // String vehicleDocPath = ""; // We might need to store this or generic logic
+
+                // For this implementation, we map vehicleDocumentFile to carInsuranceUrl as an
+                // example or add more file upload params
+                // But based on Driver model: idCardFrontUrl, idCardBackUrl, driverLicenseUrl,
+                // carInsuranceUrl
+                // The Controller only accepts driverLicenseFile and vehicleDocumentFile.
+                // We will map:
+                // driverLicenseFile -> driverLicenseUrl
+                // vehicleDocumentFile -> carInsuranceUrl (assuming vehicle document is
+                // insurance for now)
+
+                if (driverLicenseFile != null && !driverLicenseFile.isEmpty()) {
+                    licensePath = fileStorageService.storeFile(driverLicenseFile);
+                } else {
+                    throw new RuntimeException("Driver license file is required");
+                }
+
+                String insurancePath = "";
+                if (vehicleDocumentFile != null && !vehicleDocumentFile.isEmpty()) {
+                    insurancePath = fileStorageService.storeFile(vehicleDocumentFile);
+                } else {
+                    throw new RuntimeException("Vehicle document (Insurance) is required");
+                }
+
+                driver.setRealName(registrationDto.getRealName());
+                driver.setIdCardNumber(registrationDto.getIdCardNumber());
                 driver.setDriverLicenseNumber(registrationDto.getDriverLicenseNumber());
-                driver.setVehicleInfo(registrationDto.getVehicleInfo());
+                driver.setCarModel(registrationDto.getCarModel());
+                driver.setCarLicensePlate(registrationDto.getCarLicensePlate());
+
+                driver.setDriverLicenseUrl(licensePath);
+                driver.setCarInsuranceUrl(insurancePath);
+
+                // Placeholder values for now since these are not in DTO or File inputs yet
+                // Ideally we update DTO and Controller to accept 4 files as per Model
+                driver.setIdCardFrontUrl("placeholder_front");
+                driver.setIdCardBackUrl("placeholder_back");
+
                 savedUserEntity = driverRepository.save(driver);
-                eventType = "DRIVER_APPLICATION_SUBMITTED"; // More specific event for drivers
-                // Create and send DriverApplicationEventDto
+                eventType = "DRIVER_APPLICATION_SUBMITTED";
+
                 DriverApplicationEventDto driverAppEvent = new DriverApplicationEventDto(
                         savedUserEntity.getId(),
                         savedUserEntity.getUsername(),
-                        registrationDto.getDriverLicenseNumber()
-                        // Add paths to uploaded documents if applicable
-                );
+                        driver.getDriverLicenseNumber());
                 userRocketProducer.sendDriverApplicationEvent(driverAppEvent);
                 break;
             case ADMIN: // Should admin registration be public? Usually not.
-                Admin admin = new Admin(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(), registrationDto.getPhoneNumber());
+                Admin admin = new Admin(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(),
+                        registrationDto.getPhoneNumber());
                 savedUserEntity = adminRepository.save(admin);
                 break;
             default:
@@ -116,10 +165,12 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("无效的角色类型");
         }
 
-        log.info("User {} (ID: {}) of role {} persisted.", savedUserEntity.getUsername(), savedUserEntity.getId(), savedUserEntity.getRole());
+        log.info("User {} (ID: {}) of role {} persisted.", savedUserEntity.getUsername(), savedUserEntity.getId(),
+                savedUserEntity.getRole());
 
         // Publish generic user event (or keep specific ones)
-        UserEventDto userEvent = new UserEventDto(savedUserEntity.getId(), savedUserEntity.getUsername(), savedUserEntity.getEmail(), savedUserEntity.getRole().name(), eventType);
+        UserEventDto userEvent = new UserEventDto(savedUserEntity.getId(), savedUserEntity.getUsername(),
+                savedUserEntity.getEmail(), savedUserEntity.getRole().name(), eventType);
         userRocketProducer.sendUserEvent(userEvent);
         log.info("Published {} event for user ID: {}", eventType, savedUserEntity.getId());
 
@@ -129,8 +180,7 @@ public class UserServiceImpl implements UserService {
                 savedUserEntity.getEmail(),
                 savedUserEntity.getPhoneNumber(),
                 savedUserEntity.getRole().name(),
-                savedUserEntity.isEnabled()
-        );
+                savedUserEntity.isEnabled());
     }
 
     @Override
@@ -155,17 +205,23 @@ public class UserServiceImpl implements UserService {
 
         User user = userRepository.findByPhoneNumber(loginDto.getPhoneNumber())
                 .orElseThrow(() -> {
-                    log.error("User not found by phone number {} after OTP validation.", loginDto.getPhoneNumber()); // Should not happen if OTP was key'd by phone
+                    log.error("User not found by phone number {} after OTP validation.", loginDto.getPhoneNumber()); // Should
+                                                                                                                     // not
+                                                                                                                     // happen
+                                                                                                                     // if
+                                                                                                                     // OTP
+                                                                                                                     // was
+                                                                                                                     // key'd
+                                                                                                                     // by
+                                                                                                                     // phone
                     return new ResourceNotFoundException("用户未找到");
                 });
 
-
         UserDetailsImpl userDetails = UserDetailsImpl.build(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, null, userDetails.getAuthorities()
-        );
+                userDetails, null, userDetails.getAuthorities());
         SecurityContextHolder.getContext().setAuthentication(authentication);
-//        JwtTokenProvider jwtTokenProvider = null;
+        // JwtTokenProvider jwtTokenProvider = null;
         String jwt = jwtTokenProvider.generateToken(authentication);
         log.info("OTP login successful for phone number: {}. JWT generated.", loginDto.getPhoneNumber());
         return new JwtAuthenticationResponse(jwt);
@@ -192,7 +248,8 @@ public class UserServiceImpl implements UserService {
             throw new OtpVerificationException("Invalid OTP.");
         }
         User user = userRepository.findByPhoneNumber(requestDto.getPhoneNumber())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with phone number: " + requestDto.getPhoneNumber()));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found with phone number: " + requestDto.getPhoneNumber()));
         user.setPassword(passwordEncoder.encode(requestDto.getNewPassword()));
         userRepository.save(user);
     }
@@ -227,4 +284,3 @@ public class UserServiceImpl implements UserService {
         return driverRepository.save(driver);
     }
 }
-

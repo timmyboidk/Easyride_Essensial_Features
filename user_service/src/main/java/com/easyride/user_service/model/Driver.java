@@ -17,25 +17,49 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Driver extends User {
 
-    private String driverLicenseNumber;
-    private String vehicleInfo; // e.g., "Toyota Camry 2020, Plate XYZ123"
+    @Column(nullable = false)
+    private String realName;
 
-    // Paths or identifiers for stored documents
-    private String driverLicenseDocumentPath;
-    private String vehicleDocumentPath;
-    // Potentially other documents: insurance, background check results path etc.
+    @Column(nullable = false)
+    private String idCardNumber;
+
+    @Column(nullable = false)
+    private String idCardFrontUrl;
+
+    @Column(nullable = false)
+    private String idCardBackUrl;
+
+    @Column(nullable = false)
+    private String driverLicenseNumber;
+
+    @Column(nullable = false)
+    private String driverLicenseUrl;
+
+    @Column(nullable = false)
+    private String carModel;
+
+    @Column(nullable = false)
+    private String carLicensePlate;
+
+    @Column(nullable = false)
+    private String carInsuranceUrl;
 
     @Enumerated(EnumType.STRING)
-    private DriverApprovalStatus approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Default
+    @Column(nullable = false)
+    private DriverApprovalStatus verificationStatus = DriverApprovalStatus.PENDING_SUBMISSION;
 
-    @Column(name = "review_notes", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String reviewNotes;
+
+    @Column(precision = 3, scale = 2)
+    private Double serviceRatingAvg;
 
     public Driver(String username, String password, String email, String phoneNumber) {
         super(username, password, email, phoneNumber, Role.DRIVER);
-        this.approvalStatus = DriverApprovalStatus.PENDING_SUBMISSION; // Or PENDING_REVIEW after DTO is processed
+        this.verificationStatus = DriverApprovalStatus.PENDING_SUBMISSION;
     }
 
     public void setVerificationStatus(DriverApprovalStatus verificationStatus) {
+        this.verificationStatus = verificationStatus;
     }
 }
