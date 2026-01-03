@@ -23,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(WalletController.class)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 public class WalletControllerTest {
 
     @Autowired
@@ -53,12 +54,13 @@ public class WalletControllerTest {
         p2.setId(2L);
         p2.setOrderId(101L);
         List<Payment> earnings = Arrays.asList(p1, p2);
-        when(walletService.getEarnings(10L, LocalDateTime.parse("2025-04-01T00:00:00"), LocalDateTime.parse("2025-04-30T23:59:59")))
+        when(walletService.getEarnings(10L, LocalDateTime.parse("2025-04-01T00:00:00"),
+                LocalDateTime.parse("2025-04-30T23:59:59")))
                 .thenReturn(earnings);
 
         mockMvc.perform(get("/wallets/10/earnings")
-                        .param("from", "2025-04-01T00:00:00")
-                        .param("to", "2025-04-30T23:59:59"))
+                .param("from", "2025-04-01T00:00:00")
+                .param("to", "2025-04-30T23:59:59"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].id", is(1)))

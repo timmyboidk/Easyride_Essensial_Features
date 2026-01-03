@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(WithdrawalController.class)
+@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc(addFilters = false)
 public class WithdrawalControllerTest {
 
 	@Autowired
@@ -46,8 +47,8 @@ public class WithdrawalControllerTest {
 		when(withdrawalService.requestWithdrawal(requestDto)).thenReturn(responseDto);
 
 		mockMvc.perform(post("/withdrawals/request")
-						.contentType(MediaType.APPLICATION_JSON)
-						.content(mapper.writeValueAsString(requestDto)))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(mapper.writeValueAsString(requestDto)))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.status", is("PENDING")))
 				.andExpect(jsonPath("$.message", is("提现申请已提交")));

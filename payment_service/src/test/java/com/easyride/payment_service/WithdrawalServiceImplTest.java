@@ -44,6 +44,7 @@ public class WithdrawalServiceImplTest {
         dto.setAmount(5000);
         dto.setBankAccount("6222000012345678");
         Wallet wallet = new Wallet();
+        wallet.setId(100L);
         wallet.setDriverId(10L);
         wallet.setBalance(3000);
         when(walletRepository.findById(10L)).thenReturn(Optional.of(wallet));
@@ -60,11 +61,13 @@ public class WithdrawalServiceImplTest {
         dto.setAmount(5000);
         dto.setBankAccount("6222000012345678");
         Wallet wallet = new Wallet();
+        wallet.setId(100L);
         wallet.setDriverId(10L);
         wallet.setBalance(10000);
         when(walletRepository.findById(10L)).thenReturn(Optional.of(wallet));
         when(withdrawalRepository.save(any(Withdrawal.class))).thenAnswer(invocation -> {
-            Withdrawal w = invocation.getArgument(0);
+            Object[] args = invocation.getArguments();
+            Withdrawal w = (Withdrawal) args[0];
             w.setId(1L);
             return w;
         });
@@ -76,12 +79,17 @@ public class WithdrawalServiceImplTest {
 
     @Test
     void testGetWithdrawalHistory() {
+        Wallet wallet = new Wallet();
+        wallet.setId(100L);
+        wallet.setDriverId(10L);
+        when(walletRepository.findByDriverId(10L)).thenReturn(Optional.of(wallet));
+
         Withdrawal w1 = new Withdrawal();
         w1.setId(1L);
         Withdrawal w2 = new Withdrawal();
         w2.setId(2L);
         List<Withdrawal> history = Arrays.asList(w1, w2);
-        when(withdrawalRepository.findByDriverId(10L)).thenReturn(history);
+        when(withdrawalRepository.findByWalletId(100L)).thenReturn(history);
 
         List<Withdrawal> result = withdrawalService.getWithdrawalHistory(10L);
         assertEquals(2, result.size());

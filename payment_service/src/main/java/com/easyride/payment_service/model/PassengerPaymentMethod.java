@@ -31,7 +31,8 @@ public class PassengerPaymentMethod {
     private Integer expiryMonth;
     private Integer expiryYear;
 
-    // Token provided by the payment gateway (Stripe token, PayPal billing agreement ID, etc.)
+    // Token provided by the payment gateway (Stripe token, PayPal billing agreement
+    // ID, etc.)
     // This token is used for actual charges. DO NOT STORE RAW CARD NUMBERS.
     @NotNull
     @Column(unique = true) // A token should be unique for a user's method
@@ -50,6 +51,9 @@ public class PassengerPaymentMethod {
     private boolean isDefault;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
 
     @PrePersist
     protected void onCreate() {

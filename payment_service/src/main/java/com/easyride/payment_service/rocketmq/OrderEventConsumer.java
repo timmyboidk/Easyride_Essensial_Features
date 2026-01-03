@@ -11,11 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-@RocketMQMessageListener(
-        topic = "order-topic",
-        consumerGroup = "payment-service-order-consumer-group",
-        selectorExpression = "ORDER_COMPLETED_FOR_PAYMENT"
-)
+@RocketMQMessageListener(topic = "EASYRIDE_ORDER_STATUS_CHANGED_TOPIC", consumerGroup = "CID_PAYMENT_SERVICE", selectorExpression = "COMPLETED")
 public class OrderEventConsumer implements RocketMQListener<OrderDetailsForPaymentDto> {
 
     private static final Logger log = LoggerFactory.getLogger(OrderEventConsumer.class);
@@ -39,11 +35,13 @@ public class OrderEventConsumer implements RocketMQListener<OrderDetailsForPayme
             paymentRequest.setPaymentMethod(orderDetailsEvent.getPaymentMethodTypeString());
             paymentRequest.setPaymentMethodId(orderDetailsEvent.getChosenPaymentMethodId());
 
-            paymentService.associateDriverWithOrderPayment(orderDetailsEvent.getOrderId(), orderDetailsEvent.getDriverId());
+            paymentService.associateDriverWithOrderPayment(orderDetailsEvent.getOrderId(),
+                    orderDetailsEvent.getDriverId());
             paymentService.processPayment(paymentRequest);
 
         } catch (Exception e) {
-            log.error("Error processing OrderDetailsForPaymentEvent for orderId {}: ", orderDetailsEvent.getOrderId(), e);
+            log.error("Error processing OrderDetailsForPaymentEvent for orderId {}: ", orderDetailsEvent.getOrderId(),
+                    e);
         }
     }
 }

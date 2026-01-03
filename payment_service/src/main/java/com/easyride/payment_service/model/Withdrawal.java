@@ -20,18 +20,27 @@ public class Withdrawal {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private Long driverId;
+    @Column(nullable = false)
+    private Long walletId;
 
+    @Column(nullable = false)
     private Integer amount;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private WithdrawalStatus status;
 
-    private String bankAccount;
+    private String notes;
 
-    private LocalDateTime requestedAt;
+    @Column(nullable = false)
+    private LocalDateTime requestTime;
 
-    private LocalDateTime processedAt;
+    private LocalDateTime completionTime;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    @Version
+    private Long version;
 
 }
-

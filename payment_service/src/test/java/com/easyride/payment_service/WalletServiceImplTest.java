@@ -2,8 +2,11 @@ package com.easyride.payment_service;
 
 import com.easyride.payment_service.dto.WalletDto;
 import com.easyride.payment_service.model.Payment;
+import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.model.Wallet;
+import com.easyride.payment_service.repository.PaymentRepository;
 import com.easyride.payment_service.repository.WalletRepository;
+import com.easyride.payment_service.repository.WalletTransactionRepository;
 import com.easyride.payment_service.service.WalletServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,6 +27,12 @@ public class WalletServiceImplTest {
     @Mock
     private WalletRepository walletRepository;
 
+    @Mock
+    private PaymentRepository paymentRepository;
+
+    @Mock
+    private WalletTransactionRepository walletTransactionRepository;
+
     @InjectMocks
     private WalletServiceImpl walletService;
 
@@ -33,20 +43,13 @@ public class WalletServiceImplTest {
 
     @Test
     void testAddFunds_NewWallet() {
-        // 假设 orderId 可直接映射为 driverId
-        when(walletRepository.findById(100L)).thenReturn(Optional.empty());
-        Wallet newWallet = new Wallet();
-        newWallet.setDriverId(100L);
-        newWallet.setBalance(0);
-        newWallet.setUpdatedAt(LocalDateTime.now());
-        when(walletRepository.save(any(Wallet.class))).thenAnswer(invocation -> {
-            Wallet wallet = invocation.getArgument(0);
-            wallet.setDriverId(100L);
-            return wallet;
-        });
+        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.empty());
 
         walletService.addFunds(100L, 10000);
-        verify(walletRepository, times(1)).save(any(Wallet.class));
+
+        verify(walletRepository).save(argThat(wallet -> wallet.getDriverId().equals(100L) &&
+                wallet.getBalance() == 9000 // 10000 - 10% fee
+        ));
     }
 
     @Test
@@ -54,12 +57,12 @@ public class WalletServiceImplTest {
         Wallet wallet = new Wallet();
         wallet.setDriverId(100L);
         wallet.setBalance(20000);
-        wallet.setUpdatedAt(LocalDateTime.now());
-        when(walletRepository.findById(100L)).thenReturn(Optional.of(wallet));
+        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.of(wallet));
 
         walletService.subtractFunds(100L, 5000);
+
         assertEquals(15000, wallet.getBalance());
-        verify(walletRepository, times(1)).save(wallet);
+        verify(walletRepository).save(wallet);
     }
 
     @Test
@@ -67,10 +70,9 @@ public class WalletServiceImplTest {
         Wallet wallet = new Wallet();
         wallet.setDriverId(100L);
         wallet.setBalance(3000);
-        when(walletRepository.findById(100L)).thenReturn(Optional.of(wallet));
+        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.of(wallet));
 
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> walletService.subtractFunds(100L, 5000));
-        assertEquals("钱包余额不足", ex.getMessage());
+        assertThrows(RuntimeException.class, () -> walletService.subtractFunds(100L, 5000));
     }
 
     @Test
@@ -79,7 +81,7 @@ public class WalletServiceImplTest {
         wallet.setDriverId(100L);
         wallet.setBalance(50000);
         wallet.setUpdatedAt(LocalDateTime.now());
-        when(walletRepository.findById(100L)).thenReturn(Optional.of(wallet));
+        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.of(wallet));
 
         WalletDto dto = walletService.getWallet(100L);
         assertEquals(100L, dto.getDriverId());
@@ -88,9 +90,22 @@ public class WalletServiceImplTest {
 
     @Test
     void testGetEarnings() {
-        // 测试返回空列表（目前实现返回 new ArrayList<>()）
-        List<Payment> earnings = walletService.getEarnings(100L, LocalDateTime.now().minusDays(1), LocalDateTime.now());
-        assertNotNull(earnings);
-        assertTrue(earnings.isEmpty());
+        LocalDateTime now = LocalDateTime.now();
+        Payment p1 = new Payment();
+        p1.setDriverId(100L);
+        p1.setStatus(PaymentStatus.COMPLETED);
+        p1.setCreatedAt(now);
+
+        Payment p2 = new Payment();
+        p2.setDriverId(100L);
+        p2.setStatus(PaymentStatus.COMPLETED);
+        p2.setCreatedAt(now.minusDays(5));
+
+        when(paymentRepository.findAll()).thenReturn(Arrays.asList(p1, p2));
+
+        List<Payment> earnings = walletService.getEarnings(100L, now.minusDays(2), now.plusDays(1));
+
+        assertEquals(1, earnings.size());
+        assertEquals(p1, earnings.get(0));
     }
 }

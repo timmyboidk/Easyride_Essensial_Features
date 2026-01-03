@@ -1,0 +1,44 @@
+{
+  "groups": [
+    {
+      "name": "payment-gateway",
+      "type": "com.easyride.payment_service.config.PaymentGatewayConfig",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig"
+    },
+    {
+      "name": "payment-gateway.paypal",
+      "type": "com.easyride.payment_service.config.PaymentGatewayConfig$Paypal",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig",
+      "sourceMethod": "getPaypal()"
+    },
+    {
+      "name": "payment-gateway.stripe",
+      "type": "com.easyride.payment_service.config.PaymentGatewayConfig$Stripe",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig",
+      "sourceMethod": "getStripe()"
+    }
+  ],
+  "properties": [
+    {
+      "name": "payment-gateway.paypal.client-id",
+      "type": "java.lang.String",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig$Paypal"
+    },
+    {
+      "name": "payment-gateway.paypal.client-secret",
+      "type": "java.lang.String",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig$Paypal"
+    },
+    {
+      "name": "payment-gateway.paypal.mode",
+      "type": "java.lang.String",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig$Paypal"
+    },
+    {
+      "name": "payment-gateway.stripe.api-key",
+      "type": "java.lang.String",
+      "sourceType": "com.easyride.payment_service.config.PaymentGatewayConfig$Stripe"
+    }
+  ],
+  "hints": []
+}

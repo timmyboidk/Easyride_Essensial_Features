@@ -17,13 +17,21 @@ import java.time.LocalDateTime;
 public class Wallet {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
     private Long driverId;
 
+    @Column(nullable = false)
     private Integer balance;
 
+    @Column(nullable = false, length = 3)
+    private String currency;
+
+    private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
     @Version
     private Long version;
 }
-

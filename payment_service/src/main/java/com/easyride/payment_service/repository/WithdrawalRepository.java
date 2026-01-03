@@ -7,6 +7,5 @@ import java.util.List;
 
 public interface WithdrawalRepository extends JpaRepository<Withdrawal, Long> {
 
-    List<Withdrawal> findByDriverId(Long driverId);
+    List<Withdrawal> findByWalletId(Long walletId);
 }
-

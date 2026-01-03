@@ -9,14 +9,12 @@ import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
 import com.easyride.payment_service.repository.PaymentRepository;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
-import com.easyride.payment_service.util.EncryptionUtil;
 import com.easyride.payment_service.util.PaymentGatewayUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,23 +39,20 @@ public class PaymentServiceImpl implements PaymentService {
 
     // Modify constructor
     public PaymentServiceImpl(PaymentRepository paymentRepository,
-                              WalletService walletService,
-                              PaymentEventProducer paymentEventProducer,
-                              EncryptionUtil encryptionUtil, // If still used here
-                              RedisTemplate<String, String> redisTemplate,
-                              PaymentGatewayUtil paymentGatewayUtil, PaymentRepository paymentRepository1, WalletService walletService1, PaymentGatewayUtil paymentGatewayUtil1, StringRedisTemplate redisTemplate1, PaymentEventProducer paymentEventProducer1, // May be less used directly if strategies handle it
-                              PaymentStrategyProcessor strategyProcessor, // Added
-                              PassengerPaymentMethodRepository passengerPaymentMethodRepository // Added
-    ) {
-        this.paymentRepository = paymentRepository1;
-        this.walletService = walletService1;
-        this.paymentGatewayUtil = paymentGatewayUtil1;
-        this.redisTemplate = redisTemplate1;
-        this.paymentEventProducer = paymentEventProducer1;
+            WalletService walletService,
+            PaymentEventProducer paymentEventProducer,
+            StringRedisTemplate redisTemplate,
+            PaymentGatewayUtil paymentGatewayUtil,
+            PaymentStrategyProcessor strategyProcessor,
+            PassengerPaymentMethodRepository passengerPaymentMethodRepository) {
+        this.paymentRepository = paymentRepository;
+        this.walletService = walletService;
+        this.paymentEventProducer = paymentEventProducer;
+        this.redisTemplate = redisTemplate;
+        this.paymentGatewayUtil = paymentGatewayUtil;
         this.strategyProcessor = strategyProcessor;
         this.passengerPaymentMethodRepository = passengerPaymentMethodRepository;
     }
-
 
     @Override
     @Transactional
@@ -73,53 +68,72 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentServiceException("有效的支付方式ID或支付网关nonce必须提供。");
         }
 
-        PaymentResponseDto strategyResponse = strategyProcessor.processPayment(paymentRequestDto, storedPaymentMethod);
-
-        Payment payment = new Payment();
-        payment.setOrderId(paymentRequestDto.getOrderId());
-        payment.setPassengerId(paymentRequestDto.getPassengerId());
-        payment.setAmount(paymentRequestDto.getAmount());
-        payment.setCurrency(paymentRequestDto.getCurrency());
-        payment.setStatus(strategyResponse.getStatus());
-        payment.setTransactionId(strategyResponse.getTransactionId());
-        payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed());
-        payment.setPaymentMethodUsed(paymentRequestDto.getPaymentMethod());
-        payment.setCreatedAt(LocalDateTime.now());
-        paymentRepository.save(payment);
-
-        log.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
-
-        if (strategyResponse.getStatus() == PaymentStatus.COMPLETED) {
-            try {
-                Long driverId = getDriverIdByOrderId(paymentRequestDto.getOrderId());
-                if (driverId != null) {
-                    payment.setDriverId(driverId);
-                    paymentRepository.save(payment);
-                    walletService.addFunds(driverId, paymentRequestDto.getAmount());
-                } else {
-                    log.warn("Could not determine driver ID for order {}. Wallet not updated.", paymentRequestDto.getOrderId());
-                }
-            } catch (Exception e) {
-                log.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(), e.getMessage(), e);
-            }
-
-            PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
-                    "PAYMENT_COMPLETED", payment.getStatus().name(), payment.getAmount(), payment.getCurrency(), LocalDateTime.now());
-            paymentEventProducer.sendPaymentEvent(event);
-
-        } else if (strategyResponse.getStatus() == PaymentStatus.FAILED) {
-            PaymentFailedEventDto failedEvent = new PaymentFailedEventDto(
-                    paymentRequestDto.getOrderId(),
-                    paymentRequestDto.getPassengerId(),
-                    paymentRequestDto.getAmount(),
-                    paymentRequestDto.getCurrency(),
-                    strategyResponse.getMessage() != null ? strategyResponse.getMessage() : "支付处理失败",
-                    LocalDateTime.now()
-            );
-            paymentEventProducer.sendPaymentFailedEvent(failedEvent);
+        // Idempotency check
+        String lockKey = "lock:payment:" + paymentRequestDto.getOrderId();
+        Boolean isNew = redisTemplate.opsForValue().setIfAbsent(lockKey, "processing",
+                java.time.Duration.ofMinutes(10));
+        if (Boolean.FALSE.equals(isNew)) {
+            log.warn("Payment for orderId {} is already being processed or completed.", paymentRequestDto.getOrderId());
+            throw new PaymentServiceException("该订单正在支付中或已支付。");
         }
 
-        return strategyResponse;
+        try {
+            PaymentResponseDto strategyResponse = strategyProcessor.processPayment(paymentRequestDto,
+                    storedPaymentMethod);
+
+            Payment payment = new Payment();
+            payment.setOrderId(paymentRequestDto.getOrderId());
+            payment.setUserId(paymentRequestDto.getPassengerId());
+            payment.setAmount(paymentRequestDto.getAmount());
+            payment.setCurrency(paymentRequestDto.getCurrency());
+            payment.setStatus(strategyResponse.getStatus());
+            payment.setTransactionId(strategyResponse.getTransactionId());
+            payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed());
+            payment.setPaymentMethod(paymentRequestDto.getPaymentMethod());
+            payment.setCreatedAt(LocalDateTime.now());
+            paymentRepository.save(payment);
+
+            log.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
+
+            if (strategyResponse.getStatus() == PaymentStatus.COMPLETED) {
+                try {
+                    Long driverId = getDriverIdByOrderId(paymentRequestDto.getOrderId());
+                    if (driverId != null) {
+                        payment.setDriverId(driverId);
+                        paymentRepository.save(payment);
+                        walletService.addFunds(driverId, paymentRequestDto.getAmount());
+                    } else {
+                        log.warn("Could not determine driver ID for order {}. Wallet not updated.",
+                                paymentRequestDto.getOrderId());
+                    }
+                } catch (Exception e) {
+                    log.error("Error adding funds to driver's wallet for order {}: {}", paymentRequestDto.getOrderId(),
+                            e.getMessage(), e);
+                }
+
+                PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getUserId(),
+                        "PAYMENT_COMPLETED", payment.getStatus().name(), payment.getAmount(), payment.getCurrency(),
+                        LocalDateTime.now());
+                paymentEventProducer.sendPaymentEvent(event);
+
+            } else if (strategyResponse.getStatus() == PaymentStatus.FAILED) {
+                // Clean up lock on failure to allow retry
+                redisTemplate.delete(lockKey);
+                PaymentFailedEventDto failedEvent = new PaymentFailedEventDto(
+                        paymentRequestDto.getOrderId(),
+                        paymentRequestDto.getPassengerId(),
+                        paymentRequestDto.getAmount(),
+                        paymentRequestDto.getCurrency(),
+                        strategyResponse.getMessage() != null ? strategyResponse.getMessage() : "支付处理失败",
+                        LocalDateTime.now());
+                paymentEventProducer.sendPaymentFailedEvent(failedEvent);
+            }
+
+            return strategyResponse;
+        } catch (Exception e) {
+            redisTemplate.delete(lockKey);
+            throw e;
+        }
     }
 
     @Transactional
@@ -128,7 +142,8 @@ public class PaymentServiceImpl implements PaymentService {
         log.info("Received payment notification payload: {}", notificationPayload);
         try {
             ObjectMapper objectMapper = new ObjectMapper();
-            Map<String, String> notificationMap = objectMapper.readValue(notificationPayload, new TypeReference<>() {});
+            Map<String, String> notificationMap = objectMapper.readValue(notificationPayload, new TypeReference<>() {
+            });
 
             Long OrderId = Long.valueOf(notificationMap.get("OrderId"));
             String status = notificationMap.get("status");
@@ -152,7 +167,8 @@ public class PaymentServiceImpl implements PaymentService {
                 if (driverId != null) {
                     walletService.addFunds(driverId, payment.getAmount());
                 } else {
-                    log.error("Could not credit wallet for payment {}. Driver ID could not be determined.", payment.getId());
+                    log.error("Could not credit wallet for payment {}. Driver ID could not be determined.",
+                            payment.getId());
                 }
             } else {
                 payment.setStatus(PaymentStatus.FAILED);
@@ -165,7 +181,6 @@ public class PaymentServiceImpl implements PaymentService {
         }
     }
 
-
     @Override
     @Transactional
     public PaymentResponseDto refundPayment(String internalPaymentId, Integer amountToRefund) {
@@ -177,8 +192,10 @@ public class PaymentServiceImpl implements PaymentService {
             throw new PaymentServiceException("支付状态为 " + payment.getStatus() + ", 无法退款。");
         }
 
-        Integer currentRefundableAmount = payment.getAmount() - Optional.ofNullable(payment.getRefundedAmount()).orElse(0);
-        Integer refundAmount = (amountToRefund == null || amountToRefund <= 0) ? currentRefundableAmount : amountToRefund;
+        Integer currentRefundableAmount = payment.getAmount()
+                - Optional.ofNullable(payment.getRefundedAmount()).orElse(0);
+        Integer refundAmount = (amountToRefund == null || amountToRefund <= 0) ? currentRefundableAmount
+                : amountToRefund;
 
         if (refundAmount > currentRefundableAmount) {
             throw new PaymentServiceException("退款金额超过可退款余额。");
@@ -188,10 +205,10 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.getTransactionId(),
                 payment.getPaymentGateway(),
                 refundAmount,
-                payment.getCurrency()
-        );
+                payment.getCurrency());
 
-        if (strategyRefundResponse.getStatus() == PaymentStatus.REFUNDED || strategyRefundResponse.getStatus() == PaymentStatus.PARTIALLY_REFUNDED) {
+        if (strategyRefundResponse.getStatus() == PaymentStatus.REFUNDED
+                || strategyRefundResponse.getStatus() == PaymentStatus.PARTIALLY_REFUNDED) {
             payment.setRefundedAmount(Optional.ofNullable(payment.getRefundedAmount()).orElse(0) + refundAmount);
             if (payment.getRefundedAmount().equals(payment.getAmount())) {
                 payment.setStatus(PaymentStatus.REFUNDED);
@@ -210,25 +227,29 @@ public class PaymentServiceImpl implements PaymentService {
                 }
             }
 
-            PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getPassengerId(),
-                    "PAYMENT_REFUNDED", payment.getStatus().name(), refundAmount, payment.getCurrency(), LocalDateTime.now());
+            PaymentEventDto event = new PaymentEventDto(payment.getId(), payment.getOrderId(), payment.getUserId(),
+                    "PAYMENT_REFUNDED", payment.getStatus().name(), refundAmount, payment.getCurrency(),
+                    LocalDateTime.now());
             paymentEventProducer.sendPaymentEvent(event);
             log.info("Refund successful for payment record {}", payment.getId());
         } else {
-            log.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(), strategyRefundResponse.getMessage());
+            log.error("Refund failed at gateway for payment record {}. Message: {}", payment.getId(),
+                    strategyRefundResponse.getMessage());
         }
         return strategyRefundResponse;
     }
-
 
     private Long getDriverIdByOrderId(Long orderId) {
         Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
         if (paymentOpt.isPresent() && paymentOpt.get().getDriverId() != null) {
             return paymentOpt.get().getDriverId();
         }
-        // Fallback logic: Without being able to call another service (which would require new models/clients),
+        // Fallback logic: Without being able to call another service (which would
+        // require new models/clients),
         // we cannot retrieve the driver ID if it's not present in the payment record.
-        log.warn("Driver ID for order {} not found in the local payment record. Fallback to another service is not possible under current constraints.", orderId);
+        log.warn(
+                "Driver ID for order {} not found in the local payment record. Fallback to another service is not possible under current constraints.",
+                orderId);
         return null;
     }
 

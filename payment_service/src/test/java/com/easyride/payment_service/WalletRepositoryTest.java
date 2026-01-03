@@ -22,10 +22,11 @@ public class WalletRepositoryTest {
         Wallet wallet = new Wallet();
         wallet.setDriverId(10L);
         wallet.setBalance(50000);
+        wallet.setCurrency("USD");
         wallet.setUpdatedAt(LocalDateTime.now());
 
         Wallet saved = walletRepository.save(wallet);
-        Optional<Wallet> found = walletRepository.findById(10L);
+        Optional<Wallet> found = walletRepository.findByDriverId(10L);
         assertThat(found).isPresent();
         assertThat(found.get().getBalance()).isEqualTo(50000);
     }

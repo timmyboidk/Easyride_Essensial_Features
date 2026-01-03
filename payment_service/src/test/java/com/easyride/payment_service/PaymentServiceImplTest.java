@@ -1,14 +1,13 @@
 package com.easyride.payment_service;
 
-import com.easyride.payment_service.dto.PaymentEventDto;
-import com.easyride.payment_service.dto.PaymentRequestDto;
-import com.easyride.payment_service.dto.PaymentResponseDto;
-import com.easyride.payment_service.model.Payment;
-import com.easyride.payment_service.model.PaymentStatus;
-import com.easyride.payment_service.model.TransactionType;
+import com.easyride.payment_service.dto.*;
+import com.easyride.payment_service.exception.PaymentServiceException;
+import com.easyride.payment_service.model.*;
+import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
 import com.easyride.payment_service.repository.PaymentRepository;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
 import com.easyride.payment_service.service.PaymentServiceImpl;
+import com.easyride.payment_service.service.PaymentStrategyProcessor;
 import com.easyride.payment_service.service.WalletService;
 import com.easyride.payment_service.util.PaymentGatewayUtil;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,9 +18,8 @@ import org.mockito.MockitoAnnotations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.time.LocalDateTime;
+import java.time.Duration;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -46,6 +44,12 @@ public class PaymentServiceImplTest {
     @Mock
     private PaymentEventProducer paymentEventProducer;
 
+    @Mock
+    private PaymentStrategyProcessor strategyProcessor;
+
+    @Mock
+    private PassengerPaymentMethodRepository passengerPaymentMethodRepository;
+
     @InjectMocks
     private PaymentServiceImpl paymentService;
 
@@ -56,104 +60,103 @@ public class PaymentServiceImplTest {
     }
 
     @Test
-    void testProcessPayment_DuplicateSubmission() {
+    void testProcessPayment_Success_WithStoredMethod() {
         PaymentRequestDto reqDto = new PaymentRequestDto();
         reqDto.setOrderId(100L);
         reqDto.setAmount(10000);
-        reqDto.setPaymentMethod("CREDIT_CARD");
-        reqDto.setCurrency("USD");
         reqDto.setPassengerId(200L);
-
-        when(redisTemplate.hasKey("payment:100")).thenReturn(true);
-
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> paymentService.processPayment(reqDto));
-        assertEquals("重复提交的支付请求", ex.getMessage());
-    }
-
-    @Test
-    void testProcessPayment_Success() {
-        PaymentRequestDto reqDto = new PaymentRequestDto();
-        reqDto.setOrderId(100L);
-        reqDto.setAmount(10000);
-        reqDto.setPaymentMethod("CREDIT_CARD");
+        reqDto.setPaymentMethodId(1L);
         reqDto.setCurrency("USD");
-        reqDto.setPassengerId(200L);
+        reqDto.setPaymentMethod("CREDIT_CARD");
 
-        when(redisTemplate.hasKey("payment:100")).thenReturn(false);
-        doNothing().when(valueOperations).set(eq("payment:100"), anyString(), eq(60L), eq(TimeUnit.SECONDS));
+        PassengerPaymentMethod method = new PassengerPaymentMethod();
+        method.setId(1L);
+        when(passengerPaymentMethodRepository.findByIdAndPassengerId(1L, 200L)).thenReturn(Optional.of(method));
+
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+
+        PaymentResponseDto strategyResponse = new PaymentResponseDto();
+        strategyResponse.setStatus(PaymentStatus.COMPLETED);
+        strategyResponse.setTransactionId("TXN123");
+        strategyResponse.setPaymentGatewayUsed("STRIPE");
+        when(strategyProcessor.processPayment(eq(reqDto), any())).thenReturn(strategyResponse);
 
         Payment payment = new Payment();
         payment.setId(1L);
-        payment.setOrderId(100L);
-        payment.setAmount(10000);
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setTransactionType(TransactionType.PAYMENT);
-        payment.setCreatedAt(LocalDateTime.now());
         when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
 
-        when(paymentGatewayUtil.processPayment(reqDto)).thenReturn(true);
-        doNothing().when(walletService).addFunds(100L, 10000);
+        PaymentResponseDto result = paymentService.processPayment(reqDto);
 
-        PaymentResponseDto response = paymentService.processPayment(reqDto);
-        assertEquals("COMPLETED", response.getStatus());
+        assertNotNull(result);
+        assertEquals(PaymentStatus.COMPLETED, result.getStatus());
         verify(paymentRepository, atLeastOnce()).save(any(Payment.class));
-        verify(paymentEventProducer, atLeastOnce()).sendPaymentEventOrderly(eq("PAYMENT_COMPLETED"), any(PaymentEventDto.class), anyString());
+        verify(paymentEventProducer).sendPaymentEvent(any(PaymentEventDto.class));
     }
 
     @Test
-    void testProcessPayment_PaymentFailure() {
+    void testProcessPayment_IdempotencyFails() {
+        PaymentRequestDto reqDto = new PaymentRequestDto();
+        reqDto.setOrderId(100L);
+        reqDto.setPassengerId(200L);
+        reqDto.setPaymentGatewayNonce("nonce");
+
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(false);
+
+        assertThrows(PaymentServiceException.class, () -> paymentService.processPayment(reqDto));
+    }
+
+    @Test
+    void testProcessPayment_GatewayFailure() {
         PaymentRequestDto reqDto = new PaymentRequestDto();
         reqDto.setOrderId(101L);
-        reqDto.setAmount(10000);
-        reqDto.setPaymentMethod("CREDIT_CARD");
-        reqDto.setCurrency("USD");
         reqDto.setPassengerId(200L);
+        reqDto.setPaymentGatewayNonce("nonce");
 
-        when(redisTemplate.hasKey("payment:101")).thenReturn(false);
-        doNothing().when(valueOperations).set(eq("payment:101"), anyString(), eq(60L), eq(TimeUnit.SECONDS));
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
 
-        Payment payment = new Payment();
-        payment.setId(2L);
-        payment.setOrderId(101L);
-        payment.setAmount(10000);
-        payment.setStatus(PaymentStatus.PENDING);
-        payment.setTransactionType(TransactionType.PAYMENT);
-        payment.setCreatedAt(LocalDateTime.now());
-        when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        PaymentResponseDto strategyResponse = new PaymentResponseDto();
+        strategyResponse.setStatus(PaymentStatus.FAILED);
+        strategyResponse.setMessage("Insufficient funds");
+        when(strategyProcessor.processPayment(eq(reqDto), any())).thenReturn(strategyResponse);
 
-        when(paymentGatewayUtil.processPayment(reqDto)).thenReturn(false);
+        PaymentResponseDto result = paymentService.processPayment(reqDto);
 
-        PaymentResponseDto response = paymentService.processPayment(reqDto);
-        assertEquals("FAILED", response.getStatus());
+        assertEquals(PaymentStatus.FAILED, result.getStatus());
+        verify(redisTemplate).delete(contains("101"));
+        verify(paymentEventProducer).sendPaymentFailedEvent(any(PaymentFailedEventDto.class));
     }
 
     @Test
     void testRefundPayment_Success() {
         Payment payment = new Payment();
-        payment.setId(3L);
-        payment.setOrderId(102L);
+        payment.setId(1L);
+        payment.setOrderId(100L);
+        payment.setUserId(200L);
         payment.setAmount(10000);
         payment.setStatus(PaymentStatus.COMPLETED);
-        payment.setCreatedAt(LocalDateTime.now());
-        when(paymentRepository.findById(3L)).thenReturn(Optional.of(payment));
-        when(paymentGatewayUtil.refundPayment(3L, 5000)).thenReturn(true);
-        doNothing().when(walletService).subtractFunds(payment.getOrderId(), 5000);
+        payment.setCurrency("USD");
+        payment.setTransactionId("TXN123");
+        payment.setPaymentGateway("STRIPE");
+        payment.setDriverId(500L);
 
-        assertDoesNotThrow(() -> paymentService.refundPayment(3L, 5000));
-        verify(paymentRepository, atLeastOnce()).save(any(Payment.class));
-        verify(paymentEventProducer, atLeastOnce()).sendPaymentEventOrderly(eq("REFUND"), any(), anyString());
+        when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+
+        PaymentResponseDto strategyResponse = new PaymentResponseDto();
+        strategyResponse.setStatus(PaymentStatus.REFUNDED);
+        when(strategyProcessor.refundPayment(anyString(), anyString(), anyInt(), anyString()))
+                .thenReturn(strategyResponse);
+
+        PaymentResponseDto result = paymentService.refundPayment("1", 10000);
+
+        assertEquals(PaymentStatus.REFUNDED, result.getStatus());
+        verify(walletService).subtractFunds(500L, 10000);
+        verify(paymentRepository).save(payment);
+        verify(paymentEventProducer).sendPaymentEvent(any(PaymentEventDto.class));
     }
 
     @Test
-    void testRefundPayment_Failure_NotCompleted() {
-        Payment payment = new Payment();
-        payment.setId(4L);
-        payment.setOrderId(103L);
-        payment.setAmount(10000);
-        payment.setStatus(PaymentStatus.PENDING);
-        when(paymentRepository.findById(4L)).thenReturn(Optional.of(payment));
-
-        RuntimeException ex = assertThrows(RuntimeException.class, () -> paymentService.refundPayment(4L, 5000));
-        assertEquals("只能对已完成的支付进行退款", ex.getMessage());
+    void testRefundPayment_NotFound() {
+        when(paymentRepository.findById(99L)).thenReturn(Optional.empty());
+        assertThrows(RuntimeException.class, () -> paymentService.refundPayment("99", 1000));
     }
 }

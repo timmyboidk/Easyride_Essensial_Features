@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class PaymentEventProducer {
     private static final Logger log = LoggerFactory.getLogger(PaymentEventProducer.class);
-    private static final String PAYMENT_TOPIC = "payment-topic";
+    private static final String PAYMENT_TOPIC = "EASYRIDE_PAYMENT_SUCCESS_TOPIC";
 
     @Autowired
     private RocketMQTemplate rocketMQTemplate;

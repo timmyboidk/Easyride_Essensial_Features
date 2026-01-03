@@ -19,7 +19,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     private final WalletRepository walletRepository;
 
     public WithdrawalServiceImpl(WithdrawalRepository withdrawalRepository,
-                                 WalletRepository walletRepository) {
+            WalletRepository walletRepository) {
         this.withdrawalRepository = withdrawalRepository;
         this.walletRepository = walletRepository;
     }
@@ -35,11 +35,11 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
         // 创建提现申请
         Withdrawal withdrawal = new Withdrawal();
-        withdrawal.setDriverId(withdrawalRequestDto.getDriverId());
+        withdrawal.setWalletId(wallet.getId());
         withdrawal.setAmount(withdrawalRequestDto.getAmount());
         withdrawal.setStatus(WithdrawalStatus.PENDING);
-        withdrawal.setBankAccount(withdrawalRequestDto.getBankAccount());
-        withdrawal.setRequestedAt(LocalDateTime.now());
+        withdrawal.setNotes("Withdrawal to: " + withdrawalRequestDto.getBankAccount());
+        withdrawal.setRequestTime(LocalDateTime.now());
         withdrawalRepository.save(withdrawal);
 
         // 冻结提现金额（可选）
@@ -61,11 +61,11 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
             if (result) {
                 withdrawal.setStatus(WithdrawalStatus.PROCESSED);
-                withdrawal.setProcessedAt(LocalDateTime.now());
+                withdrawal.setCompletionTime(LocalDateTime.now());
                 withdrawalRepository.save(withdrawal);
 
                 // 更新钱包余额
-                Wallet wallet = walletRepository.findById(withdrawal.getDriverId())
+                Wallet wallet = walletRepository.findById(withdrawal.getWalletId())
                         .orElseThrow(() -> new RuntimeException("钱包不存在"));
                 wallet.setBalance(wallet.getBalance() - withdrawal.getAmount());
                 wallet.setUpdatedAt(LocalDateTime.now());
@@ -82,7 +82,9 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
     @Override
     public List<Withdrawal> getWithdrawalHistory(Long driverId) {
-        return withdrawalRepository.findByDriverId(driverId);
+        Wallet wallet = walletRepository.findByDriverId(driverId)
+                .orElseThrow(() -> new RuntimeException("钱包不存在"));
+        return withdrawalRepository.findByWalletId(wallet.getId());
     }
 
     private boolean performRiskControl(Withdrawal withdrawal) {
@@ -100,4 +102,3 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         return true;
     }
 }
-

@@ -23,9 +23,12 @@ public class PaymentRepositoryTest {
     void testSaveAndFindPayment() {
         Payment payment = new Payment();
         payment.setOrderId(100L);
+        payment.setUserId(200L);
         payment.setAmount(10000);
+        payment.setCurrency("USD");
         payment.setStatus(PaymentStatus.PENDING);
         payment.setTransactionType(TransactionType.PAYMENT);
+        payment.setTransactionId("TXN" + System.currentTimeMillis());
         payment.setCreatedAt(LocalDateTime.now());
 
         Payment saved = paymentRepository.save(payment);

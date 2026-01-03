@@ -32,7 +32,8 @@ public class PaymentController {
             PaymentResponseDto responseDto = paymentService.processPayment(paymentRequestDto);
 
             String encryptedResponsePayload = EncryptionUtil.encrypt(objectMapper.writeValueAsString(responseDto));
-            log.info("Payment processed successfully for order ID: {}. Sending encrypted response.", paymentRequestDto.getOrderId());
+            log.info("Payment processed successfully for order ID: {}. Sending encrypted response.",
+                    paymentRequestDto.getOrderId());
             return ApiResponse.success(new EncryptedResponseDto(encryptedResponsePayload));
         } catch (Exception e) {
             log.error("Payment processing failed", e);
@@ -42,16 +43,27 @@ public class PaymentController {
 
     @PostMapping("/notify")
     public ApiResponse<Void> handlePaymentNotification(@RequestBody String notificationPayload) {
-        log.info("Received payment notification: {}", notificationPayload);
-        paymentService.handlePaymentNotification(notificationPayload);
-        return ApiResponse.successMessage("Notification received");
+        try {
+            log.info("Received payment notification: {}", notificationPayload);
+            paymentService.handlePaymentNotification(notificationPayload);
+            return ApiResponse.successMessage("Notification received");
+        } catch (Exception e) {
+            log.error("Notification handling failed", e);
+            return ApiResponse.error(500, "通知处理失败: " + e.getMessage());
+        }
     }
 
     @PostMapping("/refund/{paymentId}")
-    public ApiResponse<PaymentResponseDto> refundPayment(@PathVariable String paymentId, @RequestParam(required = false) Integer amount) {
-        log.info("Processing refund for payment ID: {}", paymentId);
-        PaymentResponseDto responseDto = paymentService.refundPayment(paymentId, amount);
-        log.info("Refund processed for payment ID: {}", paymentId);
-        return ApiResponse.success("退款处理成功", responseDto);
+    public ApiResponse<PaymentResponseDto> refundPayment(@PathVariable String paymentId,
+            @RequestParam(required = false) Integer amount) {
+        try {
+            log.info("Processing refund for payment ID: {}", paymentId);
+            PaymentResponseDto responseDto = paymentService.refundPayment(paymentId, amount);
+            log.info("Refund processed for payment ID: {}", paymentId);
+            return ApiResponse.success("退款处理成功", responseDto);
+        } catch (Exception e) {
+            log.error("Refund processing failed", e);
+            return ApiResponse.error(500, "退款处理失败: " + e.getMessage());
+        }
     }
 }

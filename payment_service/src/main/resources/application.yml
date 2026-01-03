@@ -17,22 +17,36 @@ spring:
         jwt:
           issuer-uri: https://your-issuer.com/
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      database: 0
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
 rocketmq:
   name-server: 127.0.0.1:9876
   producer:
-    group: payment-producer-group
+    group: PID_PAYMENT_SERVICE
+  consumer:
+    group: CID_PAYMENT_SERVICE
 
 logging:
   level:
-    root: INFO
+    "[root]": INFO
     org.springframework.web: DEBUG
 
-# PayPal Configuration
-paypal:
-  client-id: your_paypal_client_id
-  client-secret: your_paypal_client_secret
-  mode: sandbox # or live
-
-# Stripe Configuration (for credit card payments)
-stripe:
-  api-key: your_stripe_api_key
+# Payment Gateway Configurations
+payment-gateway:
+  paypal:
+    client-id: your_paypal_client_id
+    client-secret: your_paypal_client_secret
+    mode: sandbox # or live
+  stripe:
+    api-key: your_stripe_api_key

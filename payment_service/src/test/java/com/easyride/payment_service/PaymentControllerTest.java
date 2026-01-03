@@ -1,41 +1,48 @@
 package com.easyride.payment_service;
 
 import com.easyride.payment_service.controller.PaymentController;
-import com.easyride.payment_service.dto.PaymentRequestDto;
-import com.easyride.payment_service.dto.PaymentResponseDto;
+import com.easyride.payment_service.dto.*;
+import com.easyride.payment_service.interceptor.PaymentSignatureVerificationInterceptor;
+import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.service.PaymentService;
 import com.easyride.payment_service.util.EncryptionUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.is;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(PaymentController.class)
+@AutoConfigureMockMvc(addFilters = false)
 public class PaymentControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private PaymentService paymentService;
+
+    @MockitoBean
+    private PaymentSignatureVerificationInterceptor signatureInterceptor;
 
     private ObjectMapper mapper = new ObjectMapper();
 
-    // 为测试时简化，将 EncryptionUtil 的加解密函数设置为原样返回
-    @BeforeAll
-    public static void setupEncryptionUtil() {
+    @BeforeEach
+    void setUp() throws Exception {
+        // Pass the interceptor
+        when(signatureInterceptor.preHandle(any(), any(), any())).thenReturn(true);
+        // Setup simple encryption for testing
         EncryptionUtil.setEncryptionFunction(s -> s);
         EncryptionUtil.setDecryptionFunction(s -> s);
     }
@@ -49,39 +56,39 @@ public class PaymentControllerTest {
         reqDto.setPaymentMethod("CREDIT_CARD");
         reqDto.setCurrency("USD");
 
-        PaymentResponseDto respDto = new PaymentResponseDto(1L, "COMPLETED", "支付成功");
+        PaymentResponseDto respDto = PaymentResponseDto.builder()
+                .paymentId("1")
+                .status(PaymentStatus.COMPLETED)
+                .message("支付成功")
+                .build();
         when(paymentService.processPayment(any(PaymentRequestDto.class))).thenReturn(respDto);
 
         String requestJson = mapper.writeValueAsString(reqDto);
-        String encryptedRequest = EncryptionUtil.encrypt(requestJson);
+        EncryptedRequestDto encryptedReq = new EncryptedRequestDto(requestJson);
 
         mockMvc.perform(post("/payments/pay")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(encryptedRequest)
-                        // 模拟签名验证头信息
-                        .header("nonce", "testNonce")
-                        .header("timestamp", String.valueOf(System.currentTimeMillis()/1000))
-                        .header("signature", "testSignature"))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(mapper.writeValueAsString(encryptedReq)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status", is("COMPLETED")))
-                .andExpect(jsonPath("$.message", is("支付成功")));
+                .andExpect(jsonPath("$.code", is(0)));
     }
 
     @Test
     public void testHandlePaymentNotification() throws Exception {
-        // 模拟接收到支付网关的异步通知数据
         String notificationJson = "{\"orderId\":\"100\",\"status\":\"COMPLETED\"}";
         mockMvc.perform(post("/payments/notify")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(notificationJson))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(notificationJson))
                 .andExpect(status().isOk());
     }
 
     @Test
     public void testRefundPayment_Failure() throws Exception {
-        doThrow(new RuntimeException("退款失败")).when(paymentService).refundPayment(1L, 5000);
+        when(paymentService.refundPayment(eq("1"), anyInt())).thenThrow(new RuntimeException("退款失败"));
+
         mockMvc.perform(post("/payments/refund/1")
-                        .param("amount", "5000"))
-                .andExpect(status().isInternalServerError());
+                .param("amount", "5000"))
+                .andExpect(status().isOk()) // Controller catches exception and returns error ApiResponse
+                .andExpect(jsonPath("$.code", is(500)));
     }
 }

@@ -7,6 +7,14 @@ import org.springframework.web.bind.annotation.*;
 
 // @RestController
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import com.easyride.payment_service.model.WalletTransaction;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -29,8 +37,8 @@ public class WalletController {
     // 获取收入统计
     @GetMapping("/{driverId}/earnings")
     public List<Payment> getEarnings(@PathVariable Long driverId,
-                                     @RequestParam String from,
-                                     @RequestParam String to) {
+            @RequestParam String from,
+            @RequestParam String to) {
         LocalDateTime fromDate = LocalDateTime.parse(from);
         LocalDateTime toDate = LocalDateTime.parse(to);
         return walletService.getEarnings(driverId, fromDate, toDate);
@@ -38,14 +46,13 @@ public class WalletController {
 
     @GetMapping("/transactions")
     public ResponseEntity<ApiResponse<Page<WalletTransaction>>> getTransactions(
-            @AuthenticationPrincipal UserDetails userDetails, // 或者其他获取当前用户的方式
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        // 从 userDetails 获取 driverId
-        Long currentDriverId = ...;
+        // Placeholder for driver ID retrieval from userDetails
+        Long currentDriverId = 1L; // Should be retrieved from userDetails in real app
         Pageable pageable = PageRequest.of(page, size);
         Page<WalletTransaction> transactions = walletService.getWalletTransactions(currentDriverId, pageable);
         return ResponseEntity.ok(new ApiResponse<>(0, "Success", transactions));
     }
 }
-

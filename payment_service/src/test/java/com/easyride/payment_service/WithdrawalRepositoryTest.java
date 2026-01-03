@@ -17,13 +17,16 @@ public class WithdrawalRepositoryTest {
     private WithdrawalRepository withdrawalRepository;
 
     @Test
-    void testFindByDriverId() {
+    void testFindByWalletId() {
         Withdrawal w = new Withdrawal();
-        w.setDriverId(10L);
+        w.setWalletId(10L);
+        w.setAmount(100);
+        w.setStatus(com.easyride.payment_service.model.WithdrawalStatus.PENDING);
+        w.setRequestTime(java.time.LocalDateTime.now());
         withdrawalRepository.save(w);
 
-        List<Withdrawal> list = withdrawalRepository.findByDriverId(10L);
+        List<Withdrawal> list = withdrawalRepository.findByWalletId(10L);
         assertThat(list).isNotEmpty();
-        assertThat(list.get(0).getDriverId()).isEqualTo(10L);
+        assertThat(list.get(0).getWalletId()).isEqualTo(10L);
     }
 }
