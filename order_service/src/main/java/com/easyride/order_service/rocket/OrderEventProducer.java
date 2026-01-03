@@ -26,17 +26,15 @@ public class OrderEventProducer {
     @Value("${rocketmq.producer.topics.payment-settled:payment-settled-topic}")
     private String paymentSettledTopic;
 
-
-    private final String topic = "order-topic";
-
     public void sendOrderCreatedEvent(OrderCreatedEvent event) {
         log.info("Sending OrderCreatedEvent for orderId: {}", event.getOrderId());
         // Using the injected RocketMQTemplate to send the message
-        rocketMQTemplate.convertAndSend(topic, event);
+        rocketMQTemplate.convertAndSend(orderCreatedTopic, event);
     }
 
     public void sendOrderStatusUpdateEvent(OrderEventDto event) {
-        log.info("Publishing Order Status Update event for orderId: {}. Status: {}", event.getOrderId(), event.getStatus());
+        log.info("Publishing Order Status Update event for orderId: {}. Status: {}", event.getOrderId(),
+                event.getStatus());
         rocketMQTemplate.convertAndSend(orderStatusTopic, event);
     }
 

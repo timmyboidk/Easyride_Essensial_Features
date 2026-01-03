@@ -6,6 +6,7 @@ import com.easyride.order_service.dto.PricingContext;
 import com.easyride.order_service.exception.PricingException;
 import com.easyride.order_service.model.Order;
 import com.easyride.order_service.model.OrderStatus;
+import com.easyride.order_service.model.ServiceType;
 import com.easyride.order_service.util.DistanceCalculator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,22 +39,27 @@ public class PricingServiceImpl implements PricingService {
     private static final double CANCELLATION_FEE_ARRIVED = 8.0;
     private static final int FREE_CANCELLATION_WINDOW_MINUTES = 5; // After order acceptance
 
-
     @Override
     public EstimatedPriceInfo calculateEstimatedPrice(PricingContext context) {
-        if (context.getStartLocation() == null || context.getEndLocation() == null) {
+        if (context.getStartLocation() == null
+                || (context.getEndLocation() == null && context.getServiceType() != ServiceType.CHARTER_HOURLY)) {
             throw new PricingException("Start or end location missing for price estimation.");
         }
         log.info("Calculating estimated price for context: {}", context);
 
-        double distanceKm = DistanceCalculator.calculateDistance(
-                context.getStartLocation().getLatitude(), context.getStartLocation().getLongitude(),
-                context.getEndLocation().getLatitude(), context.getEndLocation().getLongitude()
-        );
+        double distanceKm = 0;
+        double durationMinutes = 5;
 
-        // Simplified duration estimation (e.g., average speed of 30km/h)
-        double durationMinutes = (distanceKm / 30.0) * 60.0;
-        if (distanceKm == 0) durationMinutes = 5; // Min duration for very short trips
+        if (context.getEndLocation() != null) {
+            distanceKm = DistanceCalculator.calculateDistance(
+                    context.getStartLocation().getLatitude(), context.getStartLocation().getLongitude(),
+                    context.getEndLocation().getLatitude(), context.getEndLocation().getLongitude());
+
+            // Simplified duration estimation (e.g., average speed of 30km/h)
+            durationMinutes = (distanceKm / 30.0) * 60.0;
+            if (distanceKm == 0)
+                durationMinutes = 5; // Min duration for very short trips
+        }
 
         double estimatedCost;
         double baseFare = BASE_FARE_NORMAL;
@@ -73,11 +79,14 @@ public class PricingServiceImpl implements PricingService {
                 break;
             case CHARTER_HOURLY:
                 // For charter, estimation might be different, e.g. min hours
-                if (context.getScheduledTime() != null && context.getEndLocation() == null) { // Assuming charter implies duration based
+                if (context.getScheduledTime() != null && context.getEndLocation() == null) { // Assuming charter
+                                                                                              // implies duration based
                     // Let's say user specifies hours, or we estimate a minimum
-                    durationMinutes = context.getActualDurationMinutes() != null ? context.getActualDurationMinutes() : 60.0; // default 1 hour
+                    durationMinutes = context.getActualDurationMinutes() != null ? context.getActualDurationMinutes()
+                            : 60.0; // default 1 hour
                     estimatedCost = CHARTER_HOURLY_RATE * (durationMinutes / 60.0);
-                    breakdown.append(String.format("Charter Hourly Rate: $%.2f/hr, Estimated Hours: %.2f", CHARTER_HOURLY_RATE, durationMinutes/60.0));
+                    breakdown.append(String.format("Charter Hourly Rate: $%.2f/hr, Estimated Hours: %.2f",
+                            CHARTER_HOURLY_RATE, durationMinutes / 60.0));
                     return EstimatedPriceInfo.builder()
                             .estimatedCost(estimatedCost)
                             .estimatedDistance(0) // Distance might not be primary factor
@@ -87,7 +96,8 @@ public class PricingServiceImpl implements PricingService {
                             .build();
                 } // else fall through to normal if start/end provided for some reason
                 break;
-            // Add cases for LONG_DISTANCE, EXPRESS, LUXURY with different base/rates/multipliers
+            // Add cases for LONG_DISTANCE, EXPRESS, LUXURY with different
+            // base/rates/multipliers
             default:
                 // Use normal rates
                 break;
@@ -98,18 +108,21 @@ public class PricingServiceImpl implements PricingService {
         // Peak hour surcharge (example: 7-9 AM and 5-7 PM, 20% surcharge)
         if (context.getScheduledTime() != null) {
             LocalTime scheduledTime = context.getScheduledTime().toLocalTime();
-            if ((scheduledTime.isAfter(LocalTime.of(7,0)) && scheduledTime.isBefore(LocalTime.of(9,0))) ||
-                    (scheduledTime.isAfter(LocalTime.of(17,0)) && scheduledTime.isBefore(LocalTime.of(19,0)))) {
+            if ((scheduledTime.isAfter(LocalTime.of(7, 0)) && scheduledTime.isBefore(LocalTime.of(9, 0))) ||
+                    (scheduledTime.isAfter(LocalTime.of(17, 0)) && scheduledTime.isBefore(LocalTime.of(19, 0)))) {
                 double surge = estimatedCost * 0.20;
                 estimatedCost += surge;
-                breakdown.append(String.format("Base: $%.2f, Distance (%.2fkm * $%.2f): $%.2f, Duration (%.2fmin * $%.2f): $%.2f, Peak Surge: $%.2f",
-                        baseFare, distanceKm, perKmRate, distanceKm * perKmRate, durationMinutes, perMinuteRate, durationMinutes * perMinuteRate, surge));
+                breakdown.append(String.format(
+                        "Base: $%.2f, Distance (%.2fkm * $%.2f): $%.2f, Duration (%.2fmin * $%.2f): $%.2f, Peak Surge: $%.2f",
+                        baseFare, distanceKm, perKmRate, distanceKm * perKmRate, durationMinutes, perMinuteRate,
+                        durationMinutes * perMinuteRate, surge));
             } else {
-                breakdown.append(String.format("Base: $%.2f, Distance (%.2fkm * $%.2f): $%.2f, Duration (%.2fmin * $%.2f): $%.2f",
-                        baseFare, distanceKm, perKmRate, distanceKm * perKmRate, durationMinutes, perMinuteRate, durationMinutes * perMinuteRate));
+                breakdown.append(String.format(
+                        "Base: $%.2f, Distance (%.2fkm * $%.2f): $%.2f, Duration (%.2fmin * $%.2f): $%.2f",
+                        baseFare, distanceKm, perKmRate, distanceKm * perKmRate, durationMinutes, perMinuteRate,
+                        durationMinutes * perMinuteRate));
             }
         }
-
 
         log.info("Estimated price: cost={}, distance={}, duration={}", estimatedCost, distanceKm, durationMinutes);
         return EstimatedPriceInfo.builder()
@@ -132,8 +145,10 @@ public class PricingServiceImpl implements PricingService {
         long durationInMinutes = Duration.between(startTime, endTime).toMinutes();
 
         double distance = DistanceCalculator.calculateDistance(
-                finalPricingContext.getStartLocation().getLatitude(), finalPricingContext.getStartLocation().getLongitude(),
-                finalPricingContext.getEndLocation().getLatitude(), finalPricingContext.getEndLocation().getLongitude());
+                finalPricingContext.getStartLocation().getLatitude(),
+                finalPricingContext.getStartLocation().getLongitude(),
+                finalPricingContext.getEndLocation().getLatitude(),
+                finalPricingContext.getEndLocation().getLongitude());
 
         long distanceCost = (long) (PER_KM_RATE_NORMAL * distance);
         long timeCost = (long) (PER_MINUTE_RATE_NORMAL * durationInMinutes);
@@ -150,14 +165,15 @@ public class PricingServiceImpl implements PricingService {
         return finalPriceInfo;
     }
 
-    //Implement calculateCancellationFee
+    // Implement calculateCancellationFee
     @Override
     public double calculateCancellationFee(Order order, LocalDateTime cancellationTime) {
         log.info("Calculating cancellation fee for order ID: {}", order.getId());
         double fee = 0.0;
 
         if (order.getStatus() == OrderStatus.SCHEDULED && order.getScheduledTime() != null) {
-            // Rule for scheduled orders: e.g., free if cancelled > 1 hour before scheduled time
+            // Rule for scheduled orders: e.g., free if cancelled > 1 hour before scheduled
+            // time
             if (cancellationTime.isBefore(order.getScheduledTime().minusHours(1))) {
                 return 0.0;
             } else {
@@ -170,11 +186,12 @@ public class PricingServiceImpl implements PricingService {
         if (order.getStatus() == OrderStatus.DRIVER_ASSIGNED || order.getStatus() == OrderStatus.ACCEPTED) {
             decisionPointTime = order.getUpdatedAt(); // Time it was accepted/assigned
         } else if (order.getStatus() == OrderStatus.DRIVER_EN_ROUTE || order.getStatus() == OrderStatus.ARRIVED) {
-            decisionPointTime = order.getDriverEnRouteTime() != null ? order.getDriverEnRouteTime() : order.getUpdatedAt(); // Add driverEnRouteTime
+            decisionPointTime = order.getDriverEnRouteTime() != null ? order.getDriverEnRouteTime()
+                    : order.getUpdatedAt(); // Add driverEnRouteTime
         }
 
-
-        if (decisionPointTime != null && Duration.between(decisionPointTime, cancellationTime).toMinutes() > FREE_CANCELLATION_WINDOW_MINUTES) {
+        if (decisionPointTime != null && Duration.between(decisionPointTime, cancellationTime)
+                .toMinutes() > FREE_CANCELLATION_WINDOW_MINUTES) {
             switch (order.getStatus()) {
                 case DRIVER_ASSIGNED: // or ACCEPTED
                 case DRIVER_EN_ROUTE:

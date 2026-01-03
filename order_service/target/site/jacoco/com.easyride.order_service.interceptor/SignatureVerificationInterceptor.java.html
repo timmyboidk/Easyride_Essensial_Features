@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>SignatureVerificationInterceptor.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">order_service</a> &gt; <a href="index.source.html" class="el_package">com.easyride.order_service.interceptor</a> &gt; <span class="el_source">SignatureVerificationInterceptor.java</span></div><h1>SignatureVerificationInterceptor.java</h1><pre class="source lang-java linenums">package com.easyride.order_service.interceptor;
+
+import com.easyride.order_service.util.IdempotencyService;
+import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.HandlerInterceptor;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.time.Instant;
+import java.util.Base64;
+
+/**
+ * Interceptor to verify the request signature and prevent duplicate submissions.
+ *
+ * It checks for required headers (&quot;nonce&quot;, &quot;timestamp&quot;, &quot;signature&quot;) and uses a secret key
+ * to compute the expected signature. It also verifies that the timestamp is within an allowed
+ * window (to prevent replay attacks) and uses an idempotency key (if provided) to block duplicate requests.
+ */
+@Component
+<span class="nc" id="L22">public class SignatureVerificationInterceptor implements HandlerInterceptor {</span>
+
+    // Secret key for HMAC signature computation. In production, secure this properly.
+    private static final String SECRET_KEY = &quot;YourSecretKey&quot;;
+
+    // Allowed time window in seconds (e.g., 300 seconds = 5 minutes)
+    private static final long ALLOWED_TIME_WINDOW = 300;
+
+    @Override
+    public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // Retrieve required headers
+<span class="nc" id="L33">        String nonce = request.getHeader(&quot;nonce&quot;);</span>
+<span class="nc" id="L34">        String timestampStr = request.getHeader(&quot;timestamp&quot;);</span>
+<span class="nc" id="L35">        String signature = request.getHeader(&quot;signature&quot;);</span>
+<span class="nc" id="L36">        String idempotencyKey = request.getHeader(&quot;Idempotency-Key&quot;);</span>
+
+        // Verify that required headers are present
+<span class="nc bnc" id="L39" title="All 6 branches missed.">        if (nonce == null || timestampStr == null || signature == null) {</span>
+<span class="nc" id="L40">            response.sendError(HttpServletResponse.SC_BAD_REQUEST, &quot;Missing required headers&quot;);</span>
+<span class="nc" id="L41">            return false;</span>
+        }
+
+        // Validate timestamp (prevent replay attacks)
+        long timestamp;
+        try {
+<span class="nc" id="L47">            timestamp = Long.parseLong(timestampStr);</span>
+<span class="nc" id="L48">        } catch (NumberFormatException e) {</span>
+<span class="nc" id="L49">            response.sendError(HttpServletResponse.SC_BAD_REQUEST, &quot;Invalid timestamp format&quot;);</span>
+<span class="nc" id="L50">            return false;</span>
+        }
+<span class="nc" id="L52">        long currentTimestamp = Instant.now().getEpochSecond();</span>
+<span class="nc bnc" id="L53" title="All 2 branches missed.">        if (Math.abs(currentTimestamp - timestamp) &gt; ALLOWED_TIME_WINDOW) {</span>
+<span class="nc" id="L54">            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, &quot;Request timestamp is outside the allowed window&quot;);</span>
+<span class="nc" id="L55">            return false;</span>
+        }
+
+        // Compute expected signature using HMAC-SHA256
+<span class="nc" id="L59">        String data = nonce + timestampStr;</span>
+<span class="nc" id="L60">        String expectedSignature = computeHmacSHA256(data, SECRET_KEY);</span>
+<span class="nc bnc" id="L61" title="All 2 branches missed.">        if (!expectedSignature.equals(signature)) {</span>
+<span class="nc" id="L62">            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, &quot;Signature verification failed&quot;);</span>
+<span class="nc" id="L63">            return false;</span>
+        }
+
+        // Check idempotency to prevent duplicate submissions
+<span class="nc bnc" id="L67" title="All 4 branches missed.">        if (idempotencyKey != null &amp;&amp; !idempotencyKey.isEmpty()) {</span>
+<span class="nc bnc" id="L68" title="All 2 branches missed.">            if (IdempotencyService.isDuplicate(idempotencyKey)) {</span>
+<span class="nc" id="L69">                response.sendError(HttpServletResponse.SC_CONFLICT, &quot;Duplicate submission detected&quot;);</span>
+<span class="nc" id="L70">                return false;</span>
+            }
+            // Save the idempotency key for later requests.
+            // In production, use a distributed cache with an expiration.
+<span class="nc" id="L74">            IdempotencyService.storeKey(idempotencyKey);</span>
+        }
+
+        // All checks passed; allow the request to proceed
+<span class="nc" id="L78">        return true;</span>
+    }
+
+    /**
+     * Computes the HMAC-SHA256 for the given data using the provided secret key.
+     *
+     * @param data The data to sign.
+     * @param key  The secret key.
+     * @return A Base64-encoded signature.
+     */
+    private String computeHmacSHA256(String data, String key) throws Exception {
+<span class="nc" id="L89">        Mac sha256_HMAC = Mac.getInstance(&quot;HmacSHA256&quot;);</span>
+<span class="nc" id="L90">        SecretKeySpec secretKey = new SecretKeySpec(key.getBytes(&quot;UTF-8&quot;), &quot;HmacSHA256&quot;);</span>
+<span class="nc" id="L91">        sha256_HMAC.init(secretKey);</span>
+<span class="nc" id="L92">        byte[] hashBytes = sha256_HMAC.doFinal(data.getBytes(&quot;UTF-8&quot;));</span>
+<span class="nc" id="L93">        return Base64.getEncoder().encodeToString(hashBytes);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>

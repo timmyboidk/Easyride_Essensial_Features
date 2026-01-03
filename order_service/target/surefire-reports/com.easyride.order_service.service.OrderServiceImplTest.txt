@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.easyride.order_service.service.OrderServiceImplTest
+-------------------------------------------------------------------------------
+Tests run: 15, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.052 s -- in com.easyride.order_service.service.OrderServiceImplTest

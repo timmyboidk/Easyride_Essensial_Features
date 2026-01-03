@@ -1,0 +1,303 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>OrderServiceImpl.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">order_service</a> &gt; <a href="index.source.html" class="el_package">com.easyride.order_service.service</a> &gt; <span class="el_source">OrderServiceImpl.java</span></div><h1>OrderServiceImpl.java</h1><pre class="source lang-java linenums">package com.easyride.order_service.service;
+
+import com.easyride.order_service.dto.OrderCreateDto;
+import com.easyride.order_service.dto.OrderResponseDto;
+import com.easyride.order_service.model.*;
+import com.easyride.order_service.repository.*;
+import com.easyride.order_service.rocket.*;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import com.easyride.order_service.dto.*;
+import com.easyride.order_service.exception.OrderServiceException;
+import com.easyride.order_service.exception.ResourceNotFoundException;
+import org.springframework.beans.factory.annotation.Autowired;
+import java.time.LocalDateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Service
+public class OrderServiceImpl implements OrderService {
+
+<span class="fc" id="L21">    private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);</span>
+
+    private final OrderRepository orderRepository;
+    private final PassengerRepository passengerRepository;
+    private final DriverRepository driverRepository;
+    private final UserRepository userRepository;
+    private final PricingService pricingService;
+    private final OrderEventProducer orderEventProducer;
+
+    @Autowired
+<span class="fc" id="L31">    public OrderServiceImpl(OrderRepository orderRepository,</span>
+                            PassengerRepository passengerRepository,
+                            DriverRepository driverRepository,
+                            UserRepository userRepository,
+                            OrderEventProducer orderEventProducer,
+                            PricingService pricingService) {
+<span class="fc" id="L37">        this.orderRepository = orderRepository;</span>
+<span class="fc" id="L38">        this.passengerRepository = passengerRepository;</span>
+<span class="fc" id="L39">        this.driverRepository = driverRepository;</span>
+<span class="fc" id="L40">        this.userRepository = userRepository;</span>
+<span class="fc" id="L41">        this.pricingService = pricingService;</span>
+<span class="fc" id="L42">        this.orderEventProducer = orderEventProducer;</span>
+<span class="fc" id="L43">    }</span>
+
+    @Override
+    @Transactional
+    public OrderResponseDto createOrder(OrderCreateDto orderCreateDto) {
+<span class="fc" id="L48">        log.info(&quot;Processing order creation request for passenger ID: {}&quot;, orderCreateDto.getPassengerId());</span>
+<span class="fc" id="L49">        Passenger passenger = passengerRepository.findById(orderCreateDto.getPassengerId())</span>
+<span class="fc" id="L50">                .orElseGet(() -&gt; {</span>
+<span class="fc" id="L51">                    log.warn(&quot;Passenger entity not found for ID {}, creating a placeholder.&quot;, orderCreateDto.getPassengerId());</span>
+<span class="fc" id="L52">                    Passenger newP = new Passenger();</span>
+<span class="fc" id="L53">                    newP.setId(orderCreateDto.getPassengerId());</span>
+<span class="fc" id="L54">                    newP.setUsername(&quot;Passenger &quot; + orderCreateDto.getPassengerId()); // Placeholder name</span>
+<span class="fc" id="L55">                    return passengerRepository.save(newP);</span>
+                });
+
+<span class="fc" id="L58">        PricingContext pricingContext = PricingContext.builder()</span>
+<span class="fc" id="L59">                .startLocation(orderCreateDto.getStartLocation())</span>
+<span class="fc" id="L60">                .endLocation(orderCreateDto.getEndLocation())</span>
+<span class="fc" id="L61">                .vehicleType(orderCreateDto.getVehicleType())</span>
+<span class="fc" id="L62">                .serviceType(orderCreateDto.getServiceType())</span>
+<span class="fc" id="L63">                .scheduledTime(orderCreateDto.getScheduledTime())</span>
+<span class="fc" id="L64">                .build();</span>
+<span class="fc" id="L65">        EstimatedPriceInfo estimatedPriceInfo = pricingService.calculateEstimatedPrice(pricingContext);</span>
+
+<span class="fc" id="L67">        Order order = new Order();</span>
+<span class="fc" id="L68">        order.setPassenger(passenger);</span>
+<span class="fc" id="L69">        order.setStartLatitude(orderCreateDto.getStartLocation().getLatitude());</span>
+<span class="fc" id="L70">        order.setStartLongitude(orderCreateDto.getStartLocation().getLongitude());</span>
+<span class="fc" id="L71">        order.setEndLatitude(orderCreateDto.getEndLocation().getLatitude());</span>
+<span class="fc" id="L72">        order.setEndLongitude(orderCreateDto.getEndLocation().getLongitude());</span>
+<span class="fc" id="L73">        order.setOrderTime(LocalDateTime.now());</span>
+<span class="fc" id="L74">        order.setEstimatedCost(estimatedPriceInfo.getEstimatedCost());</span>
+<span class="fc" id="L75">        order.setEstimatedDistance(estimatedPriceInfo.getEstimatedDistance());</span>
+<span class="fc" id="L76">        order.setEstimatedDuration(estimatedPriceInfo.getEstimatedDuration());</span>
+<span class="fc" id="L77">        order.setVehicleType(orderCreateDto.getVehicleType());</span>
+<span class="fc" id="L78">        order.setServiceType(orderCreateDto.getServiceType());</span>
+<span class="fc" id="L79">        order.setPaymentMethod(orderCreateDto.getPaymentMethod());</span>
+<span class="fc" id="L80">        order.setPassengerNotes(orderCreateDto.getPassengerNotes());</span>
+<span class="fc" id="L81">        order.setPassengerCount(orderCreateDto.getPassengerCount());</span>
+<span class="fc" id="L82">        order.setCreatedBy(passenger.getId());</span>
+
+<span class="fc bfc" id="L84" title="All 2 branches covered.">        if (orderCreateDto.getScheduledTime() != null) {</span>
+<span class="fc bfc" id="L85" title="All 2 branches covered.">            if (orderCreateDto.getScheduledTime().isBefore(LocalDateTime.now().plusMinutes(15))) {</span>
+<span class="fc" id="L86">                log.warn(&quot;Scheduled time {} is too soon.&quot;, orderCreateDto.getScheduledTime());</span>
+<span class="fc" id="L87">                throw new OrderServiceException(&quot;预约时间必须至少在当前时间15分钟后&quot;);</span>
+            }
+<span class="fc" id="L89">            order.setScheduledTime(orderCreateDto.getScheduledTime());</span>
+<span class="fc" id="L90">            order.setStatus(OrderStatus.SCHEDULED);</span>
+<span class="fc" id="L91">        } else {</span>
+<span class="fc" id="L92">            order.setStatus(OrderStatus.PENDING_MATCH);</span>
+        }
+
+<span class="fc" id="L95">        Order savedOrder = orderRepository.save(order);</span>
+<span class="fc" id="L96">        log.info(&quot;Order (ID: {}) saved with status: {}. Scheduled time: {}&quot;, savedOrder.getId(), savedOrder.getStatus(), savedOrder.getScheduledTime());</span>
+
+<span class="fc bfc" id="L98" title="All 2 branches covered.">        if (order.getStatus() == OrderStatus.PENDING_MATCH) {</span>
+<span class="fc" id="L99">            OrderCreatedEvent event = mapToOrderCreatedEvent(savedOrder, estimatedPriceInfo);</span>
+<span class="fc" id="L100">            orderEventProducer.sendOrderCreatedEvent(event);</span>
+<span class="fc" id="L101">            log.info(&quot;ORDER_CREATED event published for immediate order ID: {}&quot;, savedOrder.getId());</span>
+        }
+
+<span class="fc" id="L104">        return mapToOrderResponseDto(savedOrder);</span>
+    }
+
+    @Override
+    @Transactional
+    public void acceptOrder(Long orderId, Long driverId) {
+<span class="fc" id="L110">        Order order = orderRepository.findById(orderId)</span>
+<span class="pc" id="L111">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;订单不存在&quot;));</span>
+<span class="fc" id="L112">        Driver driver = driverRepository.findById(driverId)</span>
+<span class="pc" id="L113">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;司机不存在&quot;));</span>
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (!driver.isAvailable()) {</span>
+<span class="fc" id="L115">            throw new OrderServiceException(&quot;司机不可用&quot;);</span>
+        }
+<span class="fc" id="L117">        order.setDriver(driver);</span>
+<span class="fc" id="L118">        order.setStatus(OrderStatus.ACCEPTED);</span>
+<span class="fc" id="L119">        order.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L120">        order.setUpdatedBy(driverId);</span>
+<span class="fc" id="L121">        orderRepository.save(order);</span>
+<span class="fc" id="L122">        driver.setAvailable(false);</span>
+<span class="fc" id="L123">        driverRepository.save(driver);</span>
+<span class="fc" id="L124">    }</span>
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponseDto getOrderDetails(Long orderId) {
+<span class="pc" id="L129">        Order order = orderRepository.findById(orderId)</span>
+<span class="pc" id="L130">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;订单不存在&quot;));</span>
+<span class="nc" id="L131">        return mapToOrderResponseDto(order);</span>
+    }
+
+    @Override
+    @Transactional
+    public void cancelOrder(Long orderId) {
+<span class="fc" id="L137">        log.info(&quot;Processing cancellation for order ID: {}&quot;, orderId);</span>
+<span class="fc" id="L138">        Order order = orderRepository.findById(orderId)</span>
+<span class="pc" id="L139">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;订单 &quot; + orderId + &quot; 未找到&quot;));</span>
+
+<span class="fc" id="L141">        order.setStatus(OrderStatus.CANCELED);</span>
+<span class="fc" id="L142">        order.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L143">        order.setCancellationReason(&quot;Cancelled by user/system&quot;);</span>
+
+<span class="pc bpc" id="L145" title="1 of 2 branches missed.">        if (order.getDriver() != null) {</span>
+<span class="fc" id="L146">            Driver driver = order.getDriver();</span>
+<span class="fc" id="L147">            driver.setAvailable(true);</span>
+<span class="fc" id="L148">            driverRepository.save(driver);</span>
+<span class="fc" id="L149">            log.info(&quot;Driver {} made available after order {} cancellation.&quot;, driver.getId(), orderId);</span>
+        }
+<span class="fc" id="L151">        orderRepository.save(order);</span>
+<span class="fc" id="L152">        log.info(&quot;Order ID: {} successfully cancelled.&quot;, orderId);</span>
+
+<span class="fc" id="L154">        OrderEventDto cancelEvent = new OrderEventDto(</span>
+<span class="fc" id="L155">                order.getId(),</span>
+<span class="fc" id="L156">                order.getPassenger().getId(),</span>
+<span class="pc bpc" id="L157" title="1 of 2 branches missed.">                order.getDriver() != null ? order.getDriver().getId() : null,</span>
+<span class="fc" id="L158">                OrderStatus.CANCELED,</span>
+<span class="fc" id="L159">                &quot;订单已取消&quot;,</span>
+<span class="fc" id="L160">                LocalDateTime.now(),</span>
+<span class="fc" id="L161">                order.getStartLatitude(),</span>
+<span class="fc" id="L162">                order.getStartLongitude()</span>
+        );
+<span class="fc" id="L164">        orderEventProducer.sendOrderStatusUpdateEvent(cancelEvent);</span>
+<span class="fc" id="L165">    }</span>
+
+    @Override
+    @Transactional
+    public void updateOrderStatus(Long orderId, OrderStatus status) {
+<span class="nc" id="L170">        Order order = orderRepository.findById(orderId)</span>
+<span class="nc" id="L171">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;订单不存在&quot;));</span>
+<span class="nc" id="L172">        order.setStatus(status);</span>
+<span class="nc" id="L173">        order.setUpdatedAt(LocalDateTime.now());</span>
+<span class="nc" id="L174">        orderRepository.save(order);</span>
+<span class="nc" id="L175">    }</span>
+
+    @Override
+    @Transactional
+    public void processDriverAssigned(DriverAssignedEventDto event) {
+<span class="fc" id="L180">        log.info(&quot;Processing driver assignment for order ID: {}&quot;, event.getOrderId());</span>
+<span class="fc" id="L181">        Order order = orderRepository.findById(event.getOrderId())</span>
+<span class="pc" id="L182">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;订单 &quot; + event.getOrderId() + &quot; 未找到以分配司机&quot;));</span>
+
+<span class="pc bpc" id="L184" title="1 of 4 branches missed.">        if (order.getStatus() != OrderStatus.PENDING_MATCH &amp;&amp; order.getStatus() != OrderStatus.SCHEDULED) {</span>
+<span class="fc" id="L185">            log.warn(&quot;Order {} is not in a state to be assigned a driver. Current status: {}&quot;, event.getOrderId(), order.getStatus());</span>
+<span class="fc" id="L186">            return;</span>
+        }
+
+<span class="fc" id="L189">        Driver driver = driverRepository.findById(event.getDriverId()).orElseGet(() -&gt; {</span>
+<span class="nc" id="L190">            log.warn(&quot;Driver entity not found locally for ID {}, creating a placeholder.&quot;, event.getDriverId());</span>
+<span class="nc" id="L191">            Driver newDriver = new Driver();</span>
+<span class="nc" id="L192">            newDriver.setId(event.getDriverId());</span>
+<span class="nc bnc" id="L193" title="All 2 branches missed.">            newDriver.setUsername(event.getDriverName() != null ? event.getDriverName() : &quot;Driver &quot; + event.getDriverId());</span>
+<span class="nc" id="L194">            newDriver.setAvailable(false);</span>
+<span class="nc" id="L195">            return driverRepository.save(newDriver);</span>
+        });
+
+<span class="fc bfc" id="L198" title="All 2 branches covered.">        if (!driver.isAvailable()) {</span>
+<span class="fc" id="L199">            log.warn(&quot;Driver {} was assigned to order {} but is no longer available. Requesting rematch or notifying.&quot;, driver.getId(), order.getId());</span>
+<span class="fc" id="L200">            order.setStatus(OrderStatus.PENDING_MATCH);</span>
+<span class="fc" id="L201">            orderRepository.save(order);</span>
+<span class="fc" id="L202">            return;</span>
+        }
+
+<span class="fc" id="L205">        order.setDriver(driver);</span>
+<span class="fc" id="L206">        order.setStatus(OrderStatus.DRIVER_ASSIGNED);</span>
+<span class="fc" id="L207">        order.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L208">        orderRepository.save(order);</span>
+
+<span class="fc" id="L210">        driver.setAvailable(false);</span>
+<span class="fc" id="L211">        driverRepository.save(driver);</span>
+<span class="fc" id="L212">        log.info(&quot;Driver {} successfully assigned to order {}.&quot;, event.getDriverId(), event.getOrderId());</span>
+
+<span class="fc" id="L214">        OrderEventDto orderStatusUpdateEvent = new OrderEventDto(</span>
+<span class="fc" id="L215">                        order.getId(), order.getPassenger().getId(), order.getDriver().getId(),</span>
+<span class="fc" id="L216">                        OrderStatus.DRIVER_ASSIGNED, &quot;司机已接单，正在前来&quot;, LocalDateTime.now(),</span>
+<span class="fc" id="L217">                        order.getStartLatitude(), order.getStartLongitude()</span>
+                );
+<span class="fc" id="L219">        orderEventProducer.sendOrderStatusUpdateEvent(orderStatusUpdateEvent);</span>
+<span class="fc" id="L220">    }</span>
+
+    @Override
+    @Transactional
+    public void processOrderMatchFailed(Long orderId, String reason) {
+<span class="fc" id="L225">        log.warn(&quot;Order match failed for order ID: {}. Reason: {}&quot;, orderId, reason);</span>
+<span class="fc" id="L226">        Order order = orderRepository.findById(orderId).orElse(null);</span>
+<span class="pc bpc" id="L227" title="3 of 6 branches missed.">        if (order != null &amp;&amp; (order.getStatus() == OrderStatus.PENDING_MATCH || order.getStatus() == OrderStatus.SCHEDULED)) {</span>
+<span class="fc" id="L228">            order.setStatus(OrderStatus.FAILED);</span>
+<span class="fc" id="L229">            order.setUpdatedAt(LocalDateTime.now());</span>
+<span class="fc" id="L230">            orderRepository.save(order);</span>
+<span class="fc" id="L231">            log.info(&quot;Order ID: {} marked as FAILED due to matching failure.&quot;, orderId);</span>
+        }
+<span class="fc" id="L233">    }</span>
+
+    @Override
+    @Transactional
+    public void processPaymentConfirmation(Long orderId, Double finalAmount, String paymentTransactionId) {
+<span class="fc" id="L238">        log.info(&quot;Processing payment confirmation for order ID: {}&quot;, orderId);</span>
+<span class="fc" id="L239">        Order order = orderRepository.findById(orderId)</span>
+<span class="pc" id="L240">                .orElseThrow(() -&gt; new ResourceNotFoundException(&quot;订单 &quot; + orderId + &quot; 未找到&quot;));</span>
+
+<span class="fc bfc" id="L242" title="All 4 branches covered.">        if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.PAYMENT_SETTLED) {</span>
+<span class="fc" id="L243">            order.setActualDropOffTime(LocalDateTime.now());</span>
+<span class="fc" id="L244">            PricingContext finalPricingContext = PricingContext.builder()</span>
+<span class="fc" id="L245">                    .startLocation(new LocationDto(order.getStartLatitude(), order.getStartLongitude()))</span>
+<span class="fc" id="L246">                    .endLocation(new LocationDto(order.getEndLatitude(), order.getEndLongitude()))</span>
+<span class="fc" id="L247">                    .vehicleType(order.getVehicleType())</span>
+<span class="fc" id="L248">                    .serviceType(order.getServiceType())</span>
+<span class="fc" id="L249">                    .build();</span>
+<span class="fc" id="L250">            FinalPriceInfo finalPrice = pricingService.calculateFinalPrice(order, finalPricingContext);</span>
+<span class="fc" id="L251">            order.setFinalCost(finalPrice.getFinalCost());</span>
+<span class="fc" id="L252">            order.setActualDistance(finalPrice.getActualDistance());</span>
+<span class="fc" id="L253">            order.setActualDuration(finalPrice.getActualDuration());</span>
+<span class="fc" id="L254">            order.setStatus(OrderStatus.PAYMENT_SETTLED);</span>
+<span class="fc" id="L255">            orderRepository.save(order);</span>
+
+<span class="fc" id="L257">            log.info(&quot;Order ID {} status updated to PAYMENT_SETTLED. Final cost: {}&quot;, orderId, finalAmount);</span>
+
+<span class="fc" id="L259">            OrderPaymentSettledEvent settledEvent = new OrderPaymentSettledEvent(</span>
+<span class="fc" id="L260">                    order.getId(),</span>
+<span class="fc" id="L261">                    order.getFinalCost(),</span>
+<span class="fc" id="L262">                    order.getPaymentMethod().name(),</span>
+<span class="fc" id="L263">                    LocalDateTime.now(),</span>
+<span class="fc" id="L264">                    order.getPassenger().getId(),</span>
+<span class="pc bpc" id="L265" title="1 of 2 branches missed.">                    order.getDriver() != null ? order.getDriver().getId() : null</span>
+            );
+<span class="fc" id="L267">            orderEventProducer.sendOrderPaymentSettledEvent(settledEvent);</span>
+<span class="fc" id="L268">        } else {</span>
+<span class="fc" id="L269">            log.warn(&quot;Order {} is not in COMPLETED state to confirm payment. Current status: {}&quot;, orderId, order.getStatus());</span>
+        }
+<span class="fc" id="L271">    }</span>
+
+    private OrderCreatedEvent mapToOrderCreatedEvent(Order order, EstimatedPriceInfo priceInfo) {
+<span class="fc" id="L274">        return new OrderCreatedEvent(</span>
+<span class="fc" id="L275">                order.getId(),</span>
+<span class="fc" id="L276">                order.getPassenger().getId(),</span>
+<span class="fc" id="L277">                order.getStartLatitude(),</span>
+<span class="fc" id="L278">                order.getStartLongitude(),</span>
+<span class="fc" id="L279">                order.getEndLatitude(),</span>
+<span class="fc" id="L280">                order.getEndLongitude(),</span>
+<span class="fc" id="L281">                order.getVehicleType(),</span>
+<span class="fc" id="L282">                order.getServiceType(),</span>
+<span class="fc" id="L283">                order.getPaymentMethod(),</span>
+<span class="fc" id="L284">                order.getEstimatedCost(),</span>
+<span class="fc" id="L285">                order.getScheduledTime(),</span>
+<span class="fc" id="L286">                order.getOrderTime(),</span>
+<span class="fc" id="L287">                order.getPassenger().getUsername()</span>
+        );
+    }
+
+    private OrderResponseDto mapToOrderResponseDto(Order order) {
+<span class="fc" id="L292">        return new OrderResponseDto(</span>
+<span class="fc" id="L293">                order.getId(),</span>
+<span class="fc" id="L294">                order.getStatus(),</span>
+<span class="fc" id="L295">                order.getPassenger().getUsername(),</span>
+<span class="pc bpc" id="L296" title="1 of 2 branches missed.">                order.getDriver() != null ? order.getDriver().getUsername() : null,</span>
+<span class="fc" id="L297">                order.getEstimatedCost(),</span>
+<span class="fc" id="L298">                order.getEstimatedDistance(),</span>
+<span class="fc" id="L299">                order.getEstimatedDuration()</span>
+        );
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.11.202310140853</span></div></body></html>
