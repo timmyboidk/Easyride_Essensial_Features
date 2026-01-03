@@ -7,14 +7,12 @@ import com.easyride.user_service.model.*;
 import com.easyride.user_service.repository.*;
 import com.easyride.user_service.rocket.UserRocketProducer;
 import com.easyride.user_service.security.JwtTokenProvider;
-import com.easyride.user_service.service.UserServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.mock.web.MockMultipartFile;
@@ -163,6 +161,215 @@ public class UserServiceTest {
 
         assertThrows(OtpVerificationException.class, () -> {
             userService.loginWithPhoneOtp(loginDto);
+        });
+    }
+
+    @Test
+    void registerUser_Admin_Success() {
+        registrationDto.setRole("ADMIN");
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+
+        Admin admin = new Admin();
+        admin.setId(3L);
+        admin.setUsername("testadmin");
+        admin.setRole(Role.ADMIN);
+        admin.setEnabled(true);
+
+        when(adminRepository.save(any(Admin.class))).thenReturn(admin);
+
+        UserRegistrationResponseDto response = userService.registerUser(registrationDto, null, null);
+
+        assertNotNull(response);
+        assertEquals(3L, response.getUserId());
+        assertEquals("ADMIN", response.getRole());
+    }
+
+    @Test
+    void registerUser_EmailAlreadyExists() {
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(true);
+
+        assertThrows(UserAlreadyExistsException.class, () -> {
+            userService.registerUser(registrationDto, null, null);
+        });
+    }
+
+    @Test
+    void registerUser_UsernameAlreadyExists() {
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByUsername(anyString())).thenReturn(true);
+
+        assertThrows(UserAlreadyExistsException.class, () -> {
+            userService.registerUser(registrationDto, null, null);
+        });
+    }
+
+    @Test
+    void registerUser_Driver_MissingLicense() {
+        registrationDto.setRole("DRIVER");
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+
+        assertThrows(RuntimeException.class, () -> {
+            userService.registerUser(registrationDto, null, null);
+        });
+    }
+
+    @Test
+    void registerUser_Driver_MissingVehicleDoc() {
+        registrationDto.setRole("DRIVER");
+        MockMultipartFile driverLicenseFile = new MockMultipartFile("driverLicenseFile", "license.jpg", "image/jpeg",
+                "test data".getBytes());
+
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
+        when(fileStorageService.storeFile(any())).thenReturn("path");
+
+        assertThrows(RuntimeException.class, () -> {
+            userService.registerUser(registrationDto, driverLicenseFile, null);
+        });
+    }
+
+    @Test
+    void requestOtpForLogin_Success() {
+        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(true);
+        when(otpService.generateOtp("1234567890")).thenReturn("123456");
+
+        userService.requestOtpForLogin("1234567890");
+
+        verify(otpService, times(1)).sendOtp(eq("1234567890"), eq("123456"));
+    }
+
+    @Test
+    void requestOtpForLogin_UserNotFound() {
+        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(false);
+
+        assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
+            userService.requestOtpForLogin("1234567890");
+        });
+    }
+
+    @Test
+    void findByUsername_Success() {
+        Passenger user = new Passenger();
+        user.setUsername("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+
+        User result = userService.findByUsername("testuser");
+        assertEquals("testuser", result.getUsername());
+    }
+
+    @Test
+    void findByUsername_NotFound() {
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
+
+        assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
+            userService.findByUsername("testuser");
+        });
+    }
+
+    @Test
+    void requestOtpForPasswordReset_Success() {
+        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(true);
+        when(otpService.generateOtp("1234567890")).thenReturn("123456");
+
+        String otp = userService.requestOtpForPasswordReset("1234567890");
+        assertEquals("123456", otp);
+    }
+
+    @Test
+    void requestOtpForPasswordReset_NotFound() {
+        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(false);
+
+        assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
+            userService.requestOtpForPasswordReset("1234567890");
+        });
+    }
+
+    @Test
+    void resetPasswordWithOtp_Success() {
+        ResetPasswordRequestDto requestDto = new ResetPasswordRequestDto("1234567890", "123456", "newPassword");
+        when(otpService.validateOtp("1234567890", "123456")).thenReturn(true);
+
+        Passenger user = new Passenger();
+        when(userRepository.findByPhoneNumber("1234567890")).thenReturn(Optional.of(user));
+        when(passwordEncoder.encode("newPassword")).thenReturn("encodedNewPassword");
+
+        userService.resetPasswordWithOtp(requestDto);
+
+        assertEquals("encodedNewPassword", user.getPassword());
+        verify(userRepository, times(1)).save(user);
+    }
+
+    @Test
+    void resetPasswordWithOtp_InvalidOtp() {
+        ResetPasswordRequestDto requestDto = new ResetPasswordRequestDto("1234567890", "wrong", "newPassword");
+        when(otpService.validateOtp("1234567890", "wrong")).thenReturn(false);
+
+        assertThrows(OtpVerificationException.class, () -> {
+            userService.resetPasswordWithOtp(requestDto);
+        });
+    }
+
+    @Test
+    void updateUserProfile_Success() {
+        UserProfileUpdateDto updateDto = new UserProfileUpdateDto();
+        updateDto.setEmail("new@test.com");
+
+        Passenger user = new Passenger();
+        user.setUsername("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userRepository.save(any())).thenReturn(user);
+
+        User result = userService.updateUserProfile("testuser", updateDto);
+
+        assertEquals("new@test.com", result.getEmail());
+    }
+
+    @Test
+    void updateDriverProfile_Success() {
+        DriverProfileUpdateDto updateDto = new DriverProfileUpdateDto();
+        updateDto.setVerificationStatus(DriverApprovalStatus.APPROVED);
+        updateDto.setReviewNotes("Looks good");
+
+        Driver driver = new Driver();
+        driver.setId(2L);
+        when(driverRepository.findById(2L)).thenReturn(Optional.of(driver));
+        when(driverRepository.save(any())).thenReturn(driver);
+
+        Driver result = userService.updateDriverProfile(2L, updateDto);
+
+        assertEquals(DriverApprovalStatus.APPROVED, result.getVerificationStatus());
+        assertEquals("Looks good", result.getReviewNotes());
+    }
+
+    @Test
+    void updateDriverProfile_NotFound() {
+        DriverProfileUpdateDto updateDto = new DriverProfileUpdateDto();
+        when(driverRepository.findById(2L)).thenReturn(Optional.empty());
+
+        assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
+            userService.updateDriverProfile(2L, updateDto);
+        });
+    }
+
+    @Test
+    void registerUser_OtpFailure() {
+        registrationDto.setOtpCode("123456");
+        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
+        when(userRepository.existsByEmail(anyString())).thenReturn(false);
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(otpService.validateOtp("1234567890", "123456")).thenReturn(false);
+
+        assertThrows(OtpVerificationException.class, () -> {
+            userService.registerUser(registrationDto, null, null);
         });
     }
 }

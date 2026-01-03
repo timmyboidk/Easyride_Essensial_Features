@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.easyride.user_service.controller.UserControllerTest" time="1.858" tests="4" errors="0" skipped="0" failures="0">
+<testsuite xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://maven.apache.org/surefire/maven-surefire-plugin/xsd/surefire-test-report-3.0.xsd" version="3.0" name="com.easyride.user_service.service.OtpServiceTest" time="0.237" tests="5" errors="0" skipped="0" failures="0">
   <properties>
     <property name="java.specification.version" value="17"/>
     <property name="sun.jnu.encoding" value="UTF-8"/>
@@ -59,68 +59,24 @@
     <property name="sun.io.unicode.encoding" value="UnicodeBig"/>
     <property name="java.class.version" value="61.0"/>
   </properties>
-  <testcase name="registerUser_Success" classname="com.easyride.user_service.controller.UserControllerTest" time="0.162">
-    <system-out><![CDATA[16:57:46.468 [main] INFO org.springframework.test.context.support.AnnotationConfigContextLoaderUtils -- Could not detect default configuration classes for test class [com.easyride.user_service.controller.UserControllerTest]: UserControllerTest does not declare any static, non-private, non-final, nested classes annotated with @Configuration.
-16:57:46.529 [main] INFO org.springframework.boot.test.context.SpringBootTestContextBootstrapper -- Found @SpringBootConfiguration com.easyride.user_service.UserServiceApplication for test class com.easyride.user_service.controller.UserControllerTest
-
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
- :: Spring Boot ::                (v3.1.0)
-
-HV000001: Hibernate Validator 8.0.0.Final
-Starting UserControllerTest using Java 17.0.16 with PID 61565 (started by timyu in /Users/timyu/Desktop/Easyride_Essensial_Features/user_service)
-No active profile set, falling back to 1 default profile: "default"
-Refreshing org.springframework.web.context.support.GenericWebApplicationContext@1da4b6b3
-ControllerAdvice beans: 0 @ModelAttribute, 0 @InitBinder, 1 RequestBodyAdvice, 1 ResponseBodyAdvice
-6 mappings in 'requestMappingHandlerMapping'
-Patterns [/webjars/**, /**] in 'resourceHandlerMapping'
-ControllerAdvice beans: 1 @ExceptionHandler, 1 ResponseBodyAdvice
-
-
-Using generated security password: 462522eb-ef54-4bde-af2b-9ac7d11235ae
-
-This generated password is for development use only. Your security configuration must be updated before running your application in production.
-
-Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@5e055ce1, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@3278d065, org.springframework.security.web.context.SecurityContextHolderFilter@227b9277, org.springframework.security.web.header.HeaderWriterFilter@5e360c3b, org.springframework.security.web.csrf.CsrfFilter@6b64bf61, org.springframework.security.web.authentication.logout.LogoutFilter@2c02a007, org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter@3c62be3c, org.springframework.security.web.authentication.ui.DefaultLoginPageGeneratingFilter@5018b56b, org.springframework.security.web.authentication.ui.DefaultLogoutPageGeneratingFilter@545f0b6, org.springframework.security.web.authentication.www.BasicAuthenticationFilter@4a6facb0, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@b56d8a7, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@cfb94fd, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@3c9ef37b, org.springframework.security.web.access.ExceptionTranslationFilter@1791e231, org.springframework.security.web.access.intercept.AuthorizationFilter@12a0d249]
-Initializing Spring TestDispatcherServlet ''
-Initializing Servlet ''
-Completed initialization in 0 ms
-Started UserControllerTest in 1.474 seconds (process running for 1.962)
-Mapped to com.easyride.user_service.controller.UserController#registerUser(UserRegistrationDto, MultipartFile, MultipartFile)
-Read "application/json" to [com.easyride.user_service.dto.UserRegistrationDto@5ef591af]
-Attempting to register user: testuser
-User testuser registered successfully.
-Using 'application/json', given [*/*] and supported [application/json, application/*+json]
-Writing [com.easyride.user_service.dto.ApiResponse@f6cde7e]
+  <testcase name="validateOtp_Success" classname="com.easyride.user_service.service.OtpServiceTest" time="0.227">
+    <system-out><![CDATA[OTP validated successfully for key 1234567890
 ]]></system-out>
   </testcase>
-  <testcase name="loginWithOtp_Success" classname="com.easyride.user_service.controller.UserControllerTest" time="0.012">
-    <system-out><![CDATA[Mapped to com.easyride.user_service.controller.UserController#loginWithOtp(PhoneOtpLoginRequestDto)
-Read "application/json" to [PhoneOtpLoginRequestDto(phoneNumber=1234567890, otpCode=123456)]
-Attempting login with OTP for phone: 1234567890
-Using 'application/json', given [*/*] and supported [application/json, application/*+json]
-Writing [com.easyride.user_service.dto.ApiResponse@1fb30e5d]
+  <testcase name="validateOtp_Failure_WrongOtp" classname="com.easyride.user_service.service.OtpServiceTest" time="0.001">
+    <system-out><![CDATA[OTP validation failed for key 1234567890. Submitted OTP: 654321
 ]]></system-out>
   </testcase>
-  <testcase name="authenticateUser_Success" classname="com.easyride.user_service.controller.UserControllerTest" time="0.008">
-    <system-out><![CDATA[Mapped to com.easyride.user_service.controller.UserController#authenticateUser(LoginRequest)
-Read "application/json" to [com.easyride.user_service.dto.LoginRequest@20d3fff4]
-Attempting login for user: testuser
-User testuser logged in successfully.
-Using 'application/json', given [*/*] and supported [application/json, application/*+json]
-Writing [com.easyride.user_service.dto.ApiResponse@254cc548]
+  <testcase name="generateOtp_Success" classname="com.easyride.user_service.service.OtpServiceTest" time="0.002">
+    <system-out><![CDATA[Generated OTP for key 1234567890: 138253
 ]]></system-out>
   </testcase>
-  <testcase name="requestLoginOtp_Success" classname="com.easyride.user_service.controller.UserControllerTest" time="0.006">
-    <system-out><![CDATA[Mapped to com.easyride.user_service.controller.UserController#requestLoginOtp(RequestOtpDto)
-Read "application/json" to [RequestOtpDto(phoneNumber=1234567890)]
-Requesting login OTP for phone: 1234567890
-Using 'application/json', given [*/*] and supported [application/json, application/*+json]
-Writing [com.easyride.user_service.dto.ApiResponse@3e1897d]
+  <testcase name="sendOtp_Success" classname="com.easyride.user_service.service.OtpServiceTest" time="0.005">
+    <system-out><![CDATA[OTP sending request queued for phone number: 1234567890
+]]></system-out>
+  </testcase>
+  <testcase name="validateOtp_Failure_NoOtp" classname="com.easyride.user_service.service.OtpServiceTest" time="0.001">
+    <system-out><![CDATA[OTP validation failed for key 1234567890. Submitted OTP: 123456
 ]]></system-out>
   </testcase>
 </testsuite>
