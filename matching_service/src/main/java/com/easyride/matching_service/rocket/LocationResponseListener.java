@@ -12,9 +12,8 @@ import org.springframework.data.redis.core.RedisTemplate; // Example for tempora
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-
 @Service
-@RocketMQMessageListener(topic = "location-response-topic", consumerGroup = "matching-service-location-consumer-group")
+@RocketMQMessageListener(topic = "EASYRIDE_LOCATION_RESPONSE_TOPIC", consumerGroup = "CID_MATCHING_SERVICE")
 public class LocationResponseListener implements RocketMQListener<LocationResponseEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(LocationResponseListener.class);
@@ -43,7 +42,8 @@ public class LocationResponseListener implements RocketMQListener<LocationRespon
         try {
             String cachedOrderJson = redisTemplate.opsForValue().get(orderKey);
             if (cachedOrderJson == null) {
-                log.warn("No pending geocoding request found in cache for orderId: {}. Ignoring location response.", orderId);
+                log.warn("No pending geocoding request found in cache for orderId: {}. Ignoring location response.",
+                        orderId);
                 return;
             }
             MatchRequestDto matchRequest = objectMapper.readValue(cachedOrderJson, MatchRequestDto.class);

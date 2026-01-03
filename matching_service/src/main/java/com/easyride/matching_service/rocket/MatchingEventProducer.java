@@ -13,7 +13,7 @@ public class MatchingEventProducer {
     private static final Logger log = LoggerFactory.getLogger(MatchingEventProducer.class);
     // Topic should be consumed by Order Service primarily.
     // Using "order-topic" as per previous examples, with specific tags.
-    private static final String MATCHING_RESULT_TOPIC = "order-topic";
+    private static final String MATCHING_RESULT_TOPIC = "EASYRIDE_MATCHING_RESULT_TOPIC";
 
     @Autowired
     private RocketMQTemplate rocketMQTemplate;

@@ -16,12 +16,19 @@ spring:
       ddl-auto: update
     show-sql: true
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+
 rocketmq:
   name-server: localhost:9876
   producer:
-    group: matching-producer-group
+    group: PID_MATCHING_SERVICE
   consumer:
-    group: matching-consumer-group
+    group: CID_MATCHING_SERVICE
 
 # matching_service/src/main/resources/application.yml
 matching:

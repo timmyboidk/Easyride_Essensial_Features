@@ -12,11 +12,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 
 @Service
-@RocketMQMessageListener(
-        topic = "user-topic", // Topic from User Service
-        consumerGroup = "matching-service-user-consumer-group",
-        selectorExpression = "USER_CREATED || DRIVER_APPROVED || USER_UPDATED" // Listen to relevant events
-)
+@RocketMQMessageListener(topic = "EASYRIDE_USER_TOPIC", consumerGroup = "CID_MATCHING_SERVICE", selectorExpression = "USER_CREATED || DRIVER_APPROVED || USER_UPDATED")
 public class UserEventListener implements RocketMQListener<UserEventDto> {
 
     private static final Logger log = LoggerFactory.getLogger(UserEventListener.class);
@@ -39,26 +35,31 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
 
                 status.setDriverId(event.getUserId());
                 status.setAvailable(true); // Default to available when approved/created
-                status.setRating(event.getInitialRating() != null ? event.getInitialRating() : 4.5); // Default new driver rating
-                status.setVehicleType(event.getVehicleType() != null ? event.getVehicleType() : "UNKNOWN"); // Get from event
+                status.setRating(event.getInitialRating() != null ? event.getInitialRating() : 4.5); // Default new
+                                                                                                     // driver rating
+                status.setVehicleType(event.getVehicleType() != null ? event.getVehicleType() : "UNKNOWN"); // Get from
+                                                                                                            // event
                 // status.setMaxCapacityForCarpool(determineCapacityFromVehicleType(event.getVehicleType()));
                 status.setLastStatusUpdateTime(LocalDateTime.now());
                 if (status.getOnlineSince() == null && "DRIVER_APPROVED".equals(event.getEventType())) {
                     status.setOnlineSince(LocalDateTime.now()); // Or when they first toggle online
                 }
                 driverStatusRepository.save(status);
-                log.info("Upserted DriverStatus for driver ID {} due to event {}", event.getUserId(), event.getEventType());
+                log.info("Upserted DriverStatus for driver ID {} due to event {}", event.getUserId(),
+                        event.getEventType());
 
             } else if ("USER_UPDATED".equals(event.getEventType())) {
-                // Handle updates to driver profile relevant to matching (e.g., vehicle type change)
+                // Handle updates to driver profile relevant to matching (e.g., vehicle type
+                // change)
                 driverStatusRepository.findById(event.getUserId()).ifPresent(driverStatus -> {
                     boolean changed = false;
-                    if(event.getVehicleType() != null && !event.getVehicleType().equals(driverStatus.getVehicleType())) {
+                    if (event.getVehicleType() != null
+                            && !event.getVehicleType().equals(driverStatus.getVehicleType())) {
                         driverStatus.setVehicleType(event.getVehicleType());
                         changed = true;
                     }
                     // Add other updatable fields like rating if User Service sends them
-                    if(changed) {
+                    if (changed) {
                         driverStatus.setLastStatusUpdateTime(LocalDateTime.now());
                         driverStatusRepository.save(driverStatus);
                         log.info("Updated DriverStatus for driver ID {} from USER_UPDATED event", event.getUserId());

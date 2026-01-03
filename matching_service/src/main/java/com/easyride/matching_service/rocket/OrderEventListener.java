@@ -14,28 +14,23 @@ import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
-@RocketMQMessageListener(
-        topic = "order-topic",
-        consumerGroup = "matching-service-order-consumer-group",
-        selectorExpression = "ORDER_CREATED" // Only listen to new orders
-)
+@RocketMQMessageListener(topic = "EASYRIDE_ORDER_CREATED_TOPIC", consumerGroup = "CID_MATCHING_SERVICE")
 public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
 
     private static final Logger log = LoggerFactory.getLogger(OrderEventListener.class);
-    // private final MatchingService matchingService; // No longer directly call matching logic here
+    // private final MatchingService matchingService; // No longer directly call
+    // matching logic here
     private final RocketMQTemplate rocketMQTemplate; // To send LocationRequestEvents
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
-
     private static final String PENDING_ORDER_GEOCODING_KEY_PREFIX = "pending_geocode_order:";
     private static final String LOCATION_REQUEST_TOPIC = "location-request-topic";
 
-
     @Autowired
     public OrderEventListener(RocketMQTemplate rocketMQTemplate,
-                              RedisTemplate<String, String> redisTemplate,
-                              ObjectMapper objectMapper) {
+            RedisTemplate<String, String> redisTemplate,
+            ObjectMapper objectMapper) {
         this.rocketMQTemplate = rocketMQTemplate;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
@@ -45,7 +40,8 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
     public void onMessage(OrderCreatedEvent orderEvent) {
         log.info("Received OrderCreatedEvent for order ID: {}", orderEvent.getOrderId());
 
-        // Convert OrderCreatedEvent to MatchRequestDto (or use it directly if fields align)
+        // Convert OrderCreatedEvent to MatchRequestDto (or use it directly if fields
+        // align)
         MatchRequestDto matchRequest = new MatchRequestDto(
                 orderEvent.getOrderId(),
                 orderEvent.getPassengerId(),
@@ -62,8 +58,7 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
                 orderEvent.getOrderTime(),
                 orderEvent.getPassengerRating(), // Add these to OrderCreatedEvent if available
                 orderEvent.getPreferredDriverTags(),
-                orderEvent.getPreferredDriverId()
-        );
+                orderEvent.getPreferredDriverId());
 
         try {
             // Store the initial request in Redis
@@ -76,8 +71,7 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
                     orderEvent.getOrderId().toString(), // Corrected: Use toString() for correlationId
                     "START",
                     orderEvent.getStartLatitude(),
-                    orderEvent.getStartLongitude()
-            );
+                    orderEvent.getStartLongitude());
             rocketMQTemplate.convertAndSend(LOCATION_REQUEST_TOPIC, startLocReq);
             log.info("Sent LocationRequestEvent for START location of orderId {}", orderEvent.getOrderId());
 
@@ -85,13 +79,13 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
                     orderEvent.getOrderId().toString(), // Corrected: Use toString() for correlationId
                     "END",
                     orderEvent.getEndLatitude(),
-                    orderEvent.getEndLongitude()
-            );
+                    orderEvent.getEndLongitude());
             rocketMQTemplate.convertAndSend(LOCATION_REQUEST_TOPIC, endLocReq);
             log.info("Sent LocationRequestEvent for END location of orderId {}", orderEvent.getOrderId());
 
         } catch (Exception e) {
-            log.error("Error processing OrderCreatedEvent and initiating geocoding for orderId {}: ", orderEvent.getOrderId(), e);
+            log.error("Error processing OrderCreatedEvent and initiating geocoding for orderId {}: ",
+                    orderEvent.getOrderId(), e);
             // Handle error, potentially remove from Redis or mark as failed
         }
     }
