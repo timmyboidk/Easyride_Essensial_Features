@@ -7,7 +7,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import com.easyride.user_service.dto.NotificationRequestDto;
-import org.springframework.stereotype.Service;
+import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
@@ -30,16 +30,16 @@ public class OtpServiceImpl implements OtpService {
     public String generateOtp(String key) {
         SecureRandom random = new SecureRandom();
         String otp = String.format("%06d", random.nextInt(999999));
-        redisTemplate.opsForValue().set("otp:" + key, otp, OTP_VALIDITY_MINUTES, TimeUnit.MINUTES);
+        redisTemplate.opsForValue().set("otp:login:" + key, otp, OTP_VALIDITY_MINUTES, TimeUnit.MINUTES);
         log.info("Generated OTP for key {}: {}", key, otp); // Be careful logging OTPs even in info
         return otp;
     }
 
     @Override
     public boolean validateOtp(String key, String otpToValidate) {
-        String storedOtp = redisTemplate.opsForValue().get("otp:" + key);
+        String storedOtp = redisTemplate.opsForValue().get("otp:login:" + key);
         if (storedOtp != null && storedOtp.equals(otpToValidate)) {
-            redisTemplate.delete("otp:" + key); // OTP is single-use
+            redisTemplate.delete("otp:login:" + key); // OTP is single-use
             log.info("OTP validated successfully for key {}", key);
             return true;
         }
@@ -53,7 +53,8 @@ public class OtpServiceImpl implements OtpService {
         String message = "Your EasyRide OTP is: " + otp + ". It is valid for " + OTP_VALIDITY_MINUTES + " minutes.";
         NotificationRequestDto notificationRequest = new NotificationRequestDto(phoneNumber, message, "SMS");
         // Assuming "notification-topic" and NotificationRequestDto are defined
-        // The tag "OTP_SMS" can be used by NotificationService to route to SMS sending logic.
+        // The tag "OTP_SMS" can be used by NotificationService to route to SMS sending
+        // logic.
         rocketMQTemplate.convertAndSend("notification-topic:OTP_SMS", notificationRequest);
         log.info("OTP sending request queued for phone number: {}", phoneNumber);
     }

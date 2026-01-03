@@ -22,16 +22,16 @@ public class UserRocketProducer {
     }
 
     public void sendUserEvent(UserEventDto userEvent) {
-        // Using eventType from DTO as part of the tag for more specific consumption
-        String topicWithTag = "user-topic:" + userEvent.getEventType();
-        rocketMQTemplate.convertAndSend(topicWithTag, userEvent);
-        log.info("Sent user event to topic {}: {}", topicWithTag, userEvent);
+        // Topic from MQ.md: EASYRIDE_USER_REGISTERED_TOPIC
+        String topic = "EASYRIDE_USER_REGISTERED_TOPIC";
+        rocketMQTemplate.convertAndSend(topic, userEvent);
+        log.info("Sent user registered event to topic {}: {}", topic, userEvent);
     }
 
     public void sendDriverApplicationEvent(DriverApplicationEventDto event) {
-        // Specific topic or tag for driver applications to be consumed by Admin Service
-        String topicWithTag = "user-topic:DRIVER_APPLICATION_SUBMITTED";
-        rocketMQTemplate.convertAndSend(topicWithTag, event);
-        log.info("Sent driver application event to topic {}: {}", topicWithTag, event);
+        // Topic from MQ.md: EASYRIDE_DRIVER_APPLICATION_SUBMITTED_TOPIC
+        String topic = "EASYRIDE_DRIVER_APPLICATION_SUBMITTED_TOPIC";
+        rocketMQTemplate.convertAndSend(topic, event);
+        log.info("Sent driver application submitted event to topic {}: {}", topic, event);
     }
 }

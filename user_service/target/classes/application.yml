@@ -8,6 +8,18 @@ spring:
     password: 2721388927
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      timeout: 10000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
   jpa:
     hibernate:
       ddl-auto: update
@@ -20,7 +32,7 @@ spring:
 rocketmq:
   name-server: 127.0.0.1:9876
   producer:
-    group: user-producer-group  # 对于 user_service，可设置为 user-producer-group
+    group: PID_USER_SERVICE
   consumer:
     group: order-service-group   # 对于 order_service 中的消费者
 
