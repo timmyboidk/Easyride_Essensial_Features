@@ -4,14 +4,6 @@
                              http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.easyride</groupId>
-    <artifactId>easyride-notification-service</artifactId>
-    <version>1.0.0</version>
-    <packaging>jar</packaging>
-
-    <name>EasyRide Notification Service</name>
-    <description>Microservice for sending notifications</description>
-
     <parent>
         <groupId>com.easyride</groupId>
         <artifactId>easyride-root</artifactId>
@@ -19,20 +11,15 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <repositories>
-        <repository>
-            <id>aliyunmaven</id>
-            <name>Aliyun Maven Repository</name>
-            <url>https://maven.aliyun.com/repository/public</url>
-        </repository>
-    </repositories>
+    <artifactId>easyride-notification-service</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+    <name>EasyRide Notification Service</name>
+    <description>Microservice for sending notifications</description>
 
     <properties>
-        <java.version>17</java.version>
-        <jjwt.version>0.11.5</jjwt.version>
         <pushy.version>0.15.2</pushy.version>
         <jackson.version>2.15.2</jackson.version>
-        <rocketmq.version>2.2.3</rocketmq.version>
         <firebase.version>9.2.0</firebase.version>
         <aws.sns.version>1.12.200</aws.sns.version>
         <javax.mail.version>1.6.2</javax.mail.version>
@@ -68,11 +55,13 @@
             <artifactId>spring-boot-starter-actuator</artifactId>
         </dependency>
 
+        <!-- RocketMQ -->
         <dependency>
             <groupId>org.apache.rocketmq</groupId>
             <artifactId>rocketmq-spring-boot-starter</artifactId>
-            <version>${rocketmq.version}</version>
         </dependency>
+
+        <!-- Notification Providers -->
         <dependency>
             <groupId>com.google.firebase</groupId>
             <artifactId>firebase-admin</artifactId>
@@ -94,46 +83,51 @@
             <version>${javax.mail.version}</version>
         </dependency>
 
+        <!-- MySQL -->
         <dependency>
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
 
+        <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
-            <version>${jjwt.version}</version>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
-            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>
-            <version>${jjwt.version}</version>
             <scope>runtime</scope>
         </dependency>
+        
+        <!-- Auth0 JWT (Legacy support if needed, keeping for safety as previous file had it) -->
         <dependency>
             <groupId>com.auth0</groupId>
             <artifactId>java-jwt</artifactId>
             <version>4.4.0</version>
         </dependency>
 
+        <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
         </dependency>
+        
+        <!-- Jackson Databind overrides -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
             <version>${jackson.version}</version>
         </dependency>
 
+        <!-- Servlet API -->
         <dependency>
             <groupId>jakarta.servlet</groupId>
             <artifactId>jakarta.servlet-api</artifactId>
@@ -144,6 +138,7 @@
             <artifactId>jakarta.annotation-api</artifactId>
         </dependency>
 
+        <!-- Tests -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -169,21 +164,6 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <configuration>
-                    <argLine>-Xshare:off</argLine>
                 </configuration>
             </plugin>
         </plugins>
