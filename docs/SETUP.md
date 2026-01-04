@@ -1,66 +1,66 @@
-# EasyRide Setup & Installation
+# EasyRide 配置与安装
 
-## 1. Prerequisites
+## 1. 环境要求
 
-Ensure your development environment meets the following requirements:
-- **Java**: JDK 17 or higher
-- **Maven**: 3.8+
-- **Docker & Docker Compose**: Installed and running
-- **Git**: For version control
+请确保您的开发环境满足以下要求：
+- **Java**：JDK 17 或更高版本
+- **Maven**：3.8+
+- **Docker & Docker Compose**：已安装并运行
+- **Git**：用于版本控制
 
-## 2. Infrastructure Setup
-We use Docker Compose to spin up all necessary middleware services (MySQL, Redis, RocketMQ, Kafka).
+## 2. 基础架构配置
+我们使用 Docker Compose 启动所有必要的中间件服务（MySQL、Redis、RocketMQ、Kafka）。
 
-1. Navigate to the infrastructure directory:
+1. 进入基础设施目录：
    ```bash
    cd infrastructure
    ```
 
-2. Start the services:
+2. 启动服务：
    ```bash
    docker-compose up -d
    ```
 
-3. Verify services are running:
+3. 验证服务运行状态：
    ```bash
    docker ps
    ```
-   You should see containers for `easyride-mysql`, `easyride-redis`, `rmqnamesrv`, `rmqbroker`, `easyride-zookeeper`, and `easyride-kafka`.
+   应可见 `easyride-mysql`、`easyride-redis`、`rmqnamesrv`、`rmqbroker`、`easyride-zookeeper` 及 `easyride-kafka` 容器。
 
-## 3. Database Initialization
-The `docker-compose.yml` mounts `./mysql/init` to automatically initialize the MySQL database schemas on the first run.
+## 3. 数据库初始化
+`docker-compose.yml`通过挂载`./mysql/init`实现首次运行时自动初始化MySQL数据库模式。
 
-If you need to manually reset the database:
-1. Stop containers: `docker-compose down -v` (Removes volumes!)
-2. Restart: `docker-compose up -d`
+如需手动重置数据库：
+1. 停止容器：`docker-compose down -v`（将删除卷！）
+2. 重启：`docker-compose up -d`
 
-## 4. Application Configuration
-Each service has an `application.yml` (or `properties`) file. By default, they are configured to connect to `localhost` ports mapped by Docker.
+## 4. 应用配置
+每个服务均配有 `application.yml`（或 `properties`）文件。默认配置为连接 Docker 映射的 `localhost` 端口。
 
-**Key Environment Variables** (Optional overrides):
-- `SPRING_DATASOURCE_HOST`: Database host (default: localhost)
-- `SPRING_REDIS_HOST`: Redis host (default: localhost)
-- `ROCKETMQ_NAME_SERVER`: RocketMQ address (default: localhost:9876)
+**关键环境变量**（可选覆盖）：
+- `SPRING_DATASOURCE_HOST`：数据库主机（默认：localhost）
+- `SPRING_REDIS_HOST`：Redis主机（默认：localhost）
+- `ROCKETMQ_NAME_SERVER`：RocketMQ地址（默认：localhost:9876）
 
-## 5. Running the Application
+## 5. 运行应用程序
 
-### Option A: Run from Command Line
-You can run any service individually using Maven:
+### 方案A：命令行运行
+可通过Maven单独启动任意服务：
 
 ```bash
-# Run User Service
+# 运行用户服务
 cd user_service
 mvn spring-boot:run
 ```
 
-### Option B: Run in IDE (IntelliJ IDEA / Eclipse)
-1. Open the root `pom.xml` as a project.
-2. The IDE should detect all 9 modules.
-3. Navigate to the main application class for the service you want to start (e.g., `UserServiceApplication.java`).
-4. Right-click and select **Run**.
+### 方案 B：在 IDE 中运行（IntelliJ IDEA / Eclipse）
+1. 以项目形式打开根目录的 `pom.xml`。
+2. IDE 将自动检测全部 9 个模块。
+3. 导航至目标服务的应用程序主类（例如 `UserServiceApplication.java`）。
+4. 右键点击并选择**运行**。
 
-## 6. Verification
-Once services are running, you can test the health endpoints:
-- Admin Service: `http://localhost:8080/actuator/health`
-- User Service: `http://localhost:8081/actuator/health`
-...and so on.
+## 6. 验证
+服务运行后可测试健康检查接口：
+- 管理服务：`http://localhost:8080/actuator/health`
+- 用户服务：`http://localhost:8081/actuator/health`
+...依此类推。
