@@ -6,7 +6,6 @@ import com.easyride.admin_service.model.Role;
 import com.easyride.admin_service.repository.AdminUserRepository;
 import com.easyride.admin_service.rocket.AdminRocketProducer;
 import com.easyride.admin_service.service.AdminServiceImpl;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;

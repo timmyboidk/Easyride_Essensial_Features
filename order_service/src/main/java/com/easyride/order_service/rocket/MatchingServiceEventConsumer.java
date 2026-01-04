@@ -8,23 +8,21 @@ import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-@RocketMQMessageListener(
-        topic = "${rocketmq.consumer.matching-topic}",
-        consumerGroup = "${rocketmq.consumer.matching-group}"
-)
+@RocketMQMessageListener(topic = "${rocketmq.consumer.matching-topic}", consumerGroup = "${rocketmq.consumer.matching-group}")
 public class MatchingServiceEventConsumer implements RocketMQListener<String> {
 
     private static final Logger log = LoggerFactory.getLogger(MatchingServiceEventConsumer.class);
 
-    @Autowired
-    private OrderService orderService;
+    private final OrderService orderService;
+    private final ObjectMapper objectMapper;
 
-    @Autowired
-    private ObjectMapper objectMapper;
+    public MatchingServiceEventConsumer(OrderService orderService, ObjectMapper objectMapper) {
+        this.orderService = orderService;
+        this.objectMapper = objectMapper;
+    }
 
     @Override
     public void onMessage(String message) {

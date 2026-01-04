@@ -8,10 +8,7 @@ import org.junit.jupiter.api.Test;
 // but usually it is. We will use reflection with string name to be safe if import fails.
 
 import java.lang.annotation.Annotation;
-import java.util.Arrays;
-
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 class AdminSecurityLoopholeTest {
 

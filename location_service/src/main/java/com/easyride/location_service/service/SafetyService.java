@@ -7,18 +7,15 @@ import com.easyride.location_service.rocket.LocationAlertProducer;
 import com.easyride.location_service.util.HaversineUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate; // For storing planned routes
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
 
 @Service
 public class SafetyService {
@@ -39,20 +36,20 @@ public class SafetyService {
     private final Map<Long, Instant> lastAlertTimes = new ConcurrentHashMap<>();
     private static final String PLANNED_ROUTE_KEY_PREFIX = "planned_route:";
 
-
-    @Autowired
     public SafetyService(RedisTemplate<String, Object> redisTemplate,
-                         ObjectMapper objectMapper,
-                         LocationAlertProducer alertProducer) {
+            ObjectMapper objectMapper,
+            LocationAlertProducer alertProducer) {
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
         this.alertProducer = alertProducer;
     }
 
-    // Method to be called by OrderEventsConsumer when a trip starts with a planned route
+    // Method to be called by OrderEventsConsumer when a trip starts with a planned
+    // route
     public void storePlannedRoute(PlannedRoute plannedRoute) {
         if (plannedRoute == null || plannedRoute.getWaypoints() == null || plannedRoute.getWaypoints().isEmpty()) {
-            log.warn("Cannot store null or empty planned route for order {}", plannedRoute != null ? plannedRoute.getOrderId() : "null");
+            log.warn("Cannot store null or empty planned route for order {}",
+                    plannedRoute != null ? plannedRoute.getOrderId() : "null");
             return;
         }
         try {
@@ -71,12 +68,13 @@ public class SafetyService {
         log.info("Removed planned route for order {} (e.g. trip ended/cancelled)", orderId);
     }
 
-
-    // This method would be triggered by new driver location updates (e.g., from LocationServiceImpl or an event)
+    // This method would be triggered by new driver location updates (e.g., from
+    // LocationServiceImpl or an event)
     public void checkRouteDeviation(Long orderId, Long driverId, double currentLat, double currentLon) {
         PlannedRoute plannedRoute = getPlannedRoute(orderId);
         if (plannedRoute == null || plannedRoute.getWaypoints() == null || plannedRoute.getWaypoints().isEmpty()) {
-            // log.debug("No planned route found for order {} to check deviation.", orderId);
+            // log.debug("No planned route found for order {} to check deviation.",
+            // orderId);
             return;
         }
         if (!driverId.equals(plannedRoute.getDriverId())) {
@@ -87,13 +85,16 @@ public class SafetyService {
 
         double minDistanceToRoute = Double.MAX_VALUE;
         for (LocationDataDto waypoint : plannedRoute.getWaypoints()) {
-            double dist = HaversineUtil.distance(currentLat, currentLon, waypoint.getLatitude(), waypoint.getLongitude());
+            double dist = HaversineUtil.distance(currentLat, currentLon, waypoint.getLatitude(),
+                    waypoint.getLongitude());
             if (dist < minDistanceToRoute) {
                 minDistanceToRoute = dist;
             }
         }
-        // Note: This is distance to nearest waypoint, not necessarily perpendicular distance to route segment.
-        // For better accuracy, iterate through segments (pairs of waypoints) and calculate perpendicular distance.
+        // Note: This is distance to nearest waypoint, not necessarily perpendicular
+        // distance to route segment.
+        // For better accuracy, iterate through segments (pairs of waypoints) and
+        // calculate perpendicular distance.
         // For now, this simpler check:
 
         log.debug("Order {}: Driver {} at ({}, {}). Min distance to planned route waypoints: {} meters.",
@@ -108,8 +109,7 @@ public class SafetyService {
                 RouteDeviationAlertDto alert = new RouteDeviationAlertDto(
                         orderId, driverId, currentLat, currentLon,
                         minDistanceToRoute, Instant.now(),
-                        "司机可能已偏离规划路线。"
-                );
+                        "司机可能已偏离规划路线。");
                 alertProducer.sendRouteDeviationAlert(alert);
                 lastAlertTimes.put(orderId, Instant.now());
                 log.info("Route deviation alert sent for order {}", orderId);

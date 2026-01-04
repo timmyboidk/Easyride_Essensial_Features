@@ -4,7 +4,6 @@ import com.easyride.notification_service.service.EmailNotificationService;
 import com.easyride.notification_service.service.NotificationService;
 import com.easyride.notification_service.service.PushNotificationService;
 import com.easyride.notification_service.service.SmsNotificationService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,10 +15,9 @@ public class NotificationController {
     private final NotificationService smsNotificationService;
     private final NotificationService pushNotificationService;
 
-    @Autowired
     public NotificationController(EmailNotificationService emailNotificationService,
-                                  SmsNotificationService smsNotificationService,
-                                  PushNotificationService pushNotificationService) {
+            SmsNotificationService smsNotificationService,
+            PushNotificationService pushNotificationService) {
         this.emailNotificationService = emailNotificationService;
         this.smsNotificationService = smsNotificationService;
         this.pushNotificationService = pushNotificationService;
@@ -58,4 +56,3 @@ public class NotificationController {
         }
     }
 }
-

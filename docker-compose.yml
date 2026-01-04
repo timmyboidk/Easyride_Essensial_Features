@@ -1,0 +1,212 @@
+version: '3.8'
+
+services:
+  # Infrastructure
+  mysql:
+    image: mysql:8.0
+    container_name: easyride-mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    command: --default-authentication-plugin=mysql_native_password
+    networks:
+      - easyride-net
+
+  redis:
+    image: redis:alpine
+    container_name: easyride-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - easyride-net
+
+  rmqnamesrv:
+    image: apache/rocketmq:5.3.1
+    container_name: rmqnamesrv
+    ports:
+      - "9876:9876"
+    command: sh mqnamesrv
+    networks:
+      - easyride-net
+
+  rmqbroker:
+    image: apache/rocketmq:5.3.1
+    container_name: rmqbroker
+    ports:
+      - "10911:10911"
+      - "10909:10909"
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+    command: sh mqbroker
+    depends_on:
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  # Microservices
+  admin-service:
+    build:
+      context: .
+      dockerfile: admin_service/Dockerfile
+    container_name: admin-service
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_admin?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: analytics_service/Dockerfile
+    container_name: analytics-service
+    ports:
+      - "8082:8082"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_analytics?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  location-service:
+    build:
+      context: .
+      dockerfile: location_service/Dockerfile
+    container_name: location-service
+    ports:
+      - "8083:8083"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_location?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  matching-service:
+    build:
+      context: .
+      dockerfile: matching_service/Dockerfile
+    container_name: matching-service
+    ports:
+      - "8084:8084"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_matching?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification_service/Dockerfile
+    container_name: notification-service
+    ports:
+      - "8085:8085"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_notification?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  order-service:
+    build:
+      context: .
+      dockerfile: order_service/Dockerfile
+    container_name: order-service
+    ports:
+      - "8086:8086"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_order?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: payment_service/Dockerfile
+    container_name: payment-service
+    ports:
+      - "8087:8087"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_payment?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  review-service:
+    build:
+      context: .
+      dockerfile: review_service/Dockerfile
+    container_name: review-service
+    ports:
+      - "8088:8088"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_review?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+  user-service:
+    build:
+      context: .
+      dockerfile: user_service/Dockerfile
+    container_name: user-service
+    ports:
+      - "8089:8089"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_user?useSSL=false
+      - SPRING_REDIS_HOST=redis
+      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+    depends_on:
+      - mysql
+      - redis
+      - rmqnamesrv
+    networks:
+      - easyride-net
+
+networks:
+  easyride-net:
+    driver: bridge

@@ -5,7 +5,6 @@ import com.easyride.admin_service.service.AdminUserService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -21,7 +20,6 @@ public class AdminUserController {
     @Value("${easyride.admin.default-page-size:20}")
     private int defaultPageSize;
 
-    @Autowired
     public AdminUserController(AdminUserService adminUserService) {
         this.adminUserService = adminUserService;
     }

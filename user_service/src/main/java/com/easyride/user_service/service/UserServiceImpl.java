@@ -19,7 +19,6 @@ import com.easyride.user_service.exception.UserAlreadyExistsException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate; // Add import
@@ -49,7 +48,6 @@ public class UserServiceImpl implements UserService {
     @Value("${wechat.secret:YOUR_SECRET}")
     private String wechatSecret;
 
-    @Autowired
     public UserServiceImpl(PassengerRepository passengerRepository,
             DriverRepository driverRepository,
             AdminRepository adminRepository,

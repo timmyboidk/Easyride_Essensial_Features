@@ -4,7 +4,6 @@ import com.easyride.admin_service.dto.*;
 import com.easyride.admin_service.exception.ExternalServiceException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
@@ -23,16 +22,16 @@ public class AdminUserServiceImpl implements AdminUserService {
     @Value("${service-urls.user-service}")
     private String userServiceBaseUrl;
 
-    @Autowired
     public AdminUserServiceImpl(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
 
     @Override
     public UserPageDto_FromUserService listUsers(int page, int size, String role, String searchTerm) {
-        log.info("Attempting to list users with params: page={}, size={}, role={}, searchTerm={}", page, size, role, searchTerm);
+        log.info("Attempting to list users with params: page={}, size={}, role={}, searchTerm={}", page, size, role,
+                searchTerm);
 
-        UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(userServiceBaseUrl + "/admin/list")
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(userServiceBaseUrl + "/admin/list")
                 .queryParam("page", page)
                 .queryParam("size", size);
         if (role != null && !role.isEmpty()) {
@@ -46,22 +45,25 @@ public class AdminUserServiceImpl implements AdminUserService {
         log.debug("Executing GET request to URL: {}", url);
 
         try {
-            // Use ParameterizedTypeReference to capture the generic type information for ApiResponse<UserPageDto_FromUserService>
+            // Use ParameterizedTypeReference to capture the generic type information for
+            // ApiResponse<UserPageDto_FromUserService>
             ResponseEntity<ApiResponse<UserPageDto_FromUserService>> responseEntity = restTemplate.exchange(
                     url,
                     HttpMethod.GET,
                     null,
-                    new ParameterizedTypeReference<ApiResponse<UserPageDto_FromUserService>>() {}
-            );
+                    new ParameterizedTypeReference<ApiResponse<UserPageDto_FromUserService>>() {
+                    });
 
             ApiResponse<UserPageDto_FromUserService> apiResponse = responseEntity.getBody();
 
             if (responseEntity.getStatusCode() != HttpStatus.OK || apiResponse == null) {
-                log.error("Received non-OK status or null body from User Service. Status: {}", responseEntity.getStatusCode());
+                log.error("Received non-OK status or null body from User Service. Status: {}",
+                        responseEntity.getStatusCode());
                 throw new ExternalServiceException("Failed to fetch users: Invalid response from server.");
             }
             if (apiResponse.getCode() != 0) {
-                log.error("User Service returned a business error. Code: {}, Message: {}", apiResponse.getCode(), apiResponse.getMessage());
+                log.error("User Service returned a business error. Code: {}, Message: {}", apiResponse.getCode(),
+                        apiResponse.getMessage());
                 throw new ExternalServiceException("Failed to fetch users: " + apiResponse.getMessage());
             }
 
@@ -84,17 +86,19 @@ public class AdminUserServiceImpl implements AdminUserService {
                     url,
                     HttpMethod.GET,
                     null,
-                    new ParameterizedTypeReference<ApiResponse<UserDetailDto_FromUserService>>() {}
-            );
+                    new ParameterizedTypeReference<ApiResponse<UserDetailDto_FromUserService>>() {
+                    });
 
             ApiResponse<UserDetailDto_FromUserService> apiResponse = responseEntity.getBody();
 
             if (responseEntity.getStatusCode() != HttpStatus.OK || apiResponse == null) {
-                log.error("Received non-OK status or null body for user details. Status: {}", responseEntity.getStatusCode());
+                log.error("Received non-OK status or null body for user details. Status: {}",
+                        responseEntity.getStatusCode());
                 throw new ExternalServiceException("Failed to get user details: Invalid response from server.");
             }
             if (apiResponse.getCode() != 0) {
-                log.error("User Service returned a business error for user details. Code: {}, Message: {}", apiResponse.getCode(), apiResponse.getMessage());
+                log.error("User Service returned a business error for user details. Code: {}, Message: {}",
+                        apiResponse.getCode(), apiResponse.getMessage());
                 throw new ExternalServiceException("Failed to get user details: " + apiResponse.getMessage());
             }
 
@@ -118,17 +122,19 @@ public class AdminUserServiceImpl implements AdminUserService {
                     url,
                     HttpMethod.PUT,
                     requestEntity,
-                    new ParameterizedTypeReference<ApiResponse<UserDetailDto_FromUserService>>() {}
-            );
+                    new ParameterizedTypeReference<ApiResponse<UserDetailDto_FromUserService>>() {
+                    });
 
             ApiResponse<UserDetailDto_FromUserService> apiResponse = responseEntity.getBody();
 
             if (responseEntity.getStatusCode() != HttpStatus.OK || apiResponse == null) {
-                log.error("Received non-OK status or null body on profile update. Status: {}", responseEntity.getStatusCode());
+                log.error("Received non-OK status or null body on profile update. Status: {}",
+                        responseEntity.getStatusCode());
                 throw new ExternalServiceException("Failed to update profile: Invalid response from server.");
             }
             if (apiResponse.getCode() != 0) {
-                log.error("User Service returned a business error on profile update. Code: {}, Message: {}", apiResponse.getCode(), apiResponse.getMessage());
+                log.error("User Service returned a business error on profile update. Code: {}, Message: {}",
+                        apiResponse.getCode(), apiResponse.getMessage());
                 throw new ExternalServiceException("Failed to update profile: " + apiResponse.getMessage());
             }
 
@@ -136,7 +142,8 @@ public class AdminUserServiceImpl implements AdminUserService {
             return apiResponse.getData();
         } catch (RestClientException e) {
             log.error("Error while calling User Service to update profile at URL: {}", url, e);
-            throw new ExternalServiceException("Unable to connect to User Service to update profile: " + e.getMessage());
+            throw new ExternalServiceException(
+                    "Unable to connect to User Service to update profile: " + e.getMessage());
         }
     }
 
@@ -164,18 +171,22 @@ public class AdminUserServiceImpl implements AdminUserService {
                     url,
                     HttpMethod.POST,
                     null,
-                    new ParameterizedTypeReference<ApiResponse<Void>>() {}
-            );
+                    new ParameterizedTypeReference<ApiResponse<Void>>() {
+                    });
 
             ApiResponse<Void> apiResponse = responseEntity.getBody();
             if (responseEntity.getStatusCode() != HttpStatus.OK || apiResponse == null) {
-                throw new ExternalServiceException(String.format("Failed to %s user: Invalid response from server.", actionName));
+                throw new ExternalServiceException(
+                        String.format("Failed to %s user: Invalid response from server.", actionName));
             }
             if (apiResponse.getCode() != 0) {
-                throw new ExternalServiceException(String.format("Failed to %s user: %s", actionName, apiResponse.getMessage()));
+                throw new ExternalServiceException(
+                        String.format("Failed to %s user: %s", actionName, apiResponse.getMessage()));
             }
         } catch (RestClientException e) {
             log.error("Error while calling User Service to {} user at URL: {}", actionName, url, e);
-            throw new ExternalServiceException(String.format("Unable to connect to User Service to %s user: %s", actionName, e.getMessage()));        }
+            throw new ExternalServiceException(
+                    String.format("Unable to connect to User Service to %s user: %s", actionName, e.getMessage()));
+        }
     }
 }

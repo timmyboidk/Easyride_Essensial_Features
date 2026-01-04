@@ -2,7 +2,6 @@ package com.easyride.analytics_service.controller;
 
 import com.easyride.analytics_service.dto.*;
 import com.easyride.analytics_service.service.AnalyticsService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

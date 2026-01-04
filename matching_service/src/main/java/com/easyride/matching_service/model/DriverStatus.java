@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 
 @Entity
 @Table(name = "driver_status")
@@ -29,12 +28,14 @@ public class DriverStatus {
     // New fields for preferences and advanced matching
     private String currentCity; // Can be derived from lat/lon or set by driver
     // @ElementCollection(fetch = FetchType.EAGER) // If storing simple string tags
-    // @CollectionTable(name = "driver_preferred_passenger_types", joinColumns = @JoinColumn(name = "driver_id"))
+    // @CollectionTable(name = "driver_preferred_passenger_types", joinColumns =
+    // @JoinColumn(name = "driver_id"))
     // @Column(name = "passenger_type")
     // private Set<String> preferredPassengerTypes; // e.g. "NO_PETS", "BUSINESS"
 
     // @ElementCollection(fetch = FetchType.EAGER)
-    // @CollectionTable(name = "driver_service_areas", joinColumns = @JoinColumn(name = "driver_id"))
+    // @CollectionTable(name = "driver_service_areas", joinColumns =
+    // @JoinColumn(name = "driver_id"))
     // @Column(name = "service_area_zipcode") // Or more complex geofence ID
     // private Set<String> serviceAreas;
 

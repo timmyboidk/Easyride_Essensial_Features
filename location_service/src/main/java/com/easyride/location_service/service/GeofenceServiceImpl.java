@@ -8,7 +8,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +22,6 @@ public class GeofenceServiceImpl implements GeofenceService {
     private final GeofenceRepository geofenceRepository;
     private final ObjectMapper objectMapper; // For parsing polygon JSON
 
-    @Autowired
     public GeofenceServiceImpl(GeofenceRepository geofenceRepository, ObjectMapper objectMapper) {
         this.geofenceRepository = geofenceRepository;
         this.objectMapper = objectMapper;
@@ -36,7 +34,8 @@ public class GeofenceServiceImpl implements GeofenceService {
         // Validate polygonCoordinatesJson format if possible here
         return geofenceRepository.save(geofence);
     }
-    // ... Implement updateGeofence, deleteGeofence, getAllActiveGeofences, getActiveGeofencesByType ...
+    // ... Implement updateGeofence, deleteGeofence, getAllActiveGeofences,
+    // getActiveGeofencesByType ...
 
     @Override
     @Transactional
@@ -83,7 +82,8 @@ public class GeofenceServiceImpl implements GeofenceService {
     public boolean isPointInGeofence(double latitude, double longitude, Long geofenceId) {
         Geofence geofence = geofenceRepository.findById(geofenceId)
                 .orElseThrow(() -> new ResourceNotFoundException("Geofence not found with id: " + geofenceId));
-        if (!geofence.isActive()) return false;
+        if (!geofence.isActive())
+            return false;
         return isPointInPolygon(latitude, longitude, parsePolygon(geofence.getPolygonCoordinatesJson()));
     }
 
@@ -112,7 +112,9 @@ public class GeofenceServiceImpl implements GeofenceService {
             return new ArrayList<>();
         }
         try {
-            List<List<Double>> pointsList = objectMapper.readValue(polygonJson, new TypeReference<List<List<Double>>>() {});
+            List<List<Double>> pointsList = objectMapper.readValue(polygonJson,
+                    new TypeReference<List<List<Double>>>() {
+                    });
             return pointsList.stream()
                     .filter(p -> p.size() == 2)
                     .map(p -> new Geofence.Coordinate(p.get(0), p.get(1)))
@@ -122,6 +124,7 @@ public class GeofenceServiceImpl implements GeofenceService {
             return new ArrayList<>();
         }
     }
+
     // Ray Casting Algorithm for Point in Polygon
     private boolean isPointInPolygon(double testLat, double testLon, List<Geofence.Coordinate> polygon) {
         if (polygon == null || polygon.size() < 3) {
@@ -133,7 +136,8 @@ public class GeofenceServiceImpl implements GeofenceService {
             Geofence.Coordinate pi = polygon.get(i);
             Geofence.Coordinate pj = polygon.get(j);
             if (((pi.getLatitude() > testLat) != (pj.getLatitude() > testLat)) &&
-                    (testLon < (pj.getLongitude() - pi.getLongitude()) * (testLat - pi.getLatitude()) / (pj.getLatitude() - pi.getLatitude()) + pi.getLongitude())) {
+                    (testLon < (pj.getLongitude() - pi.getLongitude()) * (testLat - pi.getLatitude())
+                            / (pj.getLatitude() - pi.getLatitude()) + pi.getLongitude())) {
                 result = !result;
             }
         }

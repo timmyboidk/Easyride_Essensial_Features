@@ -8,7 +8,6 @@ import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +26,6 @@ public class OrderEventListener implements RocketMQListener<OrderCreatedEvent> {
     private static final String PENDING_ORDER_GEOCODING_KEY_PREFIX = "pending_geocode_order:";
     private static final String LOCATION_REQUEST_TOPIC = "location-request-topic";
 
-    @Autowired
     public OrderEventListener(RocketMQTemplate rocketMQTemplate,
             RedisTemplate<String, String> redisTemplate,
             ObjectMapper objectMapper) {

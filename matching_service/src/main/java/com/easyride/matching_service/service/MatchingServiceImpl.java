@@ -11,7 +11,6 @@ import com.easyride.matching_service.repository.GrabbableOrderRepository;
 import com.easyride.matching_service.repository.MatchingRecordRepository;
 import com.easyride.matching_service.rocket.MatchingEventProducer;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.data.geo.Circle;
 import org.springframework.data.geo.Distance;
@@ -40,7 +39,6 @@ public class MatchingServiceImpl implements MatchingService {
 
     private static final String DRIVER_LOCATIONS_KEY = "driver:locations";
 
-    @Autowired
     public MatchingServiceImpl(DriverStatusRepository driverStatusRepository,
             MatchingRecordRepository matchingRecordRepository,
             MatchingEventProducer matchingEventProducer,

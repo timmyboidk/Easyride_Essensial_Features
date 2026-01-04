@@ -7,9 +7,7 @@ import com.easyride.location_service.exception.ResourceNotFoundException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.connection.RedisGeoCommands;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.ListOperations;
@@ -47,7 +45,6 @@ public class LocationServiceImpl implements LocationService {
 
     private final SafetyService safetyService;
 
-    @Autowired
     public LocationServiceImpl(RestTemplate restTemplate, RedisTemplate<String, Object> redisTemplate,
             ObjectMapper objectMapper, SafetyService safetyService) {
         this.restTemplate = restTemplate;

@@ -1,7 +1,6 @@
 package com.easyride.location_service.service;
 
 import com.easyride.location_service.model.Geofence;
-import com.easyride.location_service.model.GeofenceType;
 import com.easyride.location_service.repository.GeofenceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;

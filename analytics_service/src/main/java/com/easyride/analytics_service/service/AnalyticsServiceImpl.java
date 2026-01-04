@@ -7,7 +7,6 @@ import com.easyride.analytics_service.repository.AnalyticsRepository;
 import com.easyride.analytics_service.util.PrivacyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate; // For HyperLogLog (DAU/MAU)
 import org.springframework.stereotype.Service;
 import java.time.LocalDate;
@@ -23,7 +22,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     private final AnalyticsRepository analyticsRepository;
     private final RedisTemplate<String, Object> redisTemplate;// For unique user tracking with HLL or Sets
 
-    @Autowired
     public AnalyticsServiceImpl(AnalyticsRepository analyticsRepository, RedisTemplate<String, Object> redisTemplate) {
         this.analyticsRepository = analyticsRepository;
         this.redisTemplate = redisTemplate;
@@ -138,7 +136,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         // 2. Calculate retention using HyperLogLog
         String cohortHllKey = "retention_cohort:" + cohortMonthStr;
         Object[] cohortUserIdsArray = cohortUserIds.toArray();
-        redisTemplate.opsForHyperLogLog().add(cohortHllKey, cohortUserIdsArray);
+        if (cohortUserIdsArray.length > 0) {
+            redisTemplate.opsForHyperLogLog().add(cohortHllKey, cohortUserIdsArray);
+        }
         long cohortSize = redisTemplate.opsForHyperLogLog().size(cohortHllKey);
 
         if (cohortSize == 0) {

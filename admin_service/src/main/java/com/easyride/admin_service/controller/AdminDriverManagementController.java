@@ -1,13 +1,12 @@
 package com.easyride.admin_service.controller;
 
-import com.easyride.admin_service.dto.AdminDriverActionDto; // New DTO for approval/rejection payload
+import com.easyride.admin_service.dto.AdminDriverActionDto;
 import com.easyride.admin_service.dto.ApiResponse;
 import com.easyride.admin_service.dto.DriverApplicationDto;
 import com.easyride.admin_service.service.AdminDriverManagementService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -26,7 +25,6 @@ public class AdminDriverManagementController {
     @Value("${easyride.admin.default-page-size:20}")
     private int defaultPageSize;
 
-    @Autowired
     public AdminDriverManagementController(AdminDriverManagementService driverManagementService) {
         this.driverManagementService = driverManagementService;
     }
@@ -74,7 +72,7 @@ public class AdminDriverManagementController {
         if (authentication != null) {
             return authentication.getName();
         }
-        return "system"; // Fallback
+        return "system";
     }
 
     private Long tryParseId(String username) {

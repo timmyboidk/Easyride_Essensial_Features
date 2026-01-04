@@ -4,7 +4,6 @@ import com.easyride.notification_service.dto.*;
 import com.easyride.notification_service.model.NotificationChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,7 +18,6 @@ public class NotificationDispatcherService {
     private final EmailNotificationService emailService;
     private final PushNotificationService pushService;
 
-    @Autowired
     public NotificationDispatcherService(TemplateService templateService,
             SmsNotificationService smsService,
             EmailNotificationService emailService,

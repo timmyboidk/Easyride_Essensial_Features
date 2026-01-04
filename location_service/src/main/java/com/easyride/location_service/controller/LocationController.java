@@ -8,7 +8,6 @@ import com.easyride.location_service.service.LocationService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -19,7 +18,6 @@ public class LocationController {
     private static final Logger log = LoggerFactory.getLogger(LocationController.class);
     private final LocationService locationService;
 
-    @Autowired
     public LocationController(LocationService locationService) {
         this.locationService = locationService;
     }
@@ -39,7 +37,7 @@ public class LocationController {
     // New endpoint for driver to update their location
     @PostMapping("/driver/{driverId}")
     public ApiResponse<String> updateDriverLocation(@PathVariable Long driverId,
-                                                    @Valid @RequestBody DriverLocationUpdateDto locationUpdateDto) {
+            @Valid @RequestBody DriverLocationUpdateDto locationUpdateDto) {
         log.info("Driver {} updating location: {}", driverId, locationUpdateDto);
         locationService.updateDriverLocation(driverId, locationUpdateDto);
         return ApiResponse.successMessage("司机位置更新成功");
