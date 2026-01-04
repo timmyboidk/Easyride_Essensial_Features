@@ -1,4 +1,4 @@
-package com.easyride.user_service.security;
+package com.easyride.user_service.security; // Re-index
 
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
@@ -10,7 +10,6 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-
 @Component
 public class JwtTokenProvider {
 
@@ -18,7 +17,7 @@ public class JwtTokenProvider {
     private final long jwtExpirationInMs;
 
     public JwtTokenProvider(@Value("${jwt.secret}") String secret,
-                            @Value("${jwt.expiration}") long jwtExpirationInMs) {
+            @Value("${jwt.expiration}") long jwtExpirationInMs) {
         this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.jwtExpirationInMs = jwtExpirationInMs;
     }

@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.easyride.payment_service.WithdrawalRepositoryTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.452 s -- in com.easyride.payment_service.WithdrawalRepositoryTest

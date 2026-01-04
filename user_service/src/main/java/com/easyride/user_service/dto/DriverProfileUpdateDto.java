@@ -1,8 +1,6 @@
 package com.easyride.user_service.dto;
 
 import com.easyride.user_service.model.DriverApprovalStatus;
-
-// 使用 Lombok 简化代码
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;

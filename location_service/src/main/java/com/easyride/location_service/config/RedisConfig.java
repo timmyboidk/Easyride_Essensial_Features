@@ -14,15 +14,14 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 public class RedisConfig {
 
     @Bean
-    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory, ObjectMapper objectMapper) {
+    public RedisTemplate<String, Object> redisTemplate(RedisConnectionFactory connectionFactory,
+            ObjectMapper objectMapper) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(connectionFactory);
 
         // Use Jackson2JsonRedisSerializer for value serialization
-        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(Object.class);
-        // objectMapper should be configured with JavaTimeModule if not already global
-        // objectMapper.registerModule(new JavaTimeModule()); // Already done by Spring Boot by default
-        jackson2JsonRedisSerializer.setObjectMapper(objectMapper);
+        Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(
+                objectMapper, Object.class);
 
         template.setKeySerializer(new StringRedisSerializer());
         template.setValueSerializer(jackson2JsonRedisSerializer);
@@ -32,6 +31,7 @@ public class RedisConfig {
         return template;
     }
 
-    // If you plan to use Redis Geo commands, you might need specific setup or use a library like Redisson.
+    // If you plan to use Redis Geo commands, you might need specific setup or use a
+    // library like Redisson.
     // Spring Data Redis has basic GeoOperations.
 }

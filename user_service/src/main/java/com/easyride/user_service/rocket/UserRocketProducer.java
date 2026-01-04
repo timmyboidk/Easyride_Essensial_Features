@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import com.easyride.user_service.dto.DriverApplicationEventDto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 
 /**
  * 将原来的 Kafka Producer 替换为 RocketMQ Producer

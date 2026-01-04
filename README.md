@@ -178,3 +178,56 @@ Lombok
 PayPal SDK, Stripe SDK
 
 处理信用卡等在线支付
+
+4. Project Structure & Build
+---------------------------
+
+This project is organized as a **Maven Multi-Module** project.
+
+### 4.1. Directory Structure
+
+```
+├── pom.xml                 # Root Parent POM (manages dependencies & modules)
+├── infrastructure/         # Centralized Infrastructure Configuration
+│   ├── docker-compose.yml  # Orchestrates MySQL, Redis, RocketMQ, Kafka
+│   ├── mysql/init/         # Database initialization scripts
+│   └── rocketmq/conf/      # Broker configuration
+├── admin_service/          # Module: Admin Dashboard Backend
+├── analytics_service/      # Module: Data Analytics Service
+├── location_service/       # Module: Location & Maps Service
+├── matching_service/       # Module: Order Matching Engine
+├── notification_service/   # Module: Notification Dispatcher
+├── order_service/          # Module: Order Management Service
+├── payment_service/        # Module: Payment & Wallet Service
+├── review_service/         # Module: Ratings & Reviews Service
+└── user_service/           # Module: User Identity & Profile Service
+```
+
+### 4.2. Build Instructions
+
+To build the entire project (all services) at once:
+
+```bash
+mvn clean install
+```
+
+### 4.3. Infrastructure Setup
+
+We provide a centralized Docker Compose configuration to spin up all required middleware (MySQL, Redis, RocketMQ, Kafka).
+
+```bash
+cd infrastructure
+docker-compose up -d
+```
+
+**Services Started:**
+- **MySQL**: Port 3306 (Databases auto-created)
+- **Redis**: Port 6379
+- **RocketMQ NameServer**: Port 9876
+- **RocketMQ Broker**: Port 10911
+- **Zookeeper**: Port 2181
+- **Kafka**: Port 9092
+
+### 4.4. Running Services
+
+Each service contains a `Dockerfile`. You can build individual images or run them locally using `mvn spring-boot:run`.

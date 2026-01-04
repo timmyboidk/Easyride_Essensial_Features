@@ -7,8 +7,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import com.easyride.user_service.dto.NotificationRequestDto;
-import org.springframework.data.redis.core.StringRedisTemplate;
-
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
@@ -20,7 +18,6 @@ public class OtpServiceImpl implements OtpService {
     private final StringRedisTemplate redisTemplate;
     private final RocketMQTemplate rocketMQTemplate;
 
-    @Autowired
     public OtpServiceImpl(StringRedisTemplate redisTemplate, RocketMQTemplate rocketMQTemplate) {
         this.redisTemplate = redisTemplate;
         this.rocketMQTemplate = rocketMQTemplate;

@@ -1,6 +1,0 @@
-/Users/timyu/Desktop/Easyride_Essensial_Features/notification_service/src/test/java/com/easyride/notification_service/service/NotificationDispatcherServiceTest.java
-/Users/timyu/Desktop/Easyride_Essensial_Features/notification_service/src/test/java/com/easyride/notification_service/rocketmq/OrderStatusChangedListenerTest.java
-/Users/timyu/Desktop/Easyride_Essensial_Features/notification_service/src/test/java/com/easyride/notification_service/rocketmq/PaymentEventListenerTest.java
-/Users/timyu/Desktop/Easyride_Essensial_Features/notification_service/src/test/java/com/easyride/notification_service/rocketmq/OrderCreatedListenerTest.java
-/Users/timyu/Desktop/Easyride_Essensial_Features/notification_service/src/test/java/com/easyride/notification_service/rocketmq/UserEventListenerTest.java
-/Users/timyu/Desktop/Easyride_Essensial_Features/notification_service/src/test/java/com/easyride/notification_service/rocketmq/DriverApplicationListenerTest.java

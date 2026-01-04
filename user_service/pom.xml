@@ -14,10 +14,10 @@
 
 	<!-- Parent POM -->
 	<parent>
-		<groupId>org.springframework.boot</groupId>
-		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>3.1.0</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<groupId>com.easyride</groupId>
+		<artifactId>easyride-root</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../pom.xml</relativePath>
 	</parent>
 
 	<repositories>
@@ -163,7 +163,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-surefire-plugin</artifactId>
-				<version>3.2.5</version> <!-- 请根据需要选择合适的版本 -->
+				<version>3.2.5</version>
 				<configuration>
 					<argLine>-Xshare:off</argLine>
 				</configuration>

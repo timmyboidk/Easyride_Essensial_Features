@@ -1,0 +1,24 @@
+# Maven
+target/
+**/target/
+*.log
+
+# Java build artifacts
+*.class
+*.jar
+*.war
+*.ear
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
