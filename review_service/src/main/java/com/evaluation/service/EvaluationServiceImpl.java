@@ -1,8 +1,6 @@
 package com.evaluation.service;
 
-import com.evaluation.client.UserClient;
 import com.evaluation.dto.EvaluationDTO;
-import com.evaluation.dto.TagDTO;
 import com.evaluation.exception.BadRequestException;
 import com.evaluation.exception.ResourceNotFoundException;
 import com.evaluation.mapper.EvaluationMapper;
@@ -39,9 +37,7 @@ public class EvaluationServiceImpl implements EvaluationService {
     private final TagRepository tagRepository;
     private final EvaluationMapper evaluationMapper;
     private final RocketMQTemplate rocketMQTemplate;
-    private final UserClient userClient;
     private final SensitiveWordService sensitiveWordService;
-    private final TagService tagService;
     private final ReviewWindowRepository reviewWindowRepository;
 
     /**

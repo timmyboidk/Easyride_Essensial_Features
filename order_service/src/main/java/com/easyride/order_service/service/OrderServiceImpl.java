@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.easyride.order_service.dto.*;
 import com.easyride.order_service.exception.OrderServiceException;
 import com.easyride.order_service.exception.ResourceNotFoundException;
-import org.springframework.beans.factory.annotation.Autowired;
 import java.time.LocalDateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,21 +22,17 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final PassengerRepository passengerRepository;
     private final DriverRepository driverRepository;
-    private final UserRepository userRepository;
     private final PricingService pricingService;
     private final OrderEventProducer orderEventProducer;
 
-    @Autowired
     public OrderServiceImpl(OrderRepository orderRepository,
             PassengerRepository passengerRepository,
             DriverRepository driverRepository,
-            UserRepository userRepository,
             OrderEventProducer orderEventProducer,
             PricingService pricingService) {
         this.orderRepository = orderRepository;
         this.passengerRepository = passengerRepository;
         this.driverRepository = driverRepository;
-        this.userRepository = userRepository;
         this.pricingService = pricingService;
         this.orderEventProducer = orderEventProducer;
     }
@@ -297,6 +292,7 @@ public class OrderServiceImpl implements OrderService {
         return new OrderResponseDto(
                 order.getId(),
                 order.getStatus(),
+                order.getPassenger().getId(),
                 order.getPassenger().getUsername(),
                 order.getDriver() != null ? order.getDriver().getUsername() : null,
                 order.getEstimatedCost(),

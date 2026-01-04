@@ -4,10 +4,8 @@ import com.easyride.user_service.api.UserApi;
 import com.easyride.user_service.dto.*;
 import com.easyride.user_service.dto.ApiResponse;
 import com.easyride.user_service.security.JwtTokenProvider;
-import com.easyride.user_service.service.OtpService;
 import com.easyride.user_service.service.UserService;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -68,8 +66,7 @@ public class UserController implements UserApi {
         return ApiResponse.success(new JwtAuthenticationResponse(jwt));
     }
 
-    @Autowired // Add if not already present for OtpService
-    private OtpService otpService;
+    // Removed unused OtpService
 
     @PostMapping("/otp/request-login")
     public ApiResponse<String> requestLoginOtp(@Valid @RequestBody RequestOtpDto requestOtpDto) {

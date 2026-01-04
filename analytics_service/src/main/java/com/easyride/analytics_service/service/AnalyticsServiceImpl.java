@@ -49,7 +49,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 requestDto.getDimensions().forEach((key, value) -> {
                     record.setDimensionKey(key);
                     record.setDimensionValue(value);
-                    // This is a simplified approach; a real implementation might need a more complex way to handle multiple dimensions
+                    // This is a simplified approach; a real implementation might need a more
+                    // complex way to handle multiple dimensions
                     PrivacyUtil.anonymizeRecord(record);
                     analyticsRepository.save(record);
                 });
@@ -58,7 +59,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             }
         }
     }
-
 
     @Override
     public AnalyticsResponseDto queryAnalytics(AnalyticsQueryDto queryDto) {
@@ -97,7 +97,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         double totalRevenue = revenueRecords.stream().mapToDouble(AnalyticsRecord::getMetricValue).sum();
         long totalCompletedOrders = completedOrderRecords.stream().mapToLong(r -> r.getMetricValue().longValue()).sum();
 
-        if (totalCompletedOrders == 0) return 0.0;
+        if (totalCompletedOrders == 0)
+            return 0.0;
         return totalRevenue / totalCompletedOrders;
     }
 
@@ -111,7 +112,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         long totalOrdersAccepted = analyticsRepository.countByRecordTypeAndRecordTimeBetween(
                 RecordType.ORDER_ACCEPTED_BY_DRIVER, startDate, endDate);
 
-        if (totalOrderRequests == 0) return 0.0;
+        if (totalOrderRequests == 0)
+            return 0.0;
         return ((double) totalOrdersAccepted / totalOrderRequests) * 100.0;
     }
 
@@ -130,11 +132,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        if (cohortUserIds.isEmpty()) return 0.0;
+        if (cohortUserIds.isEmpty())
+            return 0.0;
 
         // 2. Calculate retention using HyperLogLog
         String cohortHllKey = "retention_cohort:" + cohortMonthStr;
-        String[] cohortUserIdsArray = cohortUserIds.toArray(new String[0]);
+        Object[] cohortUserIdsArray = cohortUserIds.toArray();
         redisTemplate.opsForHyperLogLog().add(cohortHllKey, cohortUserIdsArray);
         long cohortSize = redisTemplate.opsForHyperLogLog().size(cohortHllKey);
 
@@ -190,11 +193,13 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 break;
         }
 
-
-        long totalOrders = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.COMPLETED_ORDERS_COUNT, startDate, endDate);
-        double totalRevenue = analyticsRepository.findByRecordTypeAndRecordTimeBetween(RecordType.ORDER_REVENUE, startDate, endDate)
+        long totalOrders = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.COMPLETED_ORDERS_COUNT,
+                startDate, endDate);
+        double totalRevenue = analyticsRepository
+                .findByRecordTypeAndRecordTimeBetween(RecordType.ORDER_REVENUE, startDate, endDate)
                 .stream().mapToDouble(AnalyticsRecord::getMetricValue).sum();
-        long newUsers = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.USER_REGISTRATION, startDate, endDate);
+        long newUsers = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.USER_REGISTRATION,
+                startDate, endDate);
         long activeDrivers = getActiveDriversInRange(startDate, endDate); // Needs specific logic
 
         return new DashboardSummaryDto(totalOrders, totalRevenue, newUsers, activeDrivers);

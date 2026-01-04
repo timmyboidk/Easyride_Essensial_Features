@@ -31,25 +31,23 @@ public class PaymentServiceImpl implements PaymentService {
 
     private final PaymentRepository paymentRepository;
     private final WalletService walletService;
-    private final PaymentGatewayUtil paymentGatewayUtil;
     private final StringRedisTemplate redisTemplate;
     private final PaymentEventProducer paymentEventProducer;
-    private final PaymentStrategyProcessor strategyProcessor; // Inject this
-    private final PassengerPaymentMethodRepository passengerPaymentMethodRepository; // Inject this
+    private final PaymentStrategyProcessor strategyProcessor;
+    private final PassengerPaymentMethodRepository passengerPaymentMethodRepository;
 
-    // Modify constructor
     public PaymentServiceImpl(PaymentRepository paymentRepository,
             WalletService walletService,
             PaymentEventProducer paymentEventProducer,
             StringRedisTemplate redisTemplate,
-            PaymentGatewayUtil paymentGatewayUtil,
+            PaymentGatewayUtil paymentGatewayUtil, // kept in constructor signature to avoid breaking implicit wiring,
+                                                   // but unused
             PaymentStrategyProcessor strategyProcessor,
             PassengerPaymentMethodRepository passengerPaymentMethodRepository) {
         this.paymentRepository = paymentRepository;
         this.walletService = walletService;
         this.paymentEventProducer = paymentEventProducer;
         this.redisTemplate = redisTemplate;
-        this.paymentGatewayUtil = paymentGatewayUtil;
         this.strategyProcessor = strategyProcessor;
         this.passengerPaymentMethodRepository = passengerPaymentMethodRepository;
     }
@@ -259,7 +257,7 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public void processOrderPayment(Long orderId) {
-        Payment payment = paymentRepository.findByOrderId(orderId)
+        paymentRepository.findByOrderId(orderId)
                 .stream()
                 .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
                 .findFirst()

@@ -1,7 +1,6 @@
 package com.easyride.admin_service.service;
 
 import com.easyride.admin_service.dto.*;
-import com.easyride.admin_service.model.DriverApplication;
 import org.springframework.data.domain.Page;
 
 public interface AdminDriverManagementService {

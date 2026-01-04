@@ -32,8 +32,6 @@ public class WalletControllerTest {
     @MockitoBean
     private WalletService walletService;
 
-    private ObjectMapper mapper = new ObjectMapper();
-
     @Test
     public void testGetWallet() throws Exception {
         WalletDto walletDto = new WalletDto(10L, 50000, LocalDateTime.now());

@@ -1,7 +1,6 @@
 package com.easyride.admin_service.service;
 
 import com.easyride.admin_service.dto.*;
-import com.easyride.admin_service.exception.ExternalServiceException;
 import com.easyride.admin_service.exception.ResourceNotFoundException;
 import com.easyride.admin_service.model.DriverApplication;
 import com.easyride.admin_service.model.DriverApplicationStatus;
@@ -34,7 +33,6 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
     private static final Logger log = LoggerFactory.getLogger(AdminDriverManagementServiceImpl.class);
 
     private final DriverApplicationRepository applicationRepository;
-    private final DriverVerificationService driverVerificationService;
     private final RocketMQTemplate rocketMQTemplate;
 
     @Value("${rocketmq.topic.driver-review}")
@@ -43,12 +41,9 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
     @Value("${service-urls.user-service}")
     private String userServiceBaseUrl;
 
-    @Autowired
     public AdminDriverManagementServiceImpl(DriverApplicationRepository applicationRepository,
-            DriverVerificationService driverVerificationService,
             RocketMQTemplate rocketMQTemplate) {
         this.applicationRepository = applicationRepository;
-        this.driverVerificationService = driverVerificationService;
         this.rocketMQTemplate = rocketMQTemplate;
     }
 

@@ -25,7 +25,7 @@ public class WalletRepositoryTest {
         wallet.setCurrency("USD");
         wallet.setUpdatedAt(LocalDateTime.now());
 
-        Wallet saved = walletRepository.save(wallet);
+        walletRepository.save(wallet);
         Optional<Wallet> found = walletRepository.findByDriverId(10L);
         assertThat(found).isPresent();
         assertThat(found.get().getBalance()).isEqualTo(50000);
