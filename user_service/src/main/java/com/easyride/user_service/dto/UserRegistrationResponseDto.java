@@ -14,4 +14,12 @@ public class UserRegistrationResponseDto {
     private String phoneNumber;
     private String role;
     private boolean enabled;
+
+    public String getUsername() {
+        return username;
+    }
+
+    public void setUsername(String username) {
+        this.username = username;
+    }
 }

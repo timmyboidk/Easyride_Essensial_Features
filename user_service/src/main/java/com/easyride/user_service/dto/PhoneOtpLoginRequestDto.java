@@ -16,4 +16,20 @@ public class PhoneOtpLoginRequestDto {
 
     @NotBlank(message = "OTP验证码不能为空")
     private String otpCode;
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getOtpCode() {
+        return otpCode;
+    }
+
+    public void setOtpCode(String otpCode) {
+        this.otpCode = otpCode;
+    }
 }

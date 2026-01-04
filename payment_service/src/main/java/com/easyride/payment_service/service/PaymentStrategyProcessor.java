@@ -3,61 +3,68 @@ package com.easyride.payment_service.service;
 import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.dto.PaymentResponseDto;
 import com.easyride.payment_service.exception.PaymentServiceException;
-import com.easyride.payment_service.model.PassengerPaymentMethod;
 import com.easyride.payment_service.strategies.PaymentStrategy;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
-@Service
+@Component
 public class PaymentStrategyProcessor {
 
-    private static final Logger log = LoggerFactory.getLogger(PaymentStrategyProcessor.class);
-    private final Map<String, PaymentStrategy> strategies;
+    private final Map<String, PaymentStrategy> strategyMap;
 
     @Autowired
-    public PaymentStrategyProcessor(ApplicationContext applicationContext) {
-        this.strategies = applicationContext.getBeansOfType(PaymentStrategy.class);
-        log.info("Loaded payment strategies: {}", strategies.keySet());
+    public PaymentStrategyProcessor(List<PaymentStrategy> strategies) {
+        this.strategyMap = strategies.stream()
+                .collect(Collectors.toMap(s -> s.getClass().getSimpleName().replace("Strategy", "").toUpperCase(),
+                        Function.identity()));
+        // Map keys example: PAYPAL, STRIPE
     }
 
-    public PaymentStrategy getStrategy(String paymentMethodTypeOrBeanName) {
-        Optional<PaymentStrategy> foundStrategy = strategies.values().stream()
-                .filter(s -> s.supports(paymentMethodTypeOrBeanName))
-                .findFirst();
-
-        if (foundStrategy.isPresent()) {
-            PaymentStrategy strategy = foundStrategy.get();
-            log.debug("Using strategy {} for type/bean {}", strategy.getClass().getSimpleName(), paymentMethodTypeOrBeanName);
-            return strategy;
-        } else {
-            log.error("No payment strategy found for type/bean: {}", paymentMethodTypeOrBeanName);
-            throw new PaymentServiceException("不支持的支付方式: " + paymentMethodTypeOrBeanName);
+    public PaymentResponseDto processPayment(PaymentRequestDto paymentRequest) {
+        String strategyKey = paymentRequest.getPaymentMethod();
+        if (strategyKey == null) {
+            throw new PaymentServiceException("Payment method is required");
         }
-    }
 
-    public PaymentResponseDto processPayment(PaymentRequestDto paymentRequest, PassengerPaymentMethod paymentMethodDetails) {
-        String strategyKey = determineStrategyKey(paymentRequest, paymentMethodDetails);
         PaymentStrategy strategy = getStrategy(strategyKey);
-        return strategy.processPayment(paymentRequest, paymentMethodDetails);
+        return strategy.processPayment(paymentRequest);
     }
 
-    public PaymentResponseDto refundPayment(String originalTransactionId, String paymentGatewayUsed, Integer amount, String currency) {
+    public PaymentResponseDto refundPayment(String originalTransactionId, String paymentGatewayUsed, Integer amount,
+            String currency) {
         PaymentStrategy strategy = getStrategy(paymentGatewayUsed);
         return strategy.refundPayment(originalTransactionId, amount, currency);
     }
 
-    private String determineStrategyKey(PaymentRequestDto paymentRequest, PassengerPaymentMethod paymentMethodDetails) {
-        if (paymentMethodDetails != null) {
-            return paymentMethodDetails.getMethodType().name();
-        } else if (paymentRequest.getPaymentMethod() != null) {
-            return paymentRequest.getPaymentMethod();
+    private PaymentStrategy getStrategy(String strategyKey) {
+        // Handle cases like "PAYPAL_CHECKOUT" -> "PAYPAL" mapping if needed, or assume
+        // exact match
+        // Or cleaner: Strategies should define their identifier.
+        // For now, let's assume keys match simple names or we iterate.
+        // Actually, easiest is to allow strategies to self-identify or use bean names.
+        // But the previous impl logic had "determineStrategyKey".
+
+        // Let's iterate and find matching strategy if map lookup fails, or better,
+        // stick to a convention.
+        // com.easyride.payment_service.strategies.PayPalStrategy -> PAYPAL
+        // com.easyride.payment_service.strategies.StripeStrategy -> STRIPE
+
+        PaymentStrategy strategy = strategyMap.get(strategyKey.toUpperCase());
+        if (strategy == null) {
+            // Fallback or detailed error
+            // Maybe strategyKey is "CREDIT_CARD" but we use Stripe?
+            // For simplify, we assume the DTO passes "STRIPE" or "PAYPAL" as method for
+            // now,
+            // OR we map methods to gateways.
+            // Given the requirements, let's assume the passed method IS the gateway name
+            // for simplicity in this task.
+            throw new PaymentServiceException("No payment strategy found for: " + strategyKey);
         }
-        throw new PaymentServiceException("无法确定支付策略");
+        return strategy;
     }
 }

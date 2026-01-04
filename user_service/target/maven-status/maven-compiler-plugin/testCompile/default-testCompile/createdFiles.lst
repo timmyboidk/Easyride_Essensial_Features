@@ -1,2 +1,4 @@
+com/easyride/user_service/service/OtpServiceTest.class
+com/easyride/user_service/service/impl/LocalFileStorageServiceTest.class
 com/easyride/user_service/service/UserServiceTest.class
 com/easyride/user_service/controller/UserControllerTest.class

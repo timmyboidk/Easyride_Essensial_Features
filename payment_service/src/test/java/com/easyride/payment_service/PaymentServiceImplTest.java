@@ -71,6 +71,7 @@ public class PaymentServiceImplTest {
 
         PassengerPaymentMethod method = new PassengerPaymentMethod();
         method.setId(1L);
+        method.setMethodType(PaymentMethodType.CREDIT_CARD);
         when(passengerPaymentMethodRepository.findByIdAndPassengerId(1L, 200L)).thenReturn(Optional.of(method));
 
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
@@ -79,7 +80,7 @@ public class PaymentServiceImplTest {
         strategyResponse.setStatus(PaymentStatus.COMPLETED);
         strategyResponse.setTransactionId("TXN123");
         strategyResponse.setPaymentGatewayUsed("STRIPE");
-        when(strategyProcessor.processPayment(eq(reqDto), any())).thenReturn(strategyResponse);
+        when(strategyProcessor.processPayment(eq(reqDto))).thenReturn(strategyResponse);
 
         Payment payment = new Payment();
         payment.setId(1L);
@@ -117,7 +118,7 @@ public class PaymentServiceImplTest {
         PaymentResponseDto strategyResponse = new PaymentResponseDto();
         strategyResponse.setStatus(PaymentStatus.FAILED);
         strategyResponse.setMessage("Insufficient funds");
-        when(strategyProcessor.processPayment(eq(reqDto), any())).thenReturn(strategyResponse);
+        when(strategyProcessor.processPayment(eq(reqDto))).thenReturn(strategyResponse);
 
         PaymentResponseDto result = paymentService.processPayment(reqDto);
 

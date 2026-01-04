@@ -1,4 +1,5 @@
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/ResetPasswordRequestDto.java
+/Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/WeChatLoginRequest.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/config/WebMvcConfig.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/repository/PassengerRepository.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/api/UserApi.java
@@ -9,6 +10,7 @@
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/exception/OtpVerificationException.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/model/ReviewType.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/model/Role.java
+/Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/WeChatUserInfo.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/model/Review.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/config/RocketMqConfig.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/UserProfileUpdateDto.java
@@ -27,6 +29,7 @@
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/DriverApplicationEventDto.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/model/Admin.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/model/DriverApprovalStatus.java
+/Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/config/RestTemplateConfig.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/service/OtpService.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/security/UserDetailsServiceImpl.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/exception/FileStorageException.java
@@ -49,4 +52,5 @@
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/repository/DriverRepository.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/UserServiceApplication.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/UserEventDto.java
+/Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/WeChatTokenResponse.java
 /Users/timyu/Desktop/Easyride_Essensial_Features/user_service/src/main/java/com/easyride/user_service/dto/ApiResponse.java

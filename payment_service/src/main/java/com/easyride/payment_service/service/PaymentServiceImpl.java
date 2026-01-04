@@ -78,8 +78,11 @@ public class PaymentServiceImpl implements PaymentService {
         }
 
         try {
-            PaymentResponseDto strategyResponse = strategyProcessor.processPayment(paymentRequestDto,
-                    storedPaymentMethod);
+            if (storedPaymentMethod != null) {
+                paymentRequestDto.setPaymentMethod(storedPaymentMethod.getMethodType().name());
+            }
+
+            PaymentResponseDto strategyResponse = strategyProcessor.processPayment(paymentRequestDto);
 
             Payment payment = new Payment();
             payment.setOrderId(paymentRequestDto.getOrderId());

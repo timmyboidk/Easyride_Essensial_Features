@@ -15,9 +15,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class Complaint {
 
-    public Complaint() {
-    }
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -66,101 +63,5 @@ public class Complaint {
     @PreUpdate
     protected void onUpdate() {
         this.updatedAt = LocalDateTime.now();
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
-
-    public Long getEvaluationId() {
-        return evaluationId;
-    }
-
-    public void setEvaluationId(Long evaluationId) {
-        this.evaluationId = evaluationId;
-    }
-
-    public Long getComplainantId() {
-        return complainantId;
-    }
-
-    public void setComplainantId(Long complainantId) {
-        this.complainantId = complainantId;
-    }
-
-    public String getReason() {
-        return reason;
-    }
-
-    public void setReason(String reason) {
-        this.reason = reason;
-    }
-
-    public String getAdminNotes() {
-        return adminNotes;
-    }
-
-    public void setAdminNotes(String adminNotes) {
-        this.adminNotes = adminNotes;
-    }
-
-    public Long getHandledByAdminId() {
-        return handledByAdminId;
-    }
-
-    public void setHandledByAdminId(Long handledByAdminId) {
-        this.handledByAdminId = handledByAdminId;
-    }
-
-    public LocalDateTime getResolutionTime() {
-        return resolutionTime;
-    }
-
-    public void setResolutionTime(LocalDateTime resolutionTime) {
-        this.resolutionTime = resolutionTime;
-    }
-
-    public Appeal getAppeal() {
-        return appeal;
-    }
-
-    public void setAppeal(Appeal appeal) {
-        this.appeal = appeal;
-    }
-
-    public List<String> getEvidencePaths() {
-        return evidencePaths;
-    }
-
-    public void setEvidencePaths(List<String> evidencePaths) {
-        this.evidencePaths = evidencePaths;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
-    }
-
-    public LocalDateTime getUpdatedAt() {
-        return updatedAt;
-    }
-
-    public void setUpdatedAt(LocalDateTime updatedAt) {
-        this.updatedAt = updatedAt;
     }
 }

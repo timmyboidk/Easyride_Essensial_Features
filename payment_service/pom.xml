@@ -135,7 +135,22 @@
 			<artifactId>h2</artifactId>
 			<scope>test</scope>
 		</dependency>
+
+		<!-- PayPal SDK -->
+		<dependency>
+			<groupId>com.paypal.sdk</groupId>
+			<artifactId>checkout-sdk</artifactId>
+			<version>1.0.0</version> <!-- or 2.0.0 if available -->
+		</dependency>
+
+		<!-- Stripe SDK -->
+		<dependency>
+			<groupId>com.stripe</groupId>
+			<artifactId>stripe-java</artifactId>
+			<version>24.12.0</version>
+		</dependency>
     </dependencies>
+
 
 	<build>
 		<plugins>

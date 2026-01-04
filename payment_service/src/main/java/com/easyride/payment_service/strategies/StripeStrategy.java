@@ -2,87 +2,103 @@ package com.easyride.payment_service.strategies;
 
 import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.dto.PaymentResponseDto;
-import com.easyride.payment_service.model.PassengerPaymentMethod;
-import com.easyride.payment_service.model.PaymentStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.stripe.Stripe;
+import com.stripe.exception.StripeException;
+import com.stripe.model.PaymentIntent;
+import com.stripe.model.Refund;
+import com.stripe.param.PaymentIntentCreateParams;
+import com.stripe.param.RefundCreateParams;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
+import com.easyride.payment_service.model.PaymentStatus;
 
-import java.time.LocalDateTime;
+import java.math.BigDecimal;
 
-@Component("STRIPE_CREDIT_CARD")
+@Slf4j
+@Service
 public class StripeStrategy implements PaymentStrategy {
 
-    private static final Logger log = LoggerFactory.getLogger(StripeStrategy.class);
-
-    @Value("${stripe.api-key:}") // Provide a default empty value
-    private String stripeSecretKey;
+    @Value("${stripe.api.key:sk_test_placeholder}")
+    private String stripeApiKey;
 
     @Override
-    public PaymentResponseDto processPayment(PaymentRequestDto paymentRequest, PassengerPaymentMethod paymentMethodDetails) {
-        log.info("Processing payment with Stripe for order ID: {}", paymentRequest.getOrderId());
-        if (paymentMethodDetails == null || paymentMethodDetails.getPaymentGatewayToken() == null) {
-            log.error("Stripe payment requires a stored payment method token.");
-            return PaymentResponseDto.builder()
-                    .orderId(paymentRequest.getOrderId().toString())
-                    .status(PaymentStatus.FAILED)
-                    .message("支付方式信息不完整")
-                    .timestamp(LocalDateTime.now())
-                    .build();
-        }
+    public PaymentResponseDto processPayment(PaymentRequestDto request) {
+        Stripe.apiKey = stripeApiKey;
         try {
-            log.warn("Stripe PaymentIntent creation logic is a SKELETON. Actual Stripe SDK calls are commented out.");
-            String mockTransactionId = "pi_mock_" + System.currentTimeMillis();
-            return PaymentResponseDto.builder()
-                    .orderId(paymentRequest.getOrderId().toString())
-                    .status(PaymentStatus.COMPLETED)
-                    .transactionId(mockTransactionId)
-                    .amount(paymentRequest.getAmount())
-                    .currency(paymentRequest.getCurrency())
-                    .message("支付成功 (Stripe Mock)")
-                    .paymentGatewayUsed("STRIPE")
-                    .timestamp(LocalDateTime.now())
+            // Stripe expects amount in cents
+            Long amountInCents = new BigDecimal(request.getAmount()).multiply(new BigDecimal("100")).longValue();
+
+            PaymentIntentCreateParams params = PaymentIntentCreateParams.builder()
+                    .setAmount(amountInCents)
+                    .setCurrency(request.getCurrency().toLowerCase())
+                    .setDescription("Ride payment for order: " + request.getOrderId())
+                    // In a real app, we would use a payment_method_id from client
+                    .setAutomaticPaymentMethods(
+                            PaymentIntentCreateParams.AutomaticPaymentMethods.builder().setEnabled(true).build())
                     .build();
 
-        } catch (Exception e) {
-            log.error("Stripe API error during payment for order {}: {}", paymentRequest.getOrderId(), e.getMessage(), e);
-            return PaymentResponseDto.builder()
-                    .orderId(paymentRequest.getOrderId().toString())
-                    .status(PaymentStatus.FAILED)
-                    .message("Stripe支付失败: " + e.getMessage())
-                    .timestamp(LocalDateTime.now())
-                    .build();
+            PaymentIntent paymentIntent = PaymentIntent.create(params);
+
+            PaymentResponseDto response = new PaymentResponseDto();
+            response.setStatus(PaymentStatus.PENDING); // PaymentIntent needs confirmation
+            response.setTransactionId(paymentIntent.getId());
+            response.setMessage("Stripe PaymentIntent created. Client secret: " + paymentIntent.getClientSecret());
+            // response.setSuccess(true);
+            // In a real flow, client confirms payment, and we listen to webhook.
+            // For this scope, assuming server creation is success step 1.
+            return response;
+
+        } catch (StripeException e) {
+            log.error("Stripe payment failed", e);
+            PaymentResponseDto response = new PaymentResponseDto();
+            // response.setSuccess(false);
+            response.setStatus(PaymentStatus.FAILED);
+            response.setMessage("Stripe Error: " + e.getMessage());
+            return response;
         }
     }
 
     @Override
     public PaymentResponseDto refundPayment(String transactionId, Integer amount, String currency) {
-        log.info("Processing Stripe refund for transaction ID: {}, Amount: {}", transactionId, amount);
+        Stripe.apiKey = stripeApiKey;
         try {
-            log.warn("Stripe Refund creation logic is a SKELETON. Actual Stripe SDK calls are commented out.");
-            return PaymentResponseDto.builder()
-                    .transactionId(transactionId)
-                    .status(PaymentStatus.REFUNDED)
-                    .amount(amount)
-                    .currency(currency)
-                    .message("退款成功 (Stripe Mock)")
-                    .paymentGatewayUsed("STRIPE")
-                    .timestamp(LocalDateTime.now())
+            // Stripe expects amount in cents
+            Long amountInCents = new BigDecimal(amount).multiply(new BigDecimal("100")).longValue();
+
+            RefundCreateParams params = RefundCreateParams.builder()
+                    .setPaymentIntent(transactionId) // Assuming transactionId is PI ID
+                    .setAmount(amountInCents)
                     .build();
-        } catch (Exception e) {
-            log.error("Stripe API error during refund for transaction {}: {}", transactionId, e.getMessage(), e);
-            return PaymentResponseDto.builder()
-                    .transactionId(transactionId)
-                    .status(PaymentStatus.REFUND_FAILED)
-                    .message("Stripe退款失败: " + e.getMessage())
-                    .timestamp(LocalDateTime.now())
-                    .build();
+
+            Refund refund = Refund.create(params);
+
+            PaymentResponseDto response = new PaymentResponseDto();
+            // response.setSuccess(true);
+            response.setTransactionId(refund.getId());
+            response.setMessage("Refund successful");
+            // Stripe refund status can be 'pending', 'succeeded', 'failed', 'canceled'.
+            // Mapping to our enum:
+            if ("succeeded".equalsIgnoreCase(refund.getStatus())) {
+                response.setStatus(PaymentStatus.COMPLETED);
+            } else if ("pending".equalsIgnoreCase(refund.getStatus())) {
+                response.setStatus(PaymentStatus.PENDING);
+            } else {
+                response.setStatus(PaymentStatus.FAILED);
+            }
+            return response;
+        } catch (StripeException e) {
+            log.error("Stripe refund failed", e);
+            PaymentResponseDto response = new PaymentResponseDto();
+            // response.setSuccess(false);
+            response.setStatus(PaymentStatus.FAILED);
+            response.setMessage("Stripe Refund Error: " + e.getMessage());
+            return response;
         }
     }
 
     @Override
     public boolean supports(String paymentMethodType) {
-        return "CREDIT_CARD".equalsIgnoreCase(paymentMethodType) || "DEBIT_CARD".equalsIgnoreCase(paymentMethodType);
+        return "STRIPE".equalsIgnoreCase(paymentMethodType) || "CREDIT_CARD".equalsIgnoreCase(paymentMethodType);
     }
 }

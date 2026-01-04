@@ -3,9 +3,7 @@ package com.evaluation.model;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.Table;
 
-import javax.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity

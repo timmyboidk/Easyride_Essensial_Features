@@ -1,4 +1,6 @@
 com/easyride/user_service/config/SecurityConfig.class
+com/easyride/user_service/dto/WeChatLoginRequest.class
+com/easyride/user_service/dto/WeChatUserInfo.class
 com/easyride/user_service/dto/NotificationRequestDto.class
 com/easyride/user_service/repository/UserRepository.class
 com/easyride/user_service/security/UserDetailsImpl.class
@@ -6,6 +8,7 @@ com/easyride/user_service/dto/ApiResponse.class
 com/easyride/user_service/service/FileStorageService.class
 com/easyride/user_service/dto/DriverProfileUpdateDto.class
 com/easyride/user_service/dto/UserProfileUpdateDto.class
+com/easyride/user_service/dto/WeChatTokenResponse.class
 com/easyride/user_service/repository/DriverRepository.class
 com/easyride/user_service/security/JwtAuthenticationFilter.class
 com/easyride/user_service/dto/ResetPasswordRequestDto.class
@@ -27,6 +30,7 @@ com/easyride/user_service/util/PasswordUtil.class
 com/easyride/user_service/service/OtpService.class
 com/easyride/user_service/rocket/UserRocketProducer.class
 com/easyride/user_service/UserServiceApplication.class
+com/easyride/user_service/config/RestTemplateConfig.class
 com/easyride/user_service/config/WebMvcConfig.class
 com/easyride/user_service/exception/ResourceNotFoundException.class
 com/easyride/user_service/exception/ErrorResponse.class

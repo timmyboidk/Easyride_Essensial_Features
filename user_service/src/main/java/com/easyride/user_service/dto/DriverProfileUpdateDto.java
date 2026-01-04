@@ -20,4 +20,20 @@ public class DriverProfileUpdateDto {
 
     // 审核备注
     private String reviewNotes;
+
+    public DriverApprovalStatus getVerificationStatus() {
+        return verificationStatus;
+    }
+
+    public void setVerificationStatus(DriverApprovalStatus verificationStatus) {
+        this.verificationStatus = verificationStatus;
+    }
+
+    public String getReviewNotes() {
+        return reviewNotes;
+    }
+
+    public void setReviewNotes(String reviewNotes) {
+        this.reviewNotes = reviewNotes;
+    }
 }

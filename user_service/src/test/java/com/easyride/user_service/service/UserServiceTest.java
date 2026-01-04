@@ -45,6 +45,8 @@ public class UserServiceTest {
     private JwtTokenProvider jwtTokenProvider;
     @Mock
     private FileStorageService fileStorageService;
+    @Mock
+    private org.springframework.web.client.RestTemplate restTemplate;
 
     @InjectMocks
     private UserServiceImpl userService;
@@ -371,5 +373,69 @@ public class UserServiceTest {
         assertThrows(OtpVerificationException.class, () -> {
             userService.registerUser(registrationDto, null, null);
         });
+    }
+
+    @Test
+    void loginWithWeChat_Success_ExistingUser() {
+        WeChatLoginRequest request = new WeChatLoginRequest();
+        request.setAuthCode("authCode");
+
+        WeChatTokenResponse tokenResponse = new WeChatTokenResponse();
+        tokenResponse.setAccessToken("token");
+        tokenResponse.setOpenId("openid");
+
+        WeChatUserInfo userInfo = new WeChatUserInfo();
+        userInfo.setUnionId("unionid");
+        userInfo.setOpenId("openid");
+
+        when(restTemplate.getForObject(anyString(), eq(WeChatTokenResponse.class))).thenReturn(tokenResponse);
+        when(restTemplate.getForObject(anyString(), eq(WeChatUserInfo.class))).thenReturn(userInfo);
+
+        User user = new User();
+        user.setId(1L);
+        user.setUnionId("unionid");
+        user.setUsername("wx_user");
+        user.setRole(Role.PASSENGER); // Ensure role is set for UserDetails
+
+        when(userRepository.findByUnionId("unionid")).thenReturn(Optional.of(user));
+        when(jwtTokenProvider.generateToken(any())).thenReturn("jwt-token");
+
+        JwtAuthenticationResponse response = userService.loginWithWeChat(request);
+
+        assertNotNull(response);
+        assertEquals("jwt-token", response.getAccessToken());
+    }
+
+    @Test
+    void loginWithWeChat_Success_NewUser() {
+        WeChatLoginRequest request = new WeChatLoginRequest();
+        request.setAuthCode("authCode");
+
+        WeChatTokenResponse tokenResponse = new WeChatTokenResponse();
+        tokenResponse.setAccessToken("token");
+        tokenResponse.setOpenId("openid");
+
+        WeChatUserInfo userInfo = new WeChatUserInfo();
+        userInfo.setUnionId("unionid");
+        userInfo.setOpenId("openid");
+
+        when(restTemplate.getForObject(anyString(), eq(WeChatTokenResponse.class))).thenReturn(tokenResponse);
+        when(restTemplate.getForObject(anyString(), eq(WeChatUserInfo.class))).thenReturn(userInfo);
+        when(userRepository.findByUnionId("unionid")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(anyString())).thenReturn("encodedPwd");
+
+        Passenger newPassenger = new Passenger();
+        newPassenger.setId(2L);
+        newPassenger.setRole(Role.PASSENGER);
+        newPassenger.setUnionId("unionid");
+
+        when(passengerRepository.save(any(Passenger.class))).thenReturn(newPassenger);
+        when(jwtTokenProvider.generateToken(any())).thenReturn("jwt-token");
+
+        JwtAuthenticationResponse response = userService.loginWithWeChat(request);
+
+        assertNotNull(response);
+        assertEquals("jwt-token", response.getAccessToken());
+        verify(passengerRepository).save(any(Passenger.class));
     }
 }

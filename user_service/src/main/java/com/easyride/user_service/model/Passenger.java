@@ -13,4 +13,5 @@ public class Passenger extends User {
     public Passenger(String username, String password, String email, String phoneNumber) {
         super(username, password, email, phoneNumber, Role.PASSENGER);
     }
+
 }

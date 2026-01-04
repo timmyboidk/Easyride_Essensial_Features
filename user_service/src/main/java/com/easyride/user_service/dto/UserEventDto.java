@@ -13,4 +13,5 @@ public class UserEventDto {
     private String email;
     private String role;
     private String EventType;
+
 }
