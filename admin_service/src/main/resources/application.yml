@@ -21,19 +21,6 @@ spring:
       name: admin # Default admin for basic auth on actuator/dev, not for app logic
       password: password
   # Feign client configurations (can be more specific per client)
-  cloud:
-    openfeign:
-      client:
-        config:
-          default: # Default configuration for all Feign clients
-            connectTimeout: 5000
-            readTimeout: 10000
-            loggerLevel: full # For debugging, change to BASIC or NONE for prod
-          # Specific client configs:
-          # user-service-client: # Bean name of the Feign client interface
-          #   url: "http://localhost:8080" # Or use service discovery
-          # order-service-client:
-          #   url: "http://localhost:8081"
 
 # Service URLs (use service discovery in production - e.g., Eureka, Consul)
 service-urls:
@@ -48,6 +35,8 @@ rocketmq:
   name-server: 127.0.0.1:9876 # 您的 RocketMQ 服务器地址
   producer:
     group: admin_service_producer_group
+  consumer:
+    group: admin-service-group
   # 定义业务 Topic
   topic:
     driver-review: DRIVER_APPLICATION_REVIEW_TOPIC

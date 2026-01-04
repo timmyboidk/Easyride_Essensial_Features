@@ -95,6 +95,11 @@ public class OrderControllerTest {
     @Test
     void cancelOrder_Success() throws Exception {
         Long orderId = 100L;
+        OrderResponseDto orderDto = new OrderResponseDto();
+        orderDto.setOrderId(orderId);
+        orderDto.setPassengerId(0L); // Match fallback authenticated ID
+
+        when(orderService.getOrderDetails(orderId)).thenReturn(orderDto);
 
         mockMvc.perform(post("/orders/" + orderId + "/cancel"))
                 .andExpect(status().isOk())
