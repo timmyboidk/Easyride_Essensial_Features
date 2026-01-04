@@ -27,7 +27,6 @@ import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import com.easyride.admin_service.dto.DriverApplicationEventDto_Consumed;
 
-
 import java.time.LocalDateTime;
 
 @Service
@@ -36,10 +35,7 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
 
     private final DriverApplicationRepository applicationRepository;
     private final DriverVerificationService driverVerificationService;
-//    private final RestTemplate restTemplate;
-
-    @Autowired
-    private RocketMQTemplate rocketMQTemplate;
+    private final RocketMQTemplate rocketMQTemplate;
 
     @Value("${rocketmq.topic.driver-review}")
     private String driverReviewTopic;
@@ -49,10 +45,11 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
 
     @Autowired
     public AdminDriverManagementServiceImpl(DriverApplicationRepository applicationRepository,
-                                            DriverVerificationService driverVerificationService) {
+            DriverVerificationService driverVerificationService,
+            RocketMQTemplate rocketMQTemplate) {
         this.applicationRepository = applicationRepository;
         this.driverVerificationService = driverVerificationService;
-//        this.restTemplate = restTemplate;
+        this.rocketMQTemplate = rocketMQTemplate;
     }
 
     @Override
@@ -67,8 +64,7 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
                 event.getDriverId(),
                 event.getUsername(),
                 event.getDriverLicenseNumber(),
-                event.getApplicationTime() != null ? event.getApplicationTime() : LocalDateTime.now()
-        );
+                event.getApplicationTime() != null ? event.getApplicationTime() : LocalDateTime.now());
         applicationRepository.save(app);
         log.info("New driver application for {} stored with PENDING_REVIEW status.", event.getDriverId());
     }
@@ -76,7 +72,8 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
     @Override
     public Page<DriverApplicationDto> getPendingDriverApplications(int page, int size) {
         PageRequest pageable = PageRequest.of(page, size, Sort.by("applicationTime").ascending());
-        Page<DriverApplication> applications = applicationRepository.findByStatus(DriverApplicationStatus.PENDING_REVIEW, pageable);
+        Page<DriverApplication> applications = applicationRepository
+                .findByStatus(DriverApplicationStatus.PENDING_REVIEW, pageable);
         return applications.map(this::mapToDto);
     }
 
@@ -93,7 +90,8 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         DriverApplication app = findApplicationById(driverId);
 
         if (app.getStatus() != DriverApplicationStatus.PENDING_REVIEW) {
-            log.warn("Driver application {} is not in PENDING_REVIEW state. Current status: {}", driverId, app.getStatus());
+            log.warn("Driver application {} is not in PENDING_REVIEW state. Current status: {}", driverId,
+                    app.getStatus());
             throw new IllegalStateException("Application cannot be approved as it is not pending review.");
         }
 
@@ -105,13 +103,11 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         applicationRepository.save(app);
         log.info("Driver application {} approved locally.", driverId);
 
-
         // 2. 创建并发送消息到 MQ，通知 user_service
         DriverApplicationReviewedEvent event = new DriverApplicationReviewedEvent(
                 driverId,
                 "APPROVED",
-                notes
-        );
+                notes);
         rocketMQTemplate.convertAndSend(driverReviewTopic, event);
         log.info("Sent DRIVER_APPLICATION_REVIEWED (APPROVED) event for driver {}", driverId);
     }
@@ -119,7 +115,8 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
     @Override
     @Transactional
     public void rejectDriverApplication(Long driverId, Long adminId, String reason, String notes) {
-        log.info("Admin {} attempting to reject driver application for ID {} with reason: {}", adminId, driverId, reason);
+        log.info("Admin {} attempting to reject driver application for ID {} with reason: {}", adminId, driverId,
+                reason);
         DriverApplication app = findApplicationById(driverId);
 
         // 1. 更新本地数据库状态
@@ -135,19 +132,18 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         DriverApplicationReviewedEvent event = new DriverApplicationReviewedEvent(
                 driverId,
                 "REJECTED",
-                fullNotes
-        );
+                fullNotes);
         rocketMQTemplate.convertAndSend(driverReviewTopic, event);
         log.info("Sent DRIVER_APPLICATION_REVIEWED (REJECTED) event for driver {}", driverId);
     }
 
     // `updateDriverStatusInUserService` 方法已不再需要，可以安全删除
     /*
-    private void updateDriverStatusInUserService(Long driverId, AdminDriverUpdateDto updateDto, String action) {
-        ...
-    }
-    */
-
+     * private void updateDriverStatusInUserService(Long driverId,
+     * AdminDriverUpdateDto updateDto, String action) {
+     * ...
+     * }
+     */
 
     private DriverApplication findApplicationById(Long driverId) {
         return applicationRepository.findById(driverId)
@@ -164,6 +160,5 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         dto.setAdminNotes(app.getAdminNotes());
         return dto;
     }
-
 
 }

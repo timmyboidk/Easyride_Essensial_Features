@@ -1,17 +1,18 @@
 package com.easyride.notification_service.service;
 
-import com.easyride.notification_service.dto.*;
+import com.easyride.notification_service.dto.ConsumedOrderEventDto;
+import com.easyride.notification_service.dto.NotificationPayloadDto;
 import com.easyride.notification_service.model.NotificationChannel;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.time.LocalDateTime;
 import java.util.Map;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -26,45 +27,63 @@ class NotificationDispatcherServiceTest {
     @Mock
     private PushNotificationService pushService;
 
+    @InjectMocks
     private NotificationDispatcherService dispatcherService;
 
-    @BeforeEach
-    void setUp() {
-        dispatcherService = new NotificationDispatcherService(templateService, smsService, emailService, pushService);
+    @Test
+    void dispatchOrderNotification_Success_AllChannels() {
+        ConsumedOrderEventDto event = new ConsumedOrderEventDto();
+        event.setOrderId(100L);
+        event.setEventType("DRIVER_ARRIVED");
+        event.setPassengerPhoneNumber("1234567890");
+        event.setPassengerEmail("test@example.com");
+        event.setPassengerApnsToken("apns_token");
+        event.setPassengerLocale("en_US");
+
+        // Mock TemplateService responses
+        when(templateService.processTemplate(eq("driver_arrived"), eq(NotificationChannel.SMS), anyString(), anyMap()))
+                .thenReturn("Driver is here");
+        when(templateService.processTemplate(eq("driver_arrived"), eq(NotificationChannel.EMAIL_SUBJECT), anyString(),
+                anyMap()))
+                .thenReturn("Your driver has arrived");
+        when(templateService.processTemplate(eq("driver_arrived"), eq(NotificationChannel.EMAIL_BODY), anyString(),
+                anyMap()))
+                .thenReturn("Body content");
+        when(templateService.processTemplate(eq("driver_arrived_title"), eq(NotificationChannel.PUSH_APNS), anyString(),
+                anyMap()))
+                .thenReturn("Driver Arrived");
+        when(templateService.processTemplate(eq("driver_arrived_body"), eq(NotificationChannel.PUSH_APNS), anyString(),
+                anyMap()))
+                .thenReturn("Push body");
+
+        dispatcherService.dispatchOrderNotification(event);
+
+        verify(smsService).sendSms("1234567890", "Driver is here");
+        verify(emailService).sendEmail("test@example.com", "Your driver has arrived", "Body content");
+        verify(pushService).sendApnsPush(eq("apns_token"), any(NotificationPayloadDto.class));
     }
 
     @Test
-    void dispatchOrderCreated_ShouldLog_WhenCalled() {
-        OrderCreatedEvent event = new OrderCreatedEvent();
-        event.setOrderId(1L);
-        dispatcherService.dispatchOrderCreated(event);
-        // Currently method only logs, so nothing to verify strictly unless we add logic
+    void dispatchOrderNotification_UnknownEventType_DoesNothing() {
+        ConsumedOrderEventDto event = new ConsumedOrderEventDto();
+        event.setEventType("UNKNOWN_EVENT");
+
+        dispatcherService.dispatchOrderNotification(event);
+
+        verifyNoInteractions(smsService, emailService, pushService);
     }
 
     @Test
-    void dispatchOrderStatusChanged_ShouldSendNotifications() {
-        OrderStatusChangedEvent event = new OrderStatusChangedEvent();
-        event.setOrderId(1L);
-        event.setNewStatus("DRIVER_ARRIVED"); // This matches the switch case in logic if we changed it, but currently
-                                              // it expects DTO to have eventType?
-        // Wait, OrderStatusChangedEvent has newStatus, but the logic in
-        // dispatchOrderNotification used event.getEventType().
-        // My new dispatchOrderStatusChanged only logs. The dispatchOrderNotification
-        // (old) had logic.
-        // I should probably move logic to new methods or test old method if I kept it.
-        // I kept dispatchOrderNotification in the file (it was not deleted, just
-        // appended new methods).
+    void dispatchOrderNotification_TemplateError_DoesNotSend() {
+        ConsumedOrderEventDto event = new ConsumedOrderEventDto();
+        event.setEventType("ORDER_ACCEPTED");
+        event.setPassengerPhoneNumber("1234567890");
 
-        // Let's test dispatchOrderNotification with ConsumedOrderEventDto (if it still
-        // exists and is used)
-        // OR test the new methods if I implement logic there.
-        // The current implementation of new methods ONLY logs. So the test is trivial.
+        when(templateService.processTemplate(anyString(), any(), anyString(), anyMap()))
+                .thenReturn("Error: Template not found");
 
-        dispatcherService.dispatchOrderStatusChanged(event);
+        dispatcherService.dispatchOrderNotification(event);
+
+        verify(smsService, never()).sendSms(anyString(), anyString());
     }
-
-    // Since I only implemented logging in the new methods, the tests are basic.
-    // real implementation logic sits in
-    // dispatchOrderNotification(ConsumedOrderEventDto).
-    // I should test dispatchOrderNotification.
 }

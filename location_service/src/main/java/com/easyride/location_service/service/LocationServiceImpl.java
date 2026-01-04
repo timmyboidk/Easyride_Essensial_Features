@@ -45,19 +45,19 @@ public class LocationServiceImpl implements LocationService {
     private GeoOperations<String, Object> geoOps;
     private final ObjectMapper objectMapper;
 
-    @Autowired
-    private SafetyService safetyService;
+    private final SafetyService safetyService;
 
     @Autowired
     public LocationServiceImpl(RestTemplate restTemplate, RedisTemplate<String, Object> redisTemplate,
-            ObjectMapper objectMapper) {
+            ObjectMapper objectMapper, SafetyService safetyService) {
         this.restTemplate = restTemplate;
         this.redisTemplate = redisTemplate;
         this.objectMapper = objectMapper;
+        this.safetyService = safetyService;
     }
 
     @PostConstruct
-    private void init() {
+    void init() {
         this.valueOps = redisTemplate.opsForValue();
         this.listOps = redisTemplate.opsForList();
         this.geoOps = redisTemplate.opsForGeo();

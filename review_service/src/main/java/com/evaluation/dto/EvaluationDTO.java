@@ -23,4 +23,5 @@ public class EvaluationDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private String complaintStatus;
+    private String status;
 }

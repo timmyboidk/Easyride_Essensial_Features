@@ -38,6 +38,10 @@ public class EvaluationMapper {
             dto.setTags(tagNames);
         }
 
+        if (evaluation.getStatus() != null) {
+            dto.setStatus(evaluation.getStatus().name());
+        }
+
         return dto;
     }
 
@@ -54,7 +58,9 @@ public class EvaluationMapper {
         evaluation.setScore(dto.getScore());
         evaluation.setComment(dto.getComment());
         evaluation.setComplaintStatus(dto.getComplaintStatus());
-        // 标签处理在 Service 层完成
+
+        // Tags are handled in service
+
         return evaluation;
     }
 }
