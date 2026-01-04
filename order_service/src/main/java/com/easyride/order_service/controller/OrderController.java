@@ -24,10 +24,13 @@ public class OrderController {
 
     @PostMapping("/create")
     public ApiResponse<OrderResponseDto> createOrder(@Valid @RequestBody OrderCreateDto orderCreateDto) {
-        // Assuming passengerId comes from authenticated principal or is validated if passed in DTO
-        // For simplicity, if passengerId is in DTO, ensure it matches authenticated user or requires specific role.
+        // Assuming passengerId comes from authenticated principal or is validated if
+        // passed in DTO
+        // For simplicity, if passengerId is in DTO, ensure it matches authenticated
+        // user or requires specific role.
         // Long passengerId = getAuthenticatedPassengerId();
-        // orderCreateDto.setPassengerId(passengerId); // Set it if not already part of DTO or override
+        // orderCreateDto.setPassengerId(passengerId); // Set it if not already part of
+        // DTO or override
         log.info("Received request to create order: {}", orderCreateDto);
         OrderResponseDto responseDto = orderService.createOrder(orderCreateDto);
         log.info("Order created successfully with ID: {}", responseDto.getOrderId());
@@ -53,20 +56,43 @@ public class OrderController {
 
     @PostMapping("/{orderId}/cancel")
     public ApiResponse<String> cancelOrder(@PathVariable Long orderId) {
-        // Logic to determine who is cancelling and if allowed (e.g. passengerId from principal)
-        // Long cancellingUserId = getAuthenticatedUserId();
+        // IDOR Fix: Verify ownership
+        Long authenticatedUserId = getAuthenticatedUserId();
+        OrderResponseDto order = orderService.getOrderDetails(orderId);
+
+        // If authenticatedUserId is 0 (system/fallback), we might allow or block.
+        // For strict security, we block if mismatch.
+        if (order.getPassengerId() != null && !order.getPassengerId().equals(authenticatedUserId)) {
+            log.warn("IDOR Attempt: User {} tried to cancel order {} belonging to {}", authenticatedUserId, orderId,
+                    order.getPassengerId());
+            return ApiResponse.error(403, "无权操作此订单");
+        }
+
         log.info("User attempting to cancel order ID: {}", orderId);
-        orderService.cancelOrder(orderId /*, cancellingUserId, userRole */);
+        orderService.cancelOrder(orderId);
         log.info("Order ID: {} cancelled successfully.", orderId);
         return ApiResponse.successMessage("订单已取消");
     }
 
+    private Long getAuthenticatedUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getName().matches("\\d+")) {
+            try {
+                return Long.parseLong(authentication.getName());
+            } catch (NumberFormatException e) {
+                return 0L;
+            }
+        }
+        return 0L; // Fallback or throw exception
+    }
+
     @PostMapping("/{orderId}/status")
-    public ApiResponse<String> updateOrderStatus(@PathVariable Long orderId, @RequestBody UpdateOrderStatusDto statusDto) {
+    public ApiResponse<String> updateOrderStatus(@PathVariable Long orderId,
+            @RequestBody UpdateOrderStatusDto statusDto) {
         // Should be restricted, e.g., only driver can update to ARRIVED, IN_PROGRESS
         // Long principalId = getAuthenticatedUserId();
         log.info("Attempting to update status for order ID: {} to {}", orderId, statusDto.getStatus());
-        orderService.updateOrderStatus(orderId, statusDto.getStatus() /*, principalId, principalRole */);
+        orderService.updateOrderStatus(orderId, statusDto.getStatus() /* , principalId, principalRole */);
         log.info("Order ID: {} status updated to {}.", orderId, statusDto.getStatus());
         return ApiResponse.successMessage("订单状态已更新");
     }

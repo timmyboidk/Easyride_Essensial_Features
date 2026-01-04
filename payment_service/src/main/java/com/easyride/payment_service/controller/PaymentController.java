@@ -21,6 +21,13 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+    private void validate(PaymentRequestDto request) {
+        if (request.getAmount() == null || request.getAmount() <= 0) {
+            throw new jakarta.validation.ValidationException("金额必须大于0");
+        }
+        // Add other checks as needed
+    }
+
     @PostMapping("/pay")
     public ApiResponse<EncryptedResponseDto> processPayment(@RequestBody EncryptedRequestDto encryptedRequest) {
         try {
@@ -29,6 +36,10 @@ public class PaymentController {
             PaymentRequestDto paymentRequestDto = objectMapper.readValue(decryptedPayload, PaymentRequestDto.class);
 
             log.info("Processing payment for order ID: {}", paymentRequestDto.getOrderId());
+
+            // Manual validation for decrypted object
+            validate(paymentRequestDto);
+
             PaymentResponseDto responseDto = paymentService.processPayment(paymentRequestDto);
 
             String encryptedResponsePayload = EncryptionUtil.encrypt(objectMapper.writeValueAsString(responseDto));

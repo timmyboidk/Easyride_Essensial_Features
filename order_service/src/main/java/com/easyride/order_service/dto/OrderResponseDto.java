@@ -12,6 +12,8 @@ public class OrderResponseDto {
 
     private OrderStatus status;
 
+    private Long passengerId;
+
     private String passengerName;
 
     private String driverName;
@@ -22,4 +24,3 @@ public class OrderResponseDto {
 
     private double estimatedDuration;
 }
-

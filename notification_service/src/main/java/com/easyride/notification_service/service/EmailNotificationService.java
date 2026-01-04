@@ -30,9 +30,10 @@ public class EmailNotificationService implements NotificationService {
 
     /**
      * Sends an email with a specified subject and body.
+     * 
      * @param recipient The recipient's email address.
-     * @param subject The subject of the email.
-     * @param message The body of the email.
+     * @param subject   The subject of the email.
+     * @param message   The body of the email.
      * @return true if the email was sent successfully, false otherwise.
      */
     public boolean sendEmail(String recipient, String subject, String message) {
@@ -62,7 +63,7 @@ public class EmailNotificationService implements NotificationService {
             mimeMessage.setText(message);
 
             // Send the email
-            Transport.send(mimeMessage);
+            sendMimeMessage(mimeMessage);
             System.out.println("Email sent successfully to: " + recipient);
             return true;
         } catch (MessagingException e) {
@@ -70,5 +71,9 @@ public class EmailNotificationService implements NotificationService {
             System.err.println("Error while sending email: " + e.getMessage());
             return false;
         }
+    }
+
+    protected void sendMimeMessage(MimeMessage mimeMessage) throws MessagingException {
+        Transport.send(mimeMessage);
     }
 }

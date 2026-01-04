@@ -7,12 +7,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-// import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/admin/platform-users") // Differentiate from /admin/users which manages AdminUser entities
-// @PreAuthorize("hasAnyRole('ADMIN_USER_MANAGEMENT', 'SUPER_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN_USER_MANAGEMENT', 'SUPER_ADMIN')")
 public class AdminUserController {
     private static final Logger log = LoggerFactory.getLogger(AdminUserController.class);
 
@@ -33,7 +33,8 @@ public class AdminUserController {
             @RequestParam(required = false) String role, // e.g., PASSENGER, DRIVER
             @RequestParam(required = false) String searchTerm) {
         int pageSize = (size == null || size <= 0) ? defaultPageSize : size;
-        log.info("Request to list platform users: page={}, size={}, role={}, search={}", page, pageSize, role, searchTerm);
+        log.info("Request to list platform users: page={}, size={}, role={}, search={}", page, pageSize, role,
+                searchTerm);
         UserPageDto_FromUserService usersPage = adminUserService.listUsers(page, pageSize, role, searchTerm);
         return ApiResponse.success(usersPage);
     }
@@ -46,7 +47,8 @@ public class AdminUserController {
     }
 
     @PutMapping("/{userId}/profile")
-    public ApiResponse<UserDetailDto_FromUserService> updatePlatformUserProfile(@PathVariable Long userId, @Valid @RequestBody AdminUserProfileUpdateDto updateDto) {
+    public ApiResponse<UserDetailDto_FromUserService> updatePlatformUserProfile(@PathVariable Long userId,
+            @Valid @RequestBody AdminUserProfileUpdateDto updateDto) {
         log.info("Request to update profile for platform user ID: {}", userId);
         UserDetailDto_FromUserService updatedUser = adminUserService.updateUserProfile(userId, updateDto);
         return ApiResponse.success("用户资料更新成功", updatedUser);

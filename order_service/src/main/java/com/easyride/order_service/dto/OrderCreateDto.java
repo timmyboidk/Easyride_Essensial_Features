@@ -34,5 +34,17 @@ public class OrderCreateDto {
     private String passengerNotes;
 
     private Integer passengerCount;
-}
 
+    public void setPassengerNotes(String passengerNotes) {
+        if (passengerNotes != null) {
+            // Basic sanitization strategies against XSS and SQLi
+            this.passengerNotes = passengerNotes
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                    .replace("'", "''") // Basic SQL escaping
+                    .replace(";", ""); // Basic SQL escaping
+        } else {
+            this.passengerNotes = null;
+        }
+    }
+}
