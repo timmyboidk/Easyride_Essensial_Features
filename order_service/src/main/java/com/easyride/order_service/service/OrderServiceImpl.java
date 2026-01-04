@@ -29,11 +29,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Autowired
     public OrderServiceImpl(OrderRepository orderRepository,
-                            PassengerRepository passengerRepository,
-                            DriverRepository driverRepository,
-                            UserRepository userRepository,
-                            OrderEventProducer orderEventProducer,
-                            PricingService pricingService) {
+            PassengerRepository passengerRepository,
+            DriverRepository driverRepository,
+            UserRepository userRepository,
+            OrderEventProducer orderEventProducer,
+            PricingService pricingService) {
         this.orderRepository = orderRepository;
         this.passengerRepository = passengerRepository;
         this.driverRepository = driverRepository;
@@ -48,7 +48,8 @@ public class OrderServiceImpl implements OrderService {
         log.info("Processing order creation request for passenger ID: {}", orderCreateDto.getPassengerId());
         Passenger passenger = passengerRepository.findById(orderCreateDto.getPassengerId())
                 .orElseGet(() -> {
-                    log.warn("Passenger entity not found for ID {}, creating a placeholder.", orderCreateDto.getPassengerId());
+                    log.warn("Passenger entity not found for ID {}, creating a placeholder.",
+                            orderCreateDto.getPassengerId());
                     Passenger newP = new Passenger();
                     newP.setId(orderCreateDto.getPassengerId());
                     newP.setUsername("Passenger " + orderCreateDto.getPassengerId()); // Placeholder name
@@ -93,7 +94,8 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
-        log.info("Order (ID: {}) saved with status: {}. Scheduled time: {}", savedOrder.getId(), savedOrder.getStatus(), savedOrder.getScheduledTime());
+        log.info("Order (ID: {}) saved with status: {}. Scheduled time: {}", savedOrder.getId(), savedOrder.getStatus(),
+                savedOrder.getScheduledTime());
 
         if (order.getStatus() == OrderStatus.PENDING_MATCH) {
             OrderCreatedEvent event = mapToOrderCreatedEvent(savedOrder, estimatedPriceInfo);
@@ -111,7 +113,9 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
         Driver driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new ResourceNotFoundException("司机不存在"));
-        if (!driver.isAvailable()) {
+        if (order.getDriver() != null && order.getDriver().getId().equals(driver.getId())) {
+            // Driver is already assigned to this order, proceed to accept
+        } else if (!driver.isAvailable()) {
             throw new OrderServiceException("司机不可用");
         }
         order.setDriver(driver);
@@ -159,8 +163,7 @@ public class OrderServiceImpl implements OrderService {
                 "订单已取消",
                 LocalDateTime.now(),
                 order.getStartLatitude(),
-                order.getStartLongitude()
-        );
+                order.getStartLongitude());
         orderEventProducer.sendOrderStatusUpdateEvent(cancelEvent);
     }
 
@@ -182,7 +185,8 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("订单 " + event.getOrderId() + " 未找到以分配司机"));
 
         if (order.getStatus() != OrderStatus.PENDING_MATCH && order.getStatus() != OrderStatus.SCHEDULED) {
-            log.warn("Order {} is not in a state to be assigned a driver. Current status: {}", event.getOrderId(), order.getStatus());
+            log.warn("Order {} is not in a state to be assigned a driver. Current status: {}", event.getOrderId(),
+                    order.getStatus());
             return;
         }
 
@@ -190,13 +194,15 @@ public class OrderServiceImpl implements OrderService {
             log.warn("Driver entity not found locally for ID {}, creating a placeholder.", event.getDriverId());
             Driver newDriver = new Driver();
             newDriver.setId(event.getDriverId());
-            newDriver.setUsername(event.getDriverName() != null ? event.getDriverName() : "Driver " + event.getDriverId());
+            newDriver.setUsername(
+                    event.getDriverName() != null ? event.getDriverName() : "Driver " + event.getDriverId());
             newDriver.setAvailable(false);
             return driverRepository.save(newDriver);
         });
 
         if (!driver.isAvailable()) {
-            log.warn("Driver {} was assigned to order {} but is no longer available. Requesting rematch or notifying.", driver.getId(), order.getId());
+            log.warn("Driver {} was assigned to order {} but is no longer available. Requesting rematch or notifying.",
+                    driver.getId(), order.getId());
             order.setStatus(OrderStatus.PENDING_MATCH);
             orderRepository.save(order);
             return;
@@ -212,10 +218,9 @@ public class OrderServiceImpl implements OrderService {
         log.info("Driver {} successfully assigned to order {}.", event.getDriverId(), event.getOrderId());
 
         OrderEventDto orderStatusUpdateEvent = new OrderEventDto(
-                        order.getId(), order.getPassenger().getId(), order.getDriver().getId(),
-                        OrderStatus.DRIVER_ASSIGNED, "司机已接单，正在前来", LocalDateTime.now(),
-                        order.getStartLatitude(), order.getStartLongitude()
-                );
+                order.getId(), order.getPassenger().getId(), order.getDriver().getId(),
+                OrderStatus.DRIVER_ASSIGNED, "司机已接单，正在前来", LocalDateTime.now(),
+                order.getStartLatitude(), order.getStartLongitude());
         orderEventProducer.sendOrderStatusUpdateEvent(orderStatusUpdateEvent);
     }
 
@@ -224,7 +229,8 @@ public class OrderServiceImpl implements OrderService {
     public void processOrderMatchFailed(Long orderId, String reason) {
         log.warn("Order match failed for order ID: {}. Reason: {}", orderId, reason);
         Order order = orderRepository.findById(orderId).orElse(null);
-        if (order != null && (order.getStatus() == OrderStatus.PENDING_MATCH || order.getStatus() == OrderStatus.SCHEDULED)) {
+        if (order != null
+                && (order.getStatus() == OrderStatus.PENDING_MATCH || order.getStatus() == OrderStatus.SCHEDULED)) {
             order.setStatus(OrderStatus.FAILED);
             order.setUpdatedAt(LocalDateTime.now());
             orderRepository.save(order);
@@ -262,11 +268,11 @@ public class OrderServiceImpl implements OrderService {
                     order.getPaymentMethod().name(),
                     LocalDateTime.now(),
                     order.getPassenger().getId(),
-                    order.getDriver() != null ? order.getDriver().getId() : null
-            );
+                    order.getDriver() != null ? order.getDriver().getId() : null);
             orderEventProducer.sendOrderPaymentSettledEvent(settledEvent);
         } else {
-            log.warn("Order {} is not in COMPLETED state to confirm payment. Current status: {}", orderId, order.getStatus());
+            log.warn("Order {} is not in COMPLETED state to confirm payment. Current status: {}", orderId,
+                    order.getStatus());
         }
     }
 
@@ -284,8 +290,7 @@ public class OrderServiceImpl implements OrderService {
                 order.getEstimatedCost(),
                 order.getScheduledTime(),
                 order.getOrderTime(),
-                order.getPassenger().getUsername()
-        );
+                order.getPassenger().getUsername());
     }
 
     private OrderResponseDto mapToOrderResponseDto(Order order) {
@@ -296,7 +301,6 @@ public class OrderServiceImpl implements OrderService {
                 order.getDriver() != null ? order.getDriver().getUsername() : null,
                 order.getEstimatedCost(),
                 order.getEstimatedDistance(),
-                order.getEstimatedDuration()
-        );
+                order.getEstimatedDuration());
     }
 }
