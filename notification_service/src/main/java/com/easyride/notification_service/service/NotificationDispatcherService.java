@@ -1,7 +1,6 @@
 package com.easyride.notification_service.service;
 
-import com.easyride.notification_service.dto.ConsumedOrderEventDto; // Example DTO
-import com.easyride.notification_service.dto.NotificationPayloadDto;
+import com.easyride.notification_service.dto.*;
 import com.easyride.notification_service.model.NotificationChannel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,9 +21,9 @@ public class NotificationDispatcherService {
 
     @Autowired
     public NotificationDispatcherService(TemplateService templateService,
-                                         SmsNotificationService smsService,
-                                         EmailNotificationService emailService,
-                                         PushNotificationService pushService) {
+            SmsNotificationService smsService,
+            EmailNotificationService emailService,
+            PushNotificationService pushService) {
         this.templateService = templateService;
         this.smsService = smsService;
         this.emailService = emailService;
@@ -33,7 +32,8 @@ public class NotificationDispatcherService {
 
     // Example for Order Events
     public void dispatchOrderNotification(ConsumedOrderEventDto event) {
-        log.info("Dispatching notification for order event: {} for orderId {}", event.getEventType(), event.getOrderId());
+        log.info("Dispatching notification for order event: {} for orderId {}", event.getEventType(),
+                event.getOrderId());
 
         String templateKey = determineTemplateKeyForOrderEvent(event.getEventType());
         if (templateKey == null) {
@@ -41,7 +41,8 @@ public class NotificationDispatcherService {
             return;
         }
 
-        Map<String, Object> model = new HashMap<>(event.getAdditionalData() != null ? event.getAdditionalData() : Map.of());
+        Map<String, Object> model = new HashMap<>(
+                event.getAdditionalData() != null ? event.getAdditionalData() : Map.of());
         model.put("orderId", event.getOrderId());
         model.put("passengerId", event.getPassengerId());
         model.put("driverId", event.getDriverId());
@@ -51,7 +52,8 @@ public class NotificationDispatcherService {
 
         // --- SMS ---
         if (event.getPassengerPhoneNumber() != null /* && passenger.prefersSmsForThisEvent() */) {
-            String smsMessage = templateService.processTemplate(templateKey, NotificationChannel.SMS, userLocale, model);
+            String smsMessage = templateService.processTemplate(templateKey, NotificationChannel.SMS, userLocale,
+                    model);
             if (smsMessage != null && !smsMessage.startsWith("Error:")) {
                 smsService.sendSms(event.getPassengerPhoneNumber(), smsMessage);
             }
@@ -59,23 +61,30 @@ public class NotificationDispatcherService {
 
         // --- Email ---
         if (event.getPassengerEmail() != null /* && passenger.prefersEmailForThisEvent() */) {
-            String emailSubject = templateService.processTemplate(templateKey, NotificationChannel.EMAIL_SUBJECT, userLocale, model);
-            String emailBody = templateService.processTemplate(templateKey, NotificationChannel.EMAIL_BODY, userLocale, model);
-            if (emailSubject != null && !emailSubject.startsWith("Error:") && emailBody != null && !emailBody.startsWith("Error:")) {
+            String emailSubject = templateService.processTemplate(templateKey, NotificationChannel.EMAIL_SUBJECT,
+                    userLocale, model);
+            String emailBody = templateService.processTemplate(templateKey, NotificationChannel.EMAIL_BODY, userLocale,
+                    model);
+            if (emailSubject != null && !emailSubject.startsWith("Error:") && emailBody != null
+                    && !emailBody.startsWith("Error:")) {
                 emailService.sendEmail(event.getPassengerEmail(), emailSubject, emailBody);
             }
         }
 
         // --- Push Notification ---
         // Construct common push payload details
-        String pushTitle = templateService.processTemplate(templateKey + "_title", NotificationChannel.PUSH_APNS, userLocale, model); // or PUSH_FCM
-        String pushBody = templateService.processTemplate(templateKey + "_body", NotificationChannel.PUSH_APNS, userLocale, model);
+        String pushTitle = templateService.processTemplate(templateKey + "_title", NotificationChannel.PUSH_APNS,
+                userLocale, model); // or PUSH_FCM
+        String pushBody = templateService.processTemplate(templateKey + "_body", NotificationChannel.PUSH_APNS,
+                userLocale, model);
 
-        if (pushTitle != null && !pushTitle.startsWith("Error:") && pushBody != null && !pushBody.startsWith("Error:")) {
+        if (pushTitle != null && !pushTitle.startsWith("Error:") && pushBody != null
+                && !pushBody.startsWith("Error:")) {
             NotificationPayloadDto pushPayload = NotificationPayloadDto.builder()
                     .title(pushTitle)
                     .body(pushBody)
-                    .data(Map.of("orderId", String.valueOf(event.getOrderId()), "eventType", event.getEventType())) // Example data
+                    .data(Map.of("orderId", String.valueOf(event.getOrderId()), "eventType", event.getEventType())) // Example
+                                                                                                                    // data
                     .build();
 
             if (event.getPassengerApnsToken() != null) {
@@ -101,5 +110,26 @@ public class NotificationDispatcherService {
             // ... other mappings
             default -> null;
         };
+    }
+
+    public void dispatchOrderCreated(OrderCreatedEvent event) {
+        log.info("Dispatching notification for OrderCreatedEvent: orderId={}", event.getOrderId());
+    }
+
+    public void dispatchOrderStatusChanged(OrderStatusChangedEvent event) {
+        log.info("Dispatching notification for OrderStatusChangedEvent: orderId={}, status={}", event.getOrderId(),
+                event.getNewStatus());
+    }
+
+    public void dispatchPaymentSuccess(PaymentSuccessEvent event) {
+        log.info("Dispatching notification for PaymentSuccessEvent: paymentId={}", event.getPaymentId());
+    }
+
+    public void dispatchUserRegistered(UserRegisteredEvent event) {
+        log.info("Dispatching notification for UserRegisteredEvent: userId={}", event.getUserId());
+    }
+
+    public void dispatchDriverApplication(DriverApplicationEvent event) {
+        log.info("Dispatching notification for DriverApplicationEvent: driverId={}", event.getDriverUserId());
     }
 }

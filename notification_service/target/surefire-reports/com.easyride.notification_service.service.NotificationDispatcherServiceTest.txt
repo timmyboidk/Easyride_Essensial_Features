@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.easyride.notification_service.service.NotificationDispatcherServiceTest
+-------------------------------------------------------------------------------
+Tests run: 2, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.620 s -- in com.easyride.notification_service.service.NotificationDispatcherServiceTest
