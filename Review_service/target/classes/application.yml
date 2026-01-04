@@ -1,0 +1,28 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: review-service
+  datasource:
+    url: jdbc:mysql://localhost:3306/review_service_db?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+    username: root
+    password: password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 0
+
+rocketmq:
+  name-server: 127.0.0.1:9876
+  producer:
+    group: PID_REVIEW_SERVICE
