@@ -1,1102 +1,1059 @@
-EasyRide Backend API Documentation 
-=======================
+# EasyRide 后端 API 文档
 
-**Version**: 1.1
+**版本**: 1.1
 
-1. Introduction
-------
+1. 简介
 
-### 1.1. General Design Principles
+---
 
--   **Uniform Response Format**: All APIs return a standard JSON structure upon success.
+### 1.1. 通用设计原则
 
-    JSON
+* **统一响应格式**：所有 API 在成功时返回标准的 JSON 结构。
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": { ... }
+}
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": { ... }
-    }
 
-    ```
+```
 
-    On failure, `code` is a non-zero error code, `message` contains error information, and `data` is `null`.
 
--   **Authentication**: For most interfaces requiring user login, a `Bearer <JWT>` token must be included in the HTTP request's `Authorization` header.
+失败时，`code` 为非零错误码，`message` 包含错误信息，`data` 为 `null`。
+* **身份验证**：对于大多数需要用户登录的接口，必须在 HTTP 请求的 `Authorization` 头中包含 `Bearer <JWT>` 令牌。
+* **安全签名**：对于涉及资金、创建或修改关键数据的 `POST`/`PUT`/`DELETE` 请求，必须在 HTTP 头中包含以下字段，以防止重放攻击和参数篡改：
+* `X-Timestamp`：Unix 时间戳（秒），即请求发送的时间。
+* `X-Nonce`：一个一次性随机字符串。
+* `X-Signature`：使用 `timestamp`、`nonce` 和请求体（或参数）与共享密钥计算出的 HMAC-SHA256 签名。
 
--   **Security Signature**: For `POST`/`PUT`/`DELETE` requests involving funds, creation, or modification of critical data, the following fields must be included in the HTTP headers to prevent replay attacks and parameter tampering:
 
-    -   `X-Timestamp`: Unix timestamp (in seconds) when the request was sent.
+* **幂等性**：对于所有创建或修改资源的 `POST` 请求，建议客户端在请求头中生成唯一的 `Idempotency-Key`，以防止因网络重试导致重复创建。
 
-    -   `X-Nonce`: A one-time random string.
+---
 
-    -   `X-Signature`: HMAC-SHA256 signature calculated using `timestamp`, `nonce`, and the request body (or parameters) with a shared secret key.
+2. 用户服务 (user_service)
 
--   **Idempotency**: For all `POST` requests creating or modifying resources, clients are advised to generate a unique `Idempotency-Key` in the request header to prevent duplicate creations due to network retries.
+---
 
-* * * * *
+**基础路径**: `/api/user`
 
-2. User Service (user_service)
------------------------
-
-**Base Path**: `/api/user`
-
-### 2.1. Authentication and Registration (`/api/user/auth`)
+### 2.1. 身份验证与注册 (`/api/user/auth`)
 
 #### `POST /register`
 
--   **Function**: Register a new user (passenger or driver).
+* **功能**：注册新用户（乘客或司机）。
+* **请求体**：
+JSON
+```
+{
+  "phoneNumber": "13912345678",
+  "password": "StrongPassword123!",
+  "role": "PASSENGER"
+}
 
--   **Request Body**:
 
-    JSON
+```
 
-    ```
-    {
-      "phoneNumber": "13912345678",
-      "password": "StrongPassword123!",
-      "role": "PASSENGER"
-    }
 
-    ```
+* **成功响应 (201 Created)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "User registered successfully",
+  "data": {
+    "userId": 201,
+    "phoneNumber": "13912345678",
+    "role": "PASSENGER",
+    "accessToken": "ey..._a_jwt_token_...dA"
+  }
+}
 
--   **Success Response (201 Created)**:
 
-    JSON
+```
 
-    ```
-    {
-      "code": 0,
-      "message": "User registered successfully",
-      "data": {
-        "userId": 201,
-        "phoneNumber": "13912345678",
-        "role": "PASSENGER",
-        "accessToken": "ey..._a_jwt_token_...dA"
-      }
-    }
 
-    ```
 
 #### `POST /login/password`
 
--   **Function**: Log in using phone number and password.
+* **功能**：使用手机号和密码登录。
+* **请求体**：
+JSON
+```
+{
+  "username": "13912345678",
+  "password": "StrongPassword123!"
+}
 
--   **Request Body**:
 
-    JSON
+```
 
-    ```
-    {
-      "username": "13912345678",
-      "password": "StrongPassword123!"
-    }
 
-    ```
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Login successful",
+  "data": {
+    "accessToken": "ey..._a_new_jwt_token_...fG"
+  }
+}
 
--   **Success Response (200 OK)**:
 
-    JSON
+```
 
-    ```
-    {
-      "code": 0,
-      "message": "Login successful",
-      "data": {
-        "accessToken": "ey..._a_new_jwt_token_...fG"
-      }
-    }
 
-    ```
 
 #### `POST /login/otp`
 
--   **Function**: Log in using phone number and verification code.
+* **功能**：使用手机号和验证码登录。
+* **请求体**：
+JSON
+```
+{
+  "phoneNumber": "13912345678",
+  "otpCode": "654321"
+}
 
--   **Request Body**:
 
-    JSON
+```
 
-    ```
-    {
-      "phoneNumber": "13912345678",
-      "otpCode": "654321"
-    }
 
-    ```
-
--   **Success Response (200 OK)**: (Same response structure as above)
+* **成功响应 (200 OK)**：（响应结构同上）
 
 #### `POST /otp/request`
 
--   **Function**: Request an SMS verification code.
+* **功能**：请求短信验证码。
+* **请求体**：
+JSON
+```
+{
+  "phoneNumber": "13912345678"
+}
 
--   **Request Body**:
 
-    JSON
+```
 
-    ```
-    {
-      "phoneNumber": "13912345678"
-    }
 
-    ```
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "OTP sent successfully.",
+  "data": null
+}
 
--   **Success Response (200 OK)**:
 
-    JSON
+```
 
-    ```
-    {
-      "code": 0,
-      "message": "OTP sent successfully.",
-      "data": null
-    }
 
-    ```
 
 #### `POST /password/reset`
 
--   **Function**: Reset password.
+* **功能**：重置密码。
+* **身份验证**：需要有效的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "oldPassword": "StrongPassword123!",
+  "newPassword": "AnotherStrongPassword456!"
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "oldPassword": "StrongPassword123!",
-      "newPassword": "AnotherStrongPassword456!"
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Password has been reset successfully.",
+  "data": null
+}
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Password has been reset successfully.",
-      "data": null
-    }
 
-    ```
-
-### 2.2. User Profile Management (`/api/user/profile`)
+### 2.2. 用户资料管理 (`/api/user/profile`)
 
 #### `GET /`
 
--   **Function**: Get the current logged-in user's profile.
+* **功能**：获取当前登录用户的资料。
+* **身份验证**：需要有效的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "userId": 201,
+    "phoneNumber": "13912345678",
+    "nickname": "Rider One",
+    "avatarUrl": "https://example.com/avatars/201.jpg",
+    "role": "PASSENGER",
+    "status": "ACTIVE"
+  }
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "userId": 201,
-        "phoneNumber": "13912345678",
-        "nickname": "Rider One",
-        "avatarUrl": "https://example.com/avatars/201.jpg",
-        "role": "PASSENGER",
-        "status": "ACTIVE"
-      }
-    }
-
-    ```
 
 #### `PUT /`
 
--   **Function**: Update the current logged-in user's profile.
+* **功能**：更新当前登录用户的资料。
+* **身份验证**：需要有效的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "nickname": "Rider VIP",
+  "avatarUrl": "https://example.com/avatars/201_new.jpg"
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "nickname": "Rider VIP",
-      "avatarUrl": "https://example.com/avatars/201_new.jpg"
-    }
+* **成功响应 (200 OK)**：（响应结构同上，但包含更新后的数据）
 
-    ```
-
--   **Success Response (200 OK)**: (Same response structure as above, but with updated data)
-
-### 2.3. Driver-Exclusive Features
+### 2.3. 司机专属功能
 
 #### `POST /driver/register`
 
--   **Function**: Submit a driver onboarding application.
+* **功能**：提交司机入驻申请。
+* **身份验证**：需要有效的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "realName": "Zhang San",
+  "idCardNumber": "310101199001011234",
+  "driverLicenseNumber": "D12345678",
+  "carModel": "Tesla Model Y",
+  "carLicensePlate": "沪A88888",
+  "attachments": {
+    "idCardFrontUrl": "https://s3.bucket/id_front.jpg",
+    "idCardBackUrl": "https://s3.bucket/id_back.jpg",
+    "driverLicenseUrl": "https://s3.bucket/license.jpg",
+    "carInsuranceUrl": "https://s3.bucket/insurance.jpg"
+  }
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "realName": "Zhang San",
-      "idCardNumber": "310101199001011234",
-      "driverLicenseNumber": "D12345678",
-      "carModel": "Tesla Model Y",
-      "carLicensePlate": "沪A88888",
-      "attachments": {
-        "idCardFrontUrl": "https://s3.bucket/id_front.jpg",
-        "idCardBackUrl": "https://s3.bucket/id_back.jpg",
-        "driverLicenseUrl": "https://s3.bucket/license.jpg",
-        "carInsuranceUrl": "https://s3.bucket/insurance.jpg"
-      }
-    }
+* **成功响应 (202 Accepted)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Your application has been submitted and is under review.",
+  "data": {
+    "applicationId": 55,
+    "verificationStatus": "PENDING"
+  }
+}
 
-    ```
 
--   **Success Response (202 Accepted)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Your application has been submitted and is under review.",
-      "data": {
-        "applicationId": 55,
-        "verificationStatus": "PENDING"
-      }
-    }
 
-    ```
+---
 
-* * * * *
+3. 订单服务 (order_service)
 
-3. Order Service (order_service)
-------------------------
+---
 
-**Base Path**: `/api/order`
+**基础路径**: `/api/order`
 
 #### `POST /`
 
--   **Function**: A passenger creates a new ride order.
+* **功能**：乘客创建新的行程订单。
+* **身份验证**：需要具有乘客角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "serviceType": "LONG_DISTANCE",
+  "pickupLocation": { "latitude": 31.2304, "longitude": 121.4737, "address": "People's Square" },
+  "dropoffLocation": { "latitude": 31.1443, "longitude": 121.8083, "address": "Pudong International Airport T2" },
+  "pickupTime": "2025-07-15T10:30:00Z",
+  "passengerCount": 2
+}
 
--   **Authentication**: Requires a JWT with passenger role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "serviceType": "LONG_DISTANCE",
-      "pickupLocation": { "latitude": 31.2304, "longitude": 121.4737, "address": "People's Square" },
-      "dropoffLocation": { "latitude": 31.1443, "longitude": 121.8083, "address": "Pudong International Airport T2" },
-      "pickupTime": "2025-07-15T10:30:00Z",
-      "passengerCount": 2
-    }
+* **成功响应 (201 Created)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Order created successfully",
+  "data": {
+    "orderId": 1002,
+    "status": "PENDING_MATCH",
+    "estimatedFare": 250.00
+  }
+}
 
-    ```
 
--   **Success Response (201 Created)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Order created successfully",
-      "data": {
-        "orderId": 1002,
-        "status": "PENDING_MATCH",
-        "estimatedFare": 250.00
-      }
-    }
-
-    ```
 
 #### `GET /{orderId}`
 
--   **Function**: Get detailed information for a specific order.
-
--   **Authentication**: Requires a JWT from the passenger or driver associated with the order.
-
--   **Success Response (200 OK)**:
-
-    JSON
-
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "orderId": 1002,
-        "passengerId": 201,
-        "driverId": 501,
-        "status": "IN_PROGRESS",
-        "serviceType": "LONG_DISTANCE",
-        "pickupLocation": { "address": "People's Square" },
-        "dropoffLocation": { "address": "Pudong International Airport T2" },
-        "estimatedFare": 250.00,
-        "driverInfo": {
-          "realName": "Li Si",
-          "carModel": "BYD Han",
-          "carLicensePlate": "沪B99999",
-          "serviceRatingAvg": 4.9
-        }
-      }
+* **功能**：获取特定订单的详细信息。
+* **身份验证**：需要与该订单关联的乘客或司机的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "orderId": 1002,
+    "passengerId": 201,
+    "driverId": 501,
+    "status": "IN_PROGRESS",
+    "serviceType": "LONG_DISTANCE",
+    "pickupLocation": { "address": "People's Square" },
+    "dropoffLocation": { "address": "Pudong International Airport T2" },
+    "estimatedFare": 250.00,
+    "driverInfo": {
+      "realName": "Li Si",
+      "carModel": "BYD Han",
+      "carLicensePlate": "沪B99999",
+      "serviceRatingAvg": 4.9
     }
+  }
+}
 
-    ```
+
+```
+
+
 
 #### `PUT /{orderId}/status`
 
--   **Function**: Update order status.
+* **功能**：更新订单状态。
+* **身份验证**：需要具有司机角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "status": "DRIVER_ARRIVED"
+}
 
--   **Authentication**: Requires a JWT with driver role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "status": "DRIVER_ARRIVED"
-    }
-
-    ```
-
--   **Success Response (200 OK)**: (Same response structure as above, but `status` is updated)
+* **成功响应 (200 OK)**：（响应结构同上，但 `status` 已更新）
 
 #### `POST /{orderId}/cancel`
 
--   **Function**: Cancel an order.
+* **功能**：取消订单。
+* **身份验证**：需要与该订单关联的乘客或司机的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Order cancelled",
+  "data": {
+    "orderId": 1002,
+    "status": "CANCELLED",
+    "cancellationFee": 5.00
+  }
+}
 
--   **Authentication**: Requires a JWT from the passenger or driver associated with the order.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Order cancelled",
-      "data": {
-        "orderId": 1002,
-        "status": "CANCELLED",
-        "cancellationFee": 5.00
-      }
-    }
-
-    ```
 
 #### `GET /history`
 
--   **Function**: Get the current user's historical order list.
+* **功能**：获取当前用户的历史订单列表。
+* **身份验证**：需要有效的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "content": [
+      { "orderId": 1002, "status": "COMPLETED", "actualFare": 255.00, "dropoffLocation": {"address": "Pudong International Airport T2"}, "createdTime": "2025-07-15T10:30:00Z"}
+    ],
+    "totalPages": 1,
+    "totalElements": 1
+  }
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "content": [
-          { "orderId": 1002, "status": "COMPLETED", "actualFare": 255.00, "dropoffLocation": {"address": "Pudong International Airport T2"}, "createdTime": "2025-07-15T10:30:00Z"}
-        ],
-        "totalPages": 1,
-        "totalElements": 1
-      }
-    }
-
-    ```
 
 #### `POST /estimate-price`
 
--   **Function**: Estimate order price.
+* **功能**：预估订单价格。
+* **身份验证**：需要有效的 JWT。
+* **请求体**：（结构与创建订单相同，但仅需必要字段）
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "estimatedFare": 250.00,
+    "distance": "55 km",
+    "estimatedDuration": "60 mins"
+  }
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Request Body**: (Same structure as creating an order, but only necessary fields are required)
+```
 
--   **Success Response (200 OK)**:
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "estimatedFare": 250.00,
-        "distance": "55 km",
-        "estimatedDuration": "60 mins"
-      }
-    }
+---
 
-    ```
+4. 支付服务 (payment_service)
 
-* * * * *
+---
 
-4. Payment Service (payment_service)
---------------------------
+**基础路径**: `/api/payment`
 
-**Base Path**: `/api/payment`
-
-### 4.1. Payment Processing (`/api/payment/payments`)
+### 4.1. 支付处理 (`/api/payment/payments`)
 
 #### `POST /`
 
--   **Function**: Initiate payment for a specified order.
+* **功能**：为指定订单发起支付。
+* **身份验证**：需要具有乘客角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "orderId": 1002,
+  "paymentMethodId": "pm_1L9pZg2eZvKYlo2C8c6t3XnZ"
+}
 
--   **Authentication**: Requires a JWT with passenger role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "orderId": 1002,
-      "paymentMethodId": "pm_1L9pZg2eZvKYlo2C8c6t3XnZ"
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Payment successful",
+  "data": {
+    "paymentId": "pi_3L9pZk2eZvKYlo2C1gXqJq9N",
+    "status": "SUCCESS",
+    "amount": 255.00
+  }
+}
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Payment successful",
-      "data": {
-        "paymentId": "pi_3L9pZk2eZvKYlo2C1gXqJq9N",
-        "status": "SUCCESS",
-        "amount": 255.00
-      }
-    }
 
-    ```
-
-### 4.2. Wallet Management (`/api/payment/wallet`)
+### 4.2. 钱包管理 (`/api/payment/wallet`)
 
 #### `GET /`
 
--   **Function**: Get the current user's wallet information (driver).
+* **功能**：获取当前用户的钱包信息（司机）。
+* **身份验证**：需要具有司机角色的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "driverId": 501,
+    "balance": 850.75,
+    "currency": "USD"
+  }
+}
 
--   **Authentication**: Requires a JWT with driver role.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "driverId": 501,
-        "balance": 850.75,
-        "currency": "USD"
+#### **`GET /transactions` **
+
+
+* **功能**：获取当前认证司机的钱包交易历史（分页）。
+* **身份验证**：需要具有司机角色的 JWT。
+* **查询参数**：
+* `page` (int, 可选, 默认 0): 页码。
+* `size` (int, 可选, 默认 20): 每页大小。
+
+
+* **成功响应 (200 OK)**：
+```json
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "content": [
+      {
+        "transaction_id": 101,
+        "type": "INCOME",
+        "amount": 55.50,
+        "related_order_id": 1002,
+        "status": "COMPLETED",
+        "transaction_date": "2025-07-15T12:30:00Z"
+      },
+      {
+        "transaction_id": 102,
+        "type": "WITHDRAWAL",
+        "amount": -500.00,
+        "related_withdrawal_id": 45,
+        "status": "COMPLETED",
+        "transaction_date": "2025-07-14T10:00:00Z"
       }
-    }
+    ],
+    "totalPages": 5,
+    "totalElements": 98
+  }
+}
 
-    ```
+```
 
-    #### **`GET /transactions` **
 
--   **Function**: Retrieve the wallet transaction history of the currently authenticated driver (paginated).
--   **Authentication**: JWT required for the driver role.
--   **Query Parameters**:
-    -   `page` (int, optional, default 0): Page number.
-    -   `size` (int, optional, default 20): Page size.
--   **Success Response (200 OK)**:
-    ```json
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "content": [
-          {
-            "transaction_id": 101,
-            "type": "INCOME",
-            "amount": 55.50,
-            "related_order_id": 1002,
-            "status": "COMPLETED",
-            "transaction_date": "2025-07-15T12:30:00Z"
-          },
-          {
-            "transaction_id": 102,
-            "type": "WITHDRAWAL",
-            "amount": -500.00,
-            "related_withdrawal_id": 45,
-            "status": "COMPLETED",
-            "transaction_date": "2025-07-14T10:00:00Z"
-          }
-        ],
-        "totalPages": 5,
-        "totalElements": 98
-      }
-    }
-    ```
 
 #### `POST /withdrawals`
 
--   **Function**: Driver initiates a withdrawal request.
+* **功能**：司机发起提现请求。
+* **身份验证**：需要具有司机角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "amount": 500.00,
+  "withdrawalMethodId": "wth_paypal_account_123"
+}
 
--   **Authentication**: Requires a JWT with driver role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "amount": 500.00,
-      "withdrawalMethodId": "wth_paypal_account_123"
-    }
+* **成功响应 (202 Accepted)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Withdrawal request submitted",
+  "data": {
+    "withdrawalId": "wd_abc12345",
+    "amount": 500.00,
+    "status": "PENDING_REVIEW"
+  }
+}
 
-    ```
 
--   **Success Response (202 Accepted)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Withdrawal request submitted",
-      "data": {
-        "withdrawalId": "wd_abc12345",
-        "amount": 500.00,
-        "status": "PENDING_REVIEW"
-      }
-    }
 
-    ```
-
-### 4.3. Payment Method Management (`/api/payment/methods`)
+### 4.3. 支付方式管理 (`/api/payment/methods`)
 
 #### `POST /`
 
--   **Function**: Passenger adds a new payment method.
+* **功能**：乘客添加新的支付方式。
+* **身份验证**：需要具有乘客角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "type": "CREDIT_CARD",
+  "token": "tok_1L9pZg2eZvKYlo2C..."
+}
 
--   **Authentication**: Requires a JWT with passenger role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "type": "CREDIT_CARD",
-      "token": "tok_1L9pZg2eZvKYlo2C..."
-    }
+* **成功响应 (201 Created)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "paymentMethodId": "pm_1L9pZg2eZvKYlo2C8c6t3XnZ",
+    "type": "CREDIT_CARD",
+    "details": "VISA **** 4242"
+  }
+}
 
-    ```
 
--   **Success Response (201 Created)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "paymentMethodId": "pm_1L9pZg2eZvKYlo2C8c6t3XnZ",
-        "type": "CREDIT_CARD",
-        "details": "VISA **** 4242"
-      }
-    }
-
-    ```
 
 #### `GET /`
 
--   **Function**: Get the list of payment methods bound by the passenger.
+* **功能**：获取乘客绑定的支付方式列表。
+* **身份验证**：需要具有乘客角色的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": [
+    { "paymentMethodId": "pm_1L9pZg2eZvKYlo2C8c6t3XnZ", "type": "CREDIT_CARD", "details": "VISA **** 4242", "isDefault": true }
+  ]
+}
 
--   **Authentication**: Requires a JWT with passenger role.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": [
-        { "paymentMethodId": "pm_1L9pZg2eZvKYlo2C8c6t3XnZ", "type": "CREDIT_CARD", "details": "VISA **** 4242", "isDefault": true }
-      ]
-    }
-
-    ```
 
 #### `DELETE /{methodId}`
 
--   **Function**: Delete a bound payment method.
+* **功能**：删除已绑定的支付方式。
+* **身份验证**：需要具有乘客角色的 JWT。
+* **成功响应 (204 No Content)**
 
--   **Authentication**: Requires a JWT with passenger role.
+---
 
--   **Success Response (204 No Content)**
+5. 匹配服务 (matching_service)
 
-* * * * *
+---
 
-5. Matching Service (matching_service)
----------------------------
-
-**Base Path**: `/api/matching`
+**基础路径**: `/api/matching`
 
 #### `POST /driver/status`
 
--   **Function**: Driver updates their own status.
+* **功能**：司机更新自身状态。
+* **身份验证**：需要具有司机角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "status": "ONLINE"
+}
 
--   **Authentication**: Requires a JWT with driver role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "status": "ONLINE"
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Status updated",
+  "data": {
+    "driverId": 501,
+    "status": "ONLINE"
+  }
+}
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Status updated",
-      "data": {
-        "driverId": 501,
-        "status": "ONLINE"
-      }
-    }
-
-    ```
 
 #### `GET /driver/orders`
 
--   **Function**: Driver gets a list of nearby available orders.
-
--   **Authentication**: Requires a JWT with driver role.
-
--   **Success Response (200 OK)**:
-
-    JSON
-
-    ```
+* **功能**：司机获取附近的可用订单列表。
+* **身份验证**：需要具有司机角色的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": [
     {
-      "code": 0,
-      "message": "Success",
-      "data": [
-        {
-          "orderId": 1003,
-          "serviceType": "AIRPORT_PICKUP",
-          "estimatedFare": 180.00,
-          "pickupDistance": "2.5 km",
-          "tripDistance": "30 km",
-          "pickupLocation": { "address": "Jing'an Temple" },
-          "dropoffLocation": { "address": "Hongqiao Airport T1" }
-        }
-      ]
+      "orderId": 1003,
+      "serviceType": "AIRPORT_PICKUP",
+      "estimatedFare": 180.00,
+      "pickupDistance": "2.5 km",
+      "tripDistance": "30 km",
+      "pickupLocation": { "address": "Jing'an Temple" },
+      "dropoffLocation": { "address": "Hongqiao Airport T1" }
     }
+  ]
+}
 
-    ```
+
+```
+
+
 
 #### `POST /driver/grab`
 
--   **Function**: Driver grabs an order.
+* **功能**：司机抢单。
+* **身份验证**：需要具有司机角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "orderId": 1003
+}
 
--   **Authentication**: Requires a JWT with driver role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "orderId": 1003
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Order grabbed successfully",
+  "data": {
+    "orderId": 1003,
+    "matchStatus": "SUCCESS"
+  }
+}
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Order grabbed successfully",
-      "data": {
-        "orderId": 1003,
-        "matchStatus": "SUCCESS"
-      }
-    }
 
-    ```
+---
 
-* * * * *
+6. 定位服务 (location_service)
 
-6. Location Service (location_service)
----------------------------
+---
 
-**Base Path**: `/api/location`
+**基础路径**: `/api/location`
 
 #### `POST /driver/update`
 
--   **Function**: Driver uploads their real-time location information.
+* **功能**：司机上传实时位置信息。
+* **身份验证**：需要具有司机角色的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "latitude": 31.2222,
+  "longitude": 121.4581,
+  "timestamp": 1678886400
+}
 
--   **Authentication**: Requires a JWT with driver role.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "latitude": 31.2222,
-      "longitude": 121.4581,
-      "timestamp": 1678886400
-    }
-
-    ```
-
--   **Success Response (200 OK)**: (No response body)
+* **成功响应 (200 OK)**：（无响应体）
 
 #### `GET /order/{orderId}`
 
--   **Function**: Passenger gets the real-time location of the driver for an ongoing order.
+* **功能**：乘客获取进行中订单的司机实时位置。
+* **身份验证**：需要具有乘客角色的 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "latitude": 31.2222,
+    "longitude": 121.4581,
+    "etaToPickup": "5 mins"
+  }
+}
 
--   **Authentication**: Requires a JWT with passenger role.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "latitude": 31.2222,
-        "longitude": 121.4581,
-        "etaToPickup": "5 mins"
-      }
-    }
 
-    ```
-
-### 6.1. Geofence Management (`/api/location/geofences`)
+### 6.1. 地理围栏管理 (`/api/location/geofences`)
 
 #### `POST /`
 
--   **Function**: (Admin) Create a geofence.
+* **功能**：（管理员）创建地理围栏。
+* **身份验证**：需要管理员 JWT。
+* **请求体**：
+JSON
+```
+{
+  "name": "Pudong Airport Area",
+  "type": "AIRPORT",
+  "shape": {
+    "type": "Polygon",
+    "coordinates": [[[...],[...],[...]]]
+  }
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "name": "Pudong Airport Area",
-      "type": "AIRPORT",
-      "shape": {
-        "type": "Polygon",
-        "coordinates": [[[...],[...],[...]]]
-      }
-    }
-
-    ```
-
--   **Success Response (201 Created)**: (Returns the created Geofence DTO)
+* **成功响应 (201 Created)**：（返回创建的 Geofence DTO）
 
 #### `GET /`
 
--   **Function**: (Admin) Get all geofences.
+* **功能**：（管理员）获取所有地理围栏。
+* **身份验证**：需要管理员 JWT。
+* **成功响应 (200 OK)**：（返回 Geofence DTO 列表）
 
--   **Authentication**: Requires admin JWT.
+---
 
--   **Success Response (200 OK)**: (Returns a list of Geofence DTOs)
+7. 评价服务 (review_service)
 
-* * * * *
+---
 
-7. Review Service (review_service)
--------------------------
-
-**Base Path**: `/api/review`
+**基础路径**: `/api/review`
 
 #### `POST /`
 
--   **Function**: Submit a review.
+* **功能**：提交评价。
+* **身份验证**：需要有效的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "orderId": 1002,
+  "rating": 5,
+  "comment": "The driver's service attitude was great, and the car was clean and tidy!",
+  "tags": ["Great Attitude", "Clean Car"]
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "orderId": 1002,
-      "rating": 5,
-      "comment": "The driver's service attitude was great, and the car was clean and tidy!",
-      "tags": ["Great Attitude", "Clean Car"]
-    }
-
-    ```
-
--   **Success Response (201 Created)**: (Returns the created review DTO)
+* **成功响应 (201 Created)**：（返回创建的 review DTO）
 
 #### `GET /order/{orderId}`
 
--   **Function**: View reviews for a specific order.
-
--   **Authentication**: Requires a valid JWT.
-
--   **Success Response (200 OK)**: (Returns a list of review DTOs)
+* **功能**：查看特定订单的评价。
+* **身份验证**：需要有效的 JWT。
+* **成功响应 (200 OK)**：（返回 review DTO 列表）
 
 #### `POST /complaints`
 
--   **Function**: Submit a complaint.
+* **功能**：提交投诉。
+* **身份验证**：需要有效的 JWT。
+* **请求体**：
+JSON
+```
+{
+  "orderId": 1004,
+  "reason": "Dangerous Driving",
+  "description": "The driver braked suddenly multiple times on the highway, which felt very unsafe.",
+  "attachmentUrls": ["https://s3.bucket/video_proof.mp4"]
+}
 
--   **Authentication**: Requires a valid JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "orderId": 1004,
-      "reason": "Dangerous Driving",
-      "description": "The driver braked suddenly multiple times on the highway, which felt very unsafe.",
-      "attachmentUrls": ["https://s3.bucket/video_proof.mp4"]
-    }
+* **成功响应 (201 Created)**：（返回创建的 complaint DTO）
 
-    ```
+---
 
--   **Success Response (201 Created)**: (Returns the created complaint DTO)
+8. 分析服务 (analytics_service)
 
-* * * * *
+---
 
-8. Analytics Service (analytics_service)
-------------------------------
-
-**Base Path**: `/api/analytics`
+**基础路径**: `/api/analytics`
 
 #### `GET /dashboard/summary`
 
--   **Function**: (Admin) Get summary data for the operations dashboard.
+* **功能**：（管理员）获取运营仪表盘的汇总数据。
+* **身份验证**：需要管理员 JWT。
+* **成功响应 (200 OK)**：
+JSON
+```
+{
+  "code": 0,
+  "message": "Success",
+  "data": {
+    "totalOrdersToday": 1500,
+    "totalGmvToday": 75000.50,
+    "onlineDrivers": 350,
+    "activeUsers": 5000
+  }
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    {
-      "code": 0,
-      "message": "Success",
-      "data": {
-        "totalOrdersToday": 1500,
-        "totalGmvToday": 75000.50,
-        "onlineDrivers": 350,
-        "activeUsers": 5000
-      }
-    }
-
-    ```
 
 #### `POST /reports/generate`
 
--   **Function**: (Admin) Generate a report of the specified type.
+* **功能**：（管理员）生成指定类型的报表。
+* **身份验证**：需要管理员 JWT。
+* **请求体**：
+JSON
+```
+{
+  "reportType": "WEEKLY_GMV",
+  "startDate": "2025-07-01",
+  "endDate": "2025-07-07"
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "reportType": "WEEKLY_GMV",
-      "startDate": "2025-07-01",
-      "endDate": "2025-07-07"
-    }
+* **成功响应 (200 OK)**：（返回图表或时间序列数据点）
 
-    ```
+---
 
--   **Success Response (200 OK)**: (Returns chart or time-series data points)
+9. 管理后台服务 (admin_service)
 
-* * * * *
+---
 
-9. Admin Backend Service (admin_service)
---------------------------
+**基础路径**: `/api/admin`
 
-**Base Path**: `/api/admin`
-
-### 9.1. User Management (`/api/admin/users`)
+### 9.1. 用户管理 (`/api/admin/users`)
 
 #### `GET /`
 
--   **Function**: Paginated query of user list.
-
--   **Authentication**: Requires admin JWT.
-
--   **Success Response (200 OK)**: (Returns paginated user list)
+* **功能**：用户列表分页查询。
+* **身份验证**：需要管理员 JWT。
+* **成功响应 (200 OK)**：（返回分页用户列表）
 
 #### `PUT /{userId}/status`
 
--   **Function**: Change user status.
+* **功能**：更改用户状态。
+* **身份验证**：需要管理员 JWT。
+* **请求体**：
+JSON
+```
+{
+  "status": "INACTIVE",
+  "reason": "Violation of platform rules"
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "status": "INACTIVE",
-      "reason": "Violation of platform rules"
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{ "code": 0, "message": "User status updated", "data": null }
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    { "code": 0, "message": "User status updated", "data": null }
 
-    ```
-
-### 9.2. Driver Management (`/api/admin/drivers`)
+### 9.2. 司机管理 (`/api/admin/drivers`)
 
 #### `GET /applications`
 
--   **Function**: View pending driver onboarding applications.
-
--   **Authentication**: Requires admin JWT.
-
--   **Success Response (200 OK)**: (Returns paginated driver applications)
+* **功能**：查看待处理的司机入驻申请。
+* **身份验证**：需要管理员 JWT。
+* **成功响应 (200 OK)**：（返回分页的司机申请列表）
 
 #### `POST /applications/{driverId}/approve`
 
--   **Function**: Approve a driver's onboarding application.
+* **功能**：批准司机的入驻申请。
+* **身份验证**：需要管理员 JWT。
+* **请求体**：
+JSON
+```
+{
+  "notes": "All documents verified."
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "notes": "All documents verified."
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{ "code": 0, "message": "Driver application approved", "data": null }
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    { "code": 0, "message": "Driver application approved", "data": null }
 
-    ```
-
-### 9.3. Orders and Finance
+### 9.3. 订单与财务
 
 #### `POST /orders/intervene`
 
--   **Function**: Admin manually intervenes in abnormal orders.
+* **功能**：管理员人工干预异常订单。
+* **身份验证**：需要管理员 JWT。
+* **请求体**：
+JSON
+```
+{
+  "orderId": 1005,
+  "action": "FORCE_CANCEL",
+  "reason": "Passenger emergency, cancellation without penalty."
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "orderId": 1005,
-      "action": "FORCE_CANCEL",
-      "reason": "Passenger emergency, cancellation without penalty."
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{ "code": 0, "message": "Order intervention command sent", "data": null }
 
-    ```
 
--   **Success Response (200 OK)**:
+```
 
-    JSON
 
-    ```
-    { "code": 0, "message": "Order intervention command sent", "data": null }
-
-    ```
 
 #### `GET /finance/withdrawals`
 
--   **Function**: View pending driver withdrawal requests.
-
--   **Authentication**: Requires admin JWT.
-
--   **Success Response (200 OK)**: (Returns paginated withdrawal requests)
+* **功能**：查看待处理的司机提现请求。
+* **身份验证**：需要管理员 JWT。
+* **成功响应 (200 OK)**：（返回分页的提现请求列表）
 
 #### `POST /finance/withdrawals/{withdrawalId}/process`
 
--   **Function**: Process a withdrawal request.
+* **功能**：处理提现请求。
+* **身份验证**：需要管理员 JWT。
+* **请求体**：
+JSON
+```
+{
+  "action": "APPROVE",
+  "notes": "Payment processed, transaction ID T123456789"
+}
 
--   **Authentication**: Requires admin JWT.
 
--   **Request Body**:
+```
 
-    JSON
 
-    ```
-    {
-      "action": "APPROVE",
-      "notes": "Payment processed, transaction ID T123456789"
-    }
+* **成功响应 (200 OK)**：
+JSON
+```
+{ "code": 0, "message": "Withdrawal request processed", "data": null }
 
-    ```
 
--   **Success Response (200 OK)**:
-
-    JSON
-
-    ```
-    { "code": 0, "message": "Withdrawal request processed", "data": null }
-
-    ```
+```
