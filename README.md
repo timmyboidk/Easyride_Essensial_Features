@@ -1,68 +1,68 @@
-# EasyRide Microservices
+# EasyRide 微服务
 
-**EasyRide** is a cloud-native ride-hailing platform built with **Spring Boot** microservices, designed for high scalability and reliability.
+**EasyRide** 是一个基于 **Spring Boot** 微服务构建的云原生网约车平台，专为高可扩展性和可靠性而设计。
 
-## 🚀 Quick Start
+## 快速入门
 
-### 1. Prerequisites
+### 1. 环境要求
 - Java 17
 - Maven 3.8+
 - Docker & Docker Compose
 
-### 2. Infrastructure Setup
-Spin up MySQL, Redis, RocketMQ, and Kafka:
+### 2. 基础设施配置
+启动 MySQL、Redis、RocketMQ 和 Kafka：
 ```bash
 cd infrastructure
 docker-compose up -d
 ```
 
-### 3. Build & Run
-Build all services:
+### 3. 构建与运行
+构建所有服务：
 ```bash
 mvn clean install
 ```
-Run a specific service:
+运行特定服务：
 ```bash
 cd user_service
 mvn spring-boot:run
 ```
 
-## 📖 Documentation
+## 文档
 
-Full documentation is available in the `docs/` directory:
+完整文档位于 `docs/` 目录：
 
-- **[Architecture Design](docs/ARCH_DESIGN.md)**: System overview, MQ, and DB design.
-- **[API Reference](docs/API_REFERENCE.md)**: REST API specification.
-- **[Setup Guide](docs/SETUP.md)**: Detailed installation and environment setup.
-- **[Developer Guide](docs/DEV_GUIDE.md)**: Code style, testing, and contribution.
-- **[DevOps & Deployment](docs/DEVOPS.md)**: Docker, CI/CD pipelines, and production deployment.
-- **[Testing Checklist](docs/TESTING.md)**: Unit and Integration test plans.
+- **[架构设计](docs/ARCH_DESIGN.md)**：系统概述、消息队列与数据库设计。
+- **[API 参考](docs/API_REFERENCE.md)**：REST API 规范。
+- **[安装指南](docs/SETUP.md)**：详细安装与环境配置。
+- **[开发者指南](docs/DEV_GUIDE.md)**：代码规范、测试与贡献指南。
+- **[运维与部署](docs/DEVOPS.md)**：Docker、CI/CD管道及生产环境部署。
+- **[测试清单](docs/TESTING.md)**：单元测试与集成测试计划。
 
-## 🏗 Project Structure
+## 项目结构
 
 ```
 EasyRide/
-├── pom.xml                 # Root Parent POM
-├── infrastructure/         # Docker Compose & Configs
-├── docs/                   # Documentation
-├── user_service/           # Identity & Profile
-├── order_service/          # Order Management
-├── payment_service/        # Wallet & Payments
-├── matching_service/       # Driver Matching Engine
-├── location_service/       # Geo-tracking
-├── notification_service/   # SMS/Email/Push
-├── review_service/         # Ratings
-├── analytics_service/      # Data & Reporting
-└── admin_service/          # Back-office Dashboard
+├── pom.xml                 # 根父级POM文件
+├── infrastructure/         # Docker Compose及配置文件
+├── docs/                   # 文档目录
+├── user_service/           # 身份认证与用户资料
+├── order_service/          # 订单管理
+├── payment_service/        # 钱包与支付
+├── matching_service/       # 司机匹配引擎
+├── location_service/       # 地理位置追踪
+├── notification_service/   # 短信/邮件/推送通知
+├── review_service/         # 评分系统
+├── analytics_service/      # 数据与报告
+└── admin_service/          # 后台管理面板
 ```
 
-## 🛠 Tech Stack
-- **Framework**: Spring Boot 3.4.1
-- **Database**: MySQL 8.0
-- **Cache**: Redis
-- **Messaging**: Apache RocketMQ 5.x
-- **Build**: Maven Multi-Module
-- **Container**: Docker
+## 技术栈
+- **框架**：Spring Boot 3.4.1
+- **数据库**：MySQL 8.0
+- **缓存**：Redis
+- **消息系统**：Apache RocketMQ 5.x
+- **构建**：Maven多模块
+- **容器**：Docker
 
 ---
-&copy; 2026 EasyRide Team
+&copy; 2026 EasyRide团队
