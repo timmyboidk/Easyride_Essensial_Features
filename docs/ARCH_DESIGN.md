@@ -1,78 +1,78 @@
-# EasyRide Architecture Design
+# EasyRide 架构设计
 
-## 1. System Overview
+## 1. 系统概述
 
-EasyRide is a microservices-based ride-hailing platform designed for scalability, reliability, and ease of maintenance. The system is decomposed into loosely coupled services that communicate asynchronously via RocketMQ and synchronously via REST APIs.
+EasyRide 是一款基于微服务的网约车平台，旨在实现可扩展性、可靠性和易维护性。系统被分解为松耦合的服务组件，通过 RocketMQ 进行异步通信，并通过 REST API 实现同步交互。
 
-### 1.1 Core Technologies
-- **Backend**: Java 17, Spring Boot 3.4.1
-- **Database**: MySQL 8.0 (Per-service isolation)
-- **Caching**: Redis (GeoSpatial, Session, Locks)
-- **Messaging**: Apache RocketMQ 5.x
-- **Containerization**: Docker, Docker Compose
-- **Build System**: Maven (Multi-Module)
+### 1.1 核心技术栈
+- **后端**：Java 17，Spring Boot 3.4.1
+- **数据库**：MySQL 8.0（服务级隔离）
+- **缓存**：Redis（地理空间、会话、锁）
+- **消息系统**：Apache RocketMQ 5.x
+- **容器化**：Docker、Docker Compose
+- **构建系统**：Maven（多模块）
 
-## 2. Microservices
+## 2. 微服务架构
 
-| Service | Description | Port |
+| 服务名称 | 功能描述 | 端口号 |
 |---------|-------------|------|
-| **User Service** | User identity, profile, and driver verification. | 8081 |
-| **Order Service** | Order lifecycle management (Creation, Status, Cancellation). | 8082 |
-| **Payment Service** | Payment processing, wallets, and withdrawals. | 8083 |
-| **Matching Service** | Driver-Passenger matching engine. | 8084 |
-| **Location Service** | Real-time geo-tracking and maps integration. | 8085 |
-| **Notification Service** | Multi-channel notifications (SMS, Email, Push). | 8086 |
-| **Review Service** | Ratings and reviews system. | 8087 |
-| **Analytics Service** | Data aggregation and business metrics. | 8088 |
-| **Admin Service** | Back-office management dashboard. | 8080 |
+| **用户服务** | 用户身份、资料及驾驶员验证 | 8081 |
+| **订单服务** | 订单生命周期管理（创建、状态、取消） | 8082 |
+| **支付服务** | 支付处理、钱包及提现功能 | 8083 |
+| **匹配服务** | 司机-乘客匹配引擎。 | 8084 |
+| **定位服务** | 实时地理追踪与地图集成。 | 8085 |
+| **通知服务** | 多渠道通知（短信、邮件、推送）。 | 8086 |
+| **评价服务** | 评分与评论系统。 | 8087 |
+| **分析服务** | 数据聚合与业务指标。 | 8088 |
+| **管理服务** | 后端管理仪表盘。 | 8080 |
 
-## 3. Data Persistence Design
+## 3. 数据持久化设计
 
-### 3.1 Relational Database (MySQL)
-Each microservice owns its own database schema to ensure loose coupling.
-- **Naming**: `snake_case` tables and columns.
-- **Standard Fields**: `id` (PK), `created_at`, `updated_at`, `version` (Optimistic Lock).
+### 3.1 关系型数据库（MySQL）
+每个微服务拥有独立数据库模式以确保松耦合。
+- **命名规范**：表名与列名采用`snake_case`格式。
+- **标准字段**：`id`（主键）、`created_at`、`updated_at`、`version`（乐观锁）。
 
-#### Key Schemas
-- **user_service_db**: `users`, `drivers`
-- **order_service_db**: `orders`
-- **payment_service_db**: `payments`, `wallets`, `transactions`, `withdrawals`
-- **review_service_db**: `reviews`
+#### 核心模式
+- **user_service_db**：`users`、`drivers`
+- **order_service_db**：`orders`
+- **payment_service_db**：`payments`、`wallets`、`transactions`、`withdrawals`
+- **review_service_db**：`reviews`
 
-### 3.2 Key-Value Store (Redis)
-- **Driver Locations**: `GEOSPATIAL` at `driver:locations`
-- **OTP Codes**: `STRING` at `otp:login:{phone}` (TTL 5 mins)
-- **User Sessions**: `STRING` at `session:user:{id}`
-- **Distributed Locks**: `SETNX` at `lock:order:match:{id}`
+### 3.2 键值存储（Redis）
+- **司机位置**：`driver:locations` 字段存储 `GEOSPATIAL` 类型
+- **OTP验证码**：`otp:login:{phone}` 字段存储 `STRING` 类型（生存周期5分钟）
+- **用户会话**：`STRING` 存储于 `session:user:{id}`
+- **分布式锁**：`SETNX` 存储于 `lock:order:match:{id}`
 
-## 4. Message Queue Design (RocketMQ)
+## 4. 消息队列设计（RocketMQ）
 
-We use RocketMQ for domain event decoupling and eventual consistency.
+我们采用RocketMQ实现领域事件解耦与最终一致性。
 
-### 4.1 Naming Conventions
-- **Topic**: `EASYRIDE_{DOMAIN}_{ENTITY}_{ACTION}`
-- **Producer Group**: `PID_{SERVICE_NAME}`
-- **Consumer Group**: `CID_{SERVICE_NAME}`
+### 4.1 命名规范
+- **主题**：`EASYRIDE_{DOMAIN}_{ENTITY}_{ACTION}`
+- **生产者组**：`PID_{SERVICE_NAME}`
+- **消费者组**：`CID_{SERVICE_NAME}`
 
-### 4.2 Key Event Flows
+### 4.2 关键事件流
 
-#### Order Creation Flow
-1. **Order Service** publishes `EASYRIDE_ORDER_CREATED_TOPIC`.
-2. **Matching Service** consumes event -> Starts matching driver.
-3. **Notification Service** consumes event -> Notifies user "Matching started".
-4. **Analytics Service** consumes event -> Updates metrics.
+#### 订单创建流程
+1. **订单服务**发布 `EASYRIDE_ORDER_CREATED_TOPIC`。
+2. **匹配服务**消费事件 -> 启动匹配驱动程序。
+3. **通知服务**消费事件 -> 通知用户“匹配开始”。
+4. **分析服务**消费事件 -> 更新指标。
 
-#### Order Status Change Flow
-1. **Order Service** updates status -> publishes `EASYRIDE_ORDER_STATUS_CHANGED_TOPIC`.
-2. **Notification Service** notifies parties of status change (e.g., "Driver Arrived").
-3. **Payment Service** listens for `COMPLETED` status to initiate payment logic.
+#### 订单状态变更流程
+1. **订单服务**更新状态 -> 发布 `EASYRIDE_ORDER_STATUS_CHANGED_TOPIC`。
+2. **通知服务**向相关方发送状态变更通知（如“司机已到达”）。
+3. **支付服务**监听 `COMPLETED` 状态以启动支付逻辑。
 
-#### Payment Success Flow
-1. **Payment Service** confirms transaction -> publishes `EASYRIDE_PAYMENT_SUCCESS_TOPIC`.
-2. **Order Service** updates order to `PAID`.
-3. **Review Service** invites user to rate the ride.
+#### 支付成功流程
+1. **支付服务** 确认交易 -> 发布 `EASYRIDE_PAYMENT_SUCCESS_TOPIC` 主题。
+2. **订单服务** 将订单状态更新为 `PAID`。
+3. **评价服务** 邀请用户评分。
 
-## 5. Security & Consistency
-- **Authentication**: JWT (JSON Web Tokens) for stateless auth.
-- **Idempotency**: All MQ consumers and POST endpoints must handle duplicate requests gracefully (using `Idempotency-Key` or checking DB state).
-- **Transactional Messages**: Used for critical cross-service consistency (e.g., Payment -> Order update).
+## 5. 安全与一致性
+- **身份验证**： 采用JWT（JSON网络令牌）实现无状态认证。
+- **幂等性**：所有消息队列消费者和POST接口必须优雅处理重复请求（通过`幂等性键`或数据库状态检查实现）。
+- **事务性消息**：用于关键跨服务一致性（如支付→订单更新）。
