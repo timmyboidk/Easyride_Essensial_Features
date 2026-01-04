@@ -1,63 +1,173 @@
 package com.easyride.analytics_service;
 
-import com.easyride.analytics_service.service.AnalyticsServiceImpl;
 import com.easyride.analytics_service.model.AnalyticsRecord;
 import com.easyride.analytics_service.model.RecordType;
 import com.easyride.analytics_service.repository.AnalyticsRepository;
-import com.easyride.analytics_service.util.PrivacyUtil;
+import com.easyride.analytics_service.service.AnalyticsServiceImpl;
+import com.easyride.analytics_service.dto.AnalyticsRequestDto;
+import com.easyride.analytics_service.dto.DashboardSummaryDto;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.core.HyperLogLogOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(SpringExtension.class)
+@ExtendWith(MockitoExtension.class)
 class AnalyticsServiceImplTest {
 
     @Mock
     private AnalyticsRepository analyticsRepository;
 
+    @Mock
+    private RedisTemplate<String, Object> redisTemplate;
+
+    @Mock
+    private HyperLogLogOperations<String, Object> hyperLogLogOperations;
+
     @InjectMocks
     private AnalyticsServiceImpl analyticsService;
 
     @BeforeEach
-    void init() {
-        MockitoAnnotations.openMocks(this);
+    void setup() {
+        // Mock Redis opsForHyperLogLog if needed by tests
+        // leniency needed because not all tests use redis
+        lenient().when(redisTemplate.opsForHyperLogLog()).thenReturn(hyperLogLogOperations);
     }
 
     @Test
-    void recordAnalyticsData_ShouldCallPrivacyUtilAndSave() {
-        // 1. 构造一个 AnalyticsRecord
-        AnalyticsRecord record = AnalyticsRecord.builder()
-            .recordType(RecordType.ORDER_DATA)
-            .metricName("orderRevenue")
-            .metricValue(888.88)
-            .recordTime(LocalDateTime.now())
-            .dimensionKey("email")
-            .dimensionValue("test@example.com")
-            .build();
+    void recordAnalyticsData_ShouldSaveRecord_WhenNotActiveUserLogin() {
+        Map<String, String> dimensions = new HashMap<>();
+        dimensions.put("key", "value");
+        AnalyticsRequestDto request = AnalyticsRequestDto.builder()
+                .recordType(RecordType.ORDER_REVENUE.name())
+                .metricName("revenue")
+                .metricValue(100.0)
+                .recordTime(LocalDateTime.now())
+                .dimensions(dimensions)
+                .build();
 
-        // 2. 执行 recordAnalyticsData
-        analyticsService.recordAnalyticsData(record);
+        analyticsService.recordAnalyticsData(request);
 
-        // 3. 验证 repository.save() 被调用
-        ArgumentCaptor<AnalyticsRecord> captor = ArgumentCaptor.forClass(AnalyticsRecord.class);
-        verify(analyticsRepository).save(captor.capture());
-        AnalyticsRecord savedRecord = captor.getValue();
+        verify(analyticsRepository, times(1)).save(any(AnalyticsRecord.class));
+    }
 
-        // 4. 验证已进行脱敏
-        // 如果 dimensionKey 是 email，那么 dimensionValue 应该被替换为脱敏形式
-        // 这部分逻辑由 PrivacyUtil 决定，假设 test@example.com -> t**@example.com
-        assertNotEquals("test@example.com", savedRecord.getDimensionValue(), "Email should be masked");
+    @Test
+    void recordAnalyticsData_ShouldUseRedis_WhenActiveUserLogin() {
+        Map<String, String> dimensions = new HashMap<>();
+        dimensions.put("userId", "user123");
+        AnalyticsRequestDto request = AnalyticsRequestDto.builder()
+                .recordType(RecordType.ACTIVE_USER_LOGIN.name())
+                .recordTime(LocalDateTime.now())
+                .dimensions(dimensions)
+                .build();
 
-        // 也可以检查 savedRecord 的其他字段值是否保持一致
-        assertEquals("orderRevenue", savedRecord.getMetricName());
-        assertEquals(888.88, savedRecord.getMetricValue());
-        assertEquals(RecordType.ORDER_DATA, savedRecord.getRecordType());
+        analyticsService.recordAnalyticsData(request);
+
+        verify(hyperLogLogOperations, times(1)).add(contains("dau:"), eq("user123"));
+        verify(hyperLogLogOperations, times(1)).add(contains("mau:"), eq("user123"));
+        verify(analyticsRepository, never()).save(any(AnalyticsRecord.class));
+    }
+
+    @Test
+    void getDailyActiveUsers_ShouldReturnCount() {
+        String dateStr = "2023-10-01";
+        when(hyperLogLogOperations.size("dau:" + dateStr)).thenReturn(50L);
+
+        long dau = analyticsService.getDailyActiveUsers(dateStr);
+
+        assertEquals(50L, dau);
+    }
+
+    @Test
+    void getMonthlyActiveUsers_ShouldReturnCount() {
+        String monthStr = "2023-10";
+        when(hyperLogLogOperations.size("mau:" + monthStr)).thenReturn(1000L);
+
+        long mau = analyticsService.getMonthlyActiveUsers(monthStr);
+
+        assertEquals(1000L, mau);
+    }
+
+    @Test
+    void getAverageOrderValue_ShouldCalculateCorrectly() {
+        String start = "2023-10-01";
+        String end = "2023-10-02";
+
+        AnalyticsRecord revenueRecord = new AnalyticsRecord();
+        revenueRecord.setMetricValue(500.0);
+
+        AnalyticsRecord countRecord = new AnalyticsRecord();
+        countRecord.setMetricValue(5.0); // Assuming 5 completed orders
+
+        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_REVENUE), any(), any()))
+                .thenReturn(Collections.singletonList(revenueRecord));
+        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.COMPLETED_ORDERS_COUNT), any(),
+                any()))
+                .thenReturn(Collections.singletonList(countRecord));
+
+        double aov = analyticsService.getAverageOrderValue(start, end);
+
+        assertEquals(100.0, aov);
+    }
+
+    @Test
+    void getDriverAcceptanceRate_ShouldCalculateCorrectly() {
+        String start = "2023-10-01";
+        String end = "2023-10-02";
+
+        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_REQUEST), any(), any()))
+                .thenReturn(10L);
+        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_ACCEPTED_BY_DRIVER), any(),
+                any()))
+                .thenReturn(8L);
+
+        double rate = analyticsService.getDriverAcceptanceRate(start, end);
+
+        assertEquals(80.0, rate);
+    }
+
+    @Test
+    void getUserRetentionRate_ShouldReturnZero_WhenNoCohortUsers() {
+        String cohortMonth = "2023-01";
+        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.USER_REGISTRATION), any(), any()))
+                .thenReturn(Collections.emptyList());
+
+        double retention = analyticsService.getUserRetentionRate(cohortMonth, 1);
+
+        assertEquals(0.0, retention);
+    }
+
+    @Test
+    void getAdminDashboardSummary_ShouldReturnSummary() {
+        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.COMPLETED_ORDERS_COUNT), any(),
+                any()))
+                .thenReturn(100L);
+        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_REVENUE), any(), any()))
+                .thenReturn(List.of(AnalyticsRecord.builder().metricValue(2000.0).build()));
+        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.USER_REGISTRATION), any(), any()))
+                .thenReturn(50L);
+
+        DashboardSummaryDto summary = analyticsService.getAdminDashboardSummary("TODAY");
+
+        assertEquals(100L, summary.getTotalOrders());
+        assertEquals(2000.0, summary.getTotalRevenue());
+        assertEquals(50L, summary.getNewUsers());
     }
 }
