@@ -2,7 +2,6 @@ package com.easyride.user_service.service;
 
 import com.easyride.user_service.dto.NotificationRequestDto;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;

@@ -4,7 +4,6 @@ import com.evaluation.model.ReviewWindow;
 import com.evaluation.repository.ReviewWindowRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +16,6 @@ public class ReviewWindowServiceImpl implements ReviewWindowService {
 
     private final ReviewWindowRepository reviewWindowRepository;
 
-    @Autowired
     public ReviewWindowServiceImpl(ReviewWindowRepository reviewWindowRepository) {
         this.reviewWindowRepository = reviewWindowRepository;
     }

@@ -11,7 +11,6 @@ import com.easyride.payment_service.util.PaymentGatewayUtil; // You'll need to e
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,9 +26,8 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
     private final PassengerPaymentMethodRepository paymentMethodRepository;
     private final PaymentGatewayUtil paymentGatewayUtil; // To interact with Stripe/PayPal for token processing
 
-    @Autowired
     public PassengerPaymentMethodServiceImpl(PassengerPaymentMethodRepository paymentMethodRepository,
-                                             PaymentGatewayUtil paymentGatewayUtil) {
+            PaymentGatewayUtil paymentGatewayUtil) {
         this.paymentMethodRepository = paymentMethodRepository;
         this.paymentGatewayUtil = paymentGatewayUtil;
     }
@@ -39,26 +37,27 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
     public PaymentMethodResponseDto addPaymentMethod(Long passengerId, AddPaymentMethodRequestDto requestDto) {
         log.info("Attempting to add payment method for passenger ID {}: {}", passengerId, requestDto.getMethodType());
 
-        // 1. Use the paymentGatewayNonce with the specific payment gateway (Stripe, PayPal)
+        // 1. Use the paymentGatewayNonce with the specific payment gateway (Stripe,
+        // PayPal)
         // to create a permanent payment method token or customer object.
         // This step is CRITICAL and gateway-specific.
-        // For example, with Stripe, you might create a PaymentMethod object and attach it to a Customer.
+        // For example, with Stripe, you might create a PaymentMethod object and attach
+        // it to a Customer.
         // The 'paymentGatewayNonce' is typically a one-time use token.
 
-        PaymentGatewayUtil.GatewayProcessedPaymentMethod processedMethod =
-                paymentGatewayUtil.processAndStorePaymentMethodNonce(
+        PaymentGatewayUtil.GatewayProcessedPaymentMethod processedMethod = paymentGatewayUtil
+                .processAndStorePaymentMethodNonce(
                         passengerId,
                         requestDto.getPaymentGatewayNonce(),
-                        requestDto.getMethodType()
-                );
+                        requestDto.getMethodType());
 
-        // Ensure this nonce/token isn't already stored for this user to prevent duplicates from same nonce.
-        if(paymentMethodRepository.findByPaymentGatewayToken(processedMethod.getPermanentToken()).isPresent()){
+        // Ensure this nonce/token isn't already stored for this user to prevent
+        // duplicates from same nonce.
+        if (paymentMethodRepository.findByPaymentGatewayToken(processedMethod.getPermanentToken()).isPresent()) {
             log.warn("Attempt to add duplicate payment method with gateway token {} for passenger {}",
                     processedMethod.getPermanentToken(), passengerId);
             throw new PaymentServiceException("此支付方式似乎已添加。");
         }
-
 
         PassengerPaymentMethod newMethod = new PassengerPaymentMethod();
         newMethod.setPassengerId(passengerId);
@@ -81,7 +80,8 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
             newMethod.setDefault(true);
         } else {
             // If it's the first payment method, make it default
-            if (!paymentMethodRepository.findByPassengerId(passengerId).stream().anyMatch(PassengerPaymentMethod::isDefault)) {
+            if (!paymentMethodRepository.findByPassengerId(passengerId).stream()
+                    .anyMatch(PassengerPaymentMethod::isDefault)) {
                 newMethod.setDefault(true);
             }
         }
@@ -125,25 +125,28 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
     @Transactional
     public void deletePaymentMethod(Long passengerId, Long paymentMethodId) {
         log.info("Deleting payment method ID {} for passenger {}", paymentMethodId, passengerId);
-        PassengerPaymentMethod methodToDelete = paymentMethodRepository.findByIdAndPassengerId(paymentMethodId, passengerId)
+        PassengerPaymentMethod methodToDelete = paymentMethodRepository
+                .findByIdAndPassengerId(paymentMethodId, passengerId)
                 .orElseThrow(() -> new ResourceNotFoundException("支付方式未找到或不属于该用户"));
 
-        // Before deleting from DB, you might need to detach/delete it from the payment gateway's customer object
+        // Before deleting from DB, you might need to detach/delete it from the payment
+        // gateway's customer object
         paymentGatewayUtil.deleteGatewayPaymentMethod(
                 methodToDelete.getPaymentGatewayCustomerId(),
                 methodToDelete.getPaymentGatewayToken(),
-                methodToDelete.getMethodType()
-        );
+                methodToDelete.getMethodType());
 
         paymentMethodRepository.delete(methodToDelete);
 
         // If the deleted method was default, try to set another one as default
         if (methodToDelete.isDefault()) {
-            paymentMethodRepository.findByPassengerId(passengerId).stream().findFirst().ifPresent(newPotentialDefault -> {
-                newPotentialDefault.setDefault(true);
-                paymentMethodRepository.save(newPotentialDefault);
-                log.info("Set payment method ID {} as new default for passenger {} after deletion.", newPotentialDefault.getId(), passengerId);
-            });
+            paymentMethodRepository.findByPassengerId(passengerId).stream().findFirst()
+                    .ifPresent(newPotentialDefault -> {
+                        newPotentialDefault.setDefault(true);
+                        paymentMethodRepository.save(newPotentialDefault);
+                        log.info("Set payment method ID {} as new default for passenger {} after deletion.",
+                                newPotentialDefault.getId(), passengerId);
+                    });
         }
         log.info("Payment method ID {} deleted for passenger {}", paymentMethodId, passengerId);
     }
@@ -162,8 +165,10 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
     }
 
     private String buildDisplayName(PassengerPaymentMethod method) {
-        if (method.getMethodType() == PaymentMethodType.CREDIT_CARD || method.getMethodType() == PaymentMethodType.DEBIT_CARD) {
-            return (method.getCardBrand() != null ? method.getCardBrand() : "Card") + " ending in " + method.getCardLastFour();
+        if (method.getMethodType() == PaymentMethodType.CREDIT_CARD
+                || method.getMethodType() == PaymentMethodType.DEBIT_CARD) {
+            return (method.getCardBrand() != null ? method.getCardBrand() : "Card") + " ending in "
+                    + method.getCardLastFour();
         } else if (method.getMethodType() == PaymentMethodType.PAYPAL) {
             return "PayPal"; // Could be PayPal email if gateway provides it safely
         }

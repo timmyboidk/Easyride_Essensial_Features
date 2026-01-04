@@ -4,7 +4,6 @@ import com.easyride.payment_service.controller.WalletController;
 import com.easyride.payment_service.dto.WalletDto;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.service.WalletService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;

@@ -16,9 +16,9 @@ import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
 @Service
 public class PushNotificationService implements NotificationService {
 
@@ -31,11 +31,9 @@ public class PushNotificationService implements NotificationService {
     // FCM fields
     private final FirebaseMessaging firebaseMessaging;
 
-
-    @Autowired
     public PushNotificationService(ApnsClient apnsClient,
-                                   @Value("${apns.bundleId}") String apnsBundleId,
-                                   FirebaseApp firebaseApp) { // Inject FirebaseApp
+            @Value("${apns.bundleId}") String apnsBundleId,
+            FirebaseApp firebaseApp) { // Inject FirebaseApp
         this.apnsClient = apnsClient;
         this.apnsBundleId = apnsBundleId;
         this.firebaseMessaging = FirebaseMessaging.getInstance(firebaseApp);
@@ -61,26 +59,27 @@ public class PushNotificationService implements NotificationService {
                 .setAlertTitle(payload.getTitle())
                 .setAlertBody(payload.getBody())
                 .setSound("default")
-                // .addCustomProperty("orderId", payload.getData().get("orderId")) // Example custom data
+                // .addCustomProperty("orderId", payload.getData().get("orderId")) // Example
+                // custom data
                 .build();
 
         final String token = TokenUtil.sanitizeTokenString(deviceToken);
         log.info("Sending APNS push to token {}: {}", token, apnsPayload);
 
-        final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture =
-                apnsClient.sendNotification(new SimpleApnsPushNotification(token, apnsBundleId, apnsPayload));
+        final PushNotificationFuture<SimpleApnsPushNotification, PushNotificationResponse<SimpleApnsPushNotification>> sendNotificationFuture = apnsClient
+                .sendNotification(new SimpleApnsPushNotification(token, apnsBundleId, apnsPayload));
 
         try {
-            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse =
-                    sendNotificationFuture.get(); // Wait for response
+            final PushNotificationResponse<SimpleApnsPushNotification> pushNotificationResponse = sendNotificationFuture
+                    .get(); // Wait for response
 
             if (pushNotificationResponse.isAccepted()) {
                 log.info("APNS Push notification accepted by APNs gateway for token: {}", deviceToken);
             } else {
                 log.warn("APNS Push notification rejected by APNs gateway for token {}. Reason: {}",
                         deviceToken, pushNotificationResponse.getRejectionReason());
-                pushNotificationResponse.getTokenInvalidationTimestamp().ifPresent(timestamp ->
-                        log.warn("\t…and the token is invalid as of {}", timestamp));
+                pushNotificationResponse.getTokenInvalidationTimestamp()
+                        .ifPresent(timestamp -> log.warn("\t…and the token is invalid as of {}", timestamp));
             }
         } catch (final Exception e) {
             log.error("Failed to send APNS push notification to token {}: ", deviceToken, e);
@@ -104,7 +103,8 @@ public class PushNotificationService implements NotificationService {
         Message message = messageBuilder.build();
 
         try {
-            log.info("Sending FCM push to token {}: Title='{}', Body='{}'", deviceToken, payloadDto.getTitle(), payloadDto.getBody());
+            log.info("Sending FCM push to token {}: Title='{}', Body='{}'", deviceToken, payloadDto.getTitle(),
+                    payloadDto.getBody());
             String response = firebaseMessaging.send(message);
             log.info("Successfully sent FCM message: " + response);
         } catch (FirebaseMessagingException e) {
@@ -113,4 +113,3 @@ public class PushNotificationService implements NotificationService {
         }
     }
 }
-

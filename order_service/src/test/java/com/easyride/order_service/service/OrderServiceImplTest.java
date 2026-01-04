@@ -2,7 +2,6 @@ package com.easyride.order_service.service;
 
 import com.easyride.order_service.dto.*;
 import com.easyride.order_service.exception.OrderServiceException;
-import com.easyride.order_service.exception.ResourceNotFoundException;
 import com.easyride.order_service.model.*;
 import com.easyride.order_service.repository.*;
 import com.easyride.order_service.rocket.OrderEventProducer;

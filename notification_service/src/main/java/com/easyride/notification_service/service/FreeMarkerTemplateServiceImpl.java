@@ -6,7 +6,6 @@ import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.ui.freemarker.FreeMarkerTemplateUtils;
@@ -28,17 +27,19 @@ public class FreeMarkerTemplateServiceImpl implements TemplateService {
     @Value("${notification.templates.default-locale}")
     private String defaultLocaleStr; // e.g., "en_US"
 
-    @Autowired
     public FreeMarkerTemplateServiceImpl(Configuration freemarkerConfig) {
         this.freemarkerConfig = freemarkerConfig;
         // Configure base path if not done globally
-        // this.freemarkerConfig.setClassForTemplateLoading(this.getClass(), "/templates/notifications/"); // Example
+        // this.freemarkerConfig.setClassForTemplateLoading(this.getClass(),
+        // "/templates/notifications/"); // Example
     }
 
     @Override
-    public String processTemplate(String templateKey, NotificationChannel channel, String localeStr, Map<String, Object> model) {
+    public String processTemplate(String templateKey, NotificationChannel channel, String localeStr,
+            Map<String, Object> model) {
         Locale locale = parseLocale(localeStr);
-        // Construct template name: e.g., sms/order_accepted_en_US.ftl or push/order_updated_fr_FR.ftl
+        // Construct template name: e.g., sms/order_accepted_en_US.ftl or
+        // push/order_updated_fr_FR.ftl
         // Channel subfolder helps organize: sms, email, push
         String templateFileName = String.format("%s/%s_%s.ftl",
                 channel.name().toLowerCase().split("_")[0], // sms, email, push
@@ -49,7 +50,8 @@ public class FreeMarkerTemplateServiceImpl implements TemplateService {
             Template template = freemarkerConfig.getTemplate(templateFileName);
             return FreeMarkerTemplateUtils.processTemplateIntoString(template, model);
         } catch (IOException e) {
-            log.warn("Template file not found: {}. Falling back to default locale or generic message.", templateFileName, e);
+            log.warn("Template file not found: {}. Falling back to default locale or generic message.",
+                    templateFileName, e);
             // Fallback to default locale if current locale template not found
             String defaultTemplateFileName = String.format("%s/%s_%s.ftl",
                     channel.name().toLowerCase().split("_")[0],
@@ -59,7 +61,8 @@ public class FreeMarkerTemplateServiceImpl implements TemplateService {
                 Template template = freemarkerConfig.getTemplate(defaultTemplateFileName);
                 return FreeMarkerTemplateUtils.processTemplateIntoString(template, model);
             } catch (IOException | TemplateException ex) {
-                log.error("Error processing default template {} or template {} not found: ", defaultTemplateFileName, templateFileName, ex);
+                log.error("Error processing default template {} or template {} not found: ", defaultTemplateFileName,
+                        templateFileName, ex);
                 return "Error: Notification template not found or failed to process."; // Fallback generic message
             }
         } catch (TemplateException e) {

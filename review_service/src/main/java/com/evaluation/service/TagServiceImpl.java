@@ -5,7 +5,6 @@ import com.evaluation.exception.BadRequestException;
 import com.evaluation.mapper.TagMapper;
 import com.evaluation.model.Tag;
 import com.evaluation.repository.TagRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,7 +20,6 @@ public class TagServiceImpl implements TagService {
     private final TagRepository tagRepository;
     private final TagMapper tagMapper;
 
-    @Autowired
     public TagServiceImpl(TagRepository tagRepository, TagMapper tagMapper) {
         this.tagRepository = tagRepository;
         this.tagMapper = tagMapper;

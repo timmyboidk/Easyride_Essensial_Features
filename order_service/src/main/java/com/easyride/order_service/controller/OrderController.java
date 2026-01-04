@@ -1,8 +1,6 @@
 package com.easyride.order_service.controller;
 
 import com.easyride.order_service.dto.*; // Ensure ApiResponse is here
-import com.easyride.order_service.model.OrderStatus;
-import com.easyride.order_service.security.OrderDetailsImpl;
 import com.easyride.order_service.service.OrderService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;

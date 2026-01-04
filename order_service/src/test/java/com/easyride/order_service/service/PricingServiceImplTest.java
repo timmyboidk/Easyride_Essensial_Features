@@ -8,7 +8,6 @@ import com.easyride.order_service.exception.PricingException;
 import com.easyride.order_service.model.Order;
 import com.easyride.order_service.model.OrderStatus;
 import com.easyride.order_service.model.ServiceType;
-import com.easyride.order_service.model.VehicleType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

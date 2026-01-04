@@ -1,7 +1,6 @@
 package com.evaluation.service;
 
 import com.evaluation.dto.ComplaintDTO;
-import com.evaluation.exception.BadRequestException;
 import com.evaluation.exception.ResourceNotFoundException;
 import com.evaluation.mapper.ComplaintMapper;
 import com.evaluation.model.Complaint;
@@ -10,7 +9,6 @@ import com.evaluation.repository.EvaluationRepository;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,13 +31,12 @@ public class ComplaintServiceImpl implements ComplaintService {
     private final EvaluationRepository evaluationRepository;
     private final FileStorageService fileStorageService;
 
-    @Autowired
     public ComplaintServiceImpl(ComplaintRepository complaintRepository,
-                                ComplaintMapper complaintMapper,
-                                FileStorageService fileStorageService,
-                                RocketMQTemplate rocketMQTemplate,
-                                SensitiveWordService sensitiveWordService,
-                                EvaluationRepository evaluationRepository) {
+            ComplaintMapper complaintMapper,
+            FileStorageService fileStorageService,
+            RocketMQTemplate rocketMQTemplate,
+            SensitiveWordService sensitiveWordService,
+            EvaluationRepository evaluationRepository) {
         this.complaintRepository = complaintRepository;
         this.complaintMapper = complaintMapper;
         this.fileStorageService = fileStorageService;
@@ -53,13 +50,16 @@ public class ComplaintServiceImpl implements ComplaintService {
     public ComplaintDTO fileComplaint(ComplaintDTO complaintDTO, List<MultipartFile> evidenceFiles) {
         if (complaintDTO.getEvaluationId() != null) {
             evaluationRepository.findById(complaintDTO.getEvaluationId())
-                    .orElseThrow(() -> new ResourceNotFoundException("投诉关联的评价 (ID: " + complaintDTO.getEvaluationId() + ") 未找到。"));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "投诉关联的评价 (ID: " + complaintDTO.getEvaluationId() + ") 未找到。"));
         } else {
-            log.warn("Filing a complaint not directly linked to an evaluation by complainant {}.", complaintDTO.getComplainantId());
+            log.warn("Filing a complaint not directly linked to an evaluation by complainant {}.",
+                    complaintDTO.getComplainantId());
         }
 
         if (complaintDTO.getReason() != null && sensitiveWordService.containsSensitiveWords(complaintDTO.getReason())) {
-            log.warn("Complaint reason from {} contains sensitive words. Reason: '{}'", complaintDTO.getComplainantId(), complaintDTO.getReason());
+            log.warn("Complaint reason from {} contains sensitive words. Reason: '{}'", complaintDTO.getComplainantId(),
+                    complaintDTO.getReason());
             complaintDTO.setReason(sensitiveWordService.filterContent(complaintDTO.getReason()));
         }
 
@@ -73,7 +73,8 @@ public class ComplaintServiceImpl implements ComplaintService {
         complaint.setStatus("PENDING_REVIEW");
 
         Complaint savedComplaint = complaintRepository.save(complaint);
-        log.info("Complaint (ID: {}) filed successfully by complainant {}.", savedComplaint.getId(), savedComplaint.getComplainantId());
+        log.info("Complaint (ID: {}) filed successfully by complainant {}.", savedComplaint.getId(),
+                savedComplaint.getComplainantId());
 
         if (savedComplaint.getEvaluationId() != null) {
             evaluationRepository.findById(savedComplaint.getEvaluationId()).ifPresent(eval -> {
@@ -108,6 +109,7 @@ public class ComplaintServiceImpl implements ComplaintService {
                 .map(complaintMapper::toDTO)
                 .collect(Collectors.toList());
     }
+
     // Other methods for admin operations need to be implemented
     @Override
     public Page<ComplaintDTO> getAllComplaintsForAdmin(Pageable pageable, String status) {
@@ -116,7 +118,8 @@ public class ComplaintServiceImpl implements ComplaintService {
     }
 
     @Override
-    public ComplaintDTO adminUpdateComplaintStatus(Long complaintId, String newStatus, String adminNotes, Long adminId) {
+    public ComplaintDTO adminUpdateComplaintStatus(Long complaintId, String newStatus, String adminNotes,
+            Long adminId) {
         // Implementation needed
         return null;
     }

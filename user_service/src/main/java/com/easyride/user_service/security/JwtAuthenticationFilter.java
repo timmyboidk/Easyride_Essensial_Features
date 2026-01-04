@@ -1,7 +1,5 @@
 package com.easyride.user_service.security;
 
-import com.easyride.user_service.security.JwtTokenProvider;
-
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.*;

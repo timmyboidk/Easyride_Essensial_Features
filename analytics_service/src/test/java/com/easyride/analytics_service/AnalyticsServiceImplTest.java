@@ -24,6 +24,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +51,7 @@ class AnalyticsServiceImplTest {
     }
 
     @Test
+    @SuppressWarnings("null")
     void recordAnalyticsData_ShouldSaveRecord_WhenNotActiveUserLogin() {
         Map<String, String> dimensions = new HashMap<>();
         dimensions.put("key", "value");
@@ -62,10 +65,11 @@ class AnalyticsServiceImplTest {
 
         analyticsService.recordAnalyticsData(request);
 
-        verify(analyticsRepository, times(1)).save(any(AnalyticsRecord.class));
+        verify(analyticsRepository, times(1)).save(isA(AnalyticsRecord.class));
     }
 
     @Test
+    @SuppressWarnings("null")
     void recordAnalyticsData_ShouldUseRedis_WhenActiveUserLogin() {
         Map<String, String> dimensions = new HashMap<>();
         dimensions.put("userId", "user123");
@@ -77,9 +81,9 @@ class AnalyticsServiceImplTest {
 
         analyticsService.recordAnalyticsData(request);
 
-        verify(hyperLogLogOperations, times(1)).add(contains("dau:"), eq("user123"));
-        verify(hyperLogLogOperations, times(1)).add(contains("mau:"), eq("user123"));
-        verify(analyticsRepository, never()).save(any(AnalyticsRecord.class));
+        verify(hyperLogLogOperations, times(1)).add(argThat(s -> s != null && s.contains("dau:")), eq("user123"));
+        verify(hyperLogLogOperations, times(1)).add(argThat(s -> s != null && s.contains("mau:")), eq("user123"));
+        verify(analyticsRepository, never()).save(isA(AnalyticsRecord.class));
     }
 
     @Test

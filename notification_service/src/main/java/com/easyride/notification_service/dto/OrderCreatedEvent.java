@@ -2,7 +2,6 @@ package com.easyride.notification_service.dto;
 
 import lombok.Data;
 import java.io.Serializable;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data

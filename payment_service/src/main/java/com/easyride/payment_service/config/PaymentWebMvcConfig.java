@@ -1,16 +1,15 @@
 package com.easyride.payment_service.config;
 
 import com.easyride.payment_service.interceptor.PaymentSignatureVerificationInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.*;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
 public class PaymentWebMvcConfig implements WebMvcConfigurer {
 
     private final PaymentSignatureVerificationInterceptor signatureInterceptor;
 
-    @Autowired
     public PaymentWebMvcConfig(PaymentSignatureVerificationInterceptor signatureInterceptor) {
         this.signatureInterceptor = signatureInterceptor;
     }

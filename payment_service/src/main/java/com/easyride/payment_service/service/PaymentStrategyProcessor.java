@@ -4,7 +4,6 @@ import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.dto.PaymentResponseDto;
 import com.easyride.payment_service.exception.PaymentServiceException;
 import com.easyride.payment_service.strategies.PaymentStrategy;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -17,7 +16,6 @@ public class PaymentStrategyProcessor {
 
     private final Map<String, PaymentStrategy> strategyMap;
 
-    @Autowired
     public PaymentStrategyProcessor(List<PaymentStrategy> strategies) {
         this.strategyMap = strategies.stream()
                 .collect(Collectors.toMap(s -> s.getClass().getSimpleName().replace("Strategy", "").toUpperCase(),

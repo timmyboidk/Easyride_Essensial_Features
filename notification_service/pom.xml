@@ -19,7 +19,6 @@
 
     <properties>
         <pushy.version>0.15.2</pushy.version>
-        <jackson.version>2.15.2</jackson.version>
         <firebase.version>9.2.0</firebase.version>
         <aws.sns.version>1.12.200</aws.sns.version>
         <javax.mail.version>1.6.2</javax.mail.version>
@@ -110,7 +109,6 @@
         <dependency>
             <groupId>com.auth0</groupId>
             <artifactId>java-jwt</artifactId>
-            <version>4.4.0</version>
         </dependency>
 
         <!-- Lombok -->
@@ -124,7 +122,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>${jackson.version}</version>
         </dependency>
 
         <!-- Servlet API -->

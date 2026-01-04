@@ -3,7 +3,6 @@ package com.easyride.user_service.service.impl;
 import com.easyride.user_service.exception.FileStorageException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.springframework.mock.web.MockMultipartFile;
 
 import java.io.IOException;

@@ -6,8 +6,6 @@ import com.easyride.payment_service.service.PassengerPaymentMethodService;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
@@ -18,7 +16,6 @@ public class PaymentMethodController {
     private static final Logger log = LoggerFactory.getLogger(PaymentMethodController.class);
     private final PassengerPaymentMethodService paymentMethodService;
 
-    @Autowired
     public PaymentMethodController(PassengerPaymentMethodService paymentMethodService) {
         this.paymentMethodService = paymentMethodService;
     }
@@ -28,7 +25,8 @@ public class PaymentMethodController {
             @PathVariable Long passengerId, // Or get from @AuthenticationPrincipal UserPrincipal principal
             @Valid @RequestBody AddPaymentMethodRequestDto requestDto) {
         // Long actualPassengerId = principal.getId();
-        // log.info("Passenger {} attempting to add payment method.", actualPassengerId);
+        // log.info("Passenger {} attempting to add payment method.",
+        // actualPassengerId);
         log.info("Adding payment method for passenger ID: {}", passengerId); // Replace with principal ID logging
         PaymentMethodResponseDto responseDto = paymentMethodService.addPaymentMethod(passengerId, requestDto);
         return ApiResponse.success("支付方式添加成功", responseDto);

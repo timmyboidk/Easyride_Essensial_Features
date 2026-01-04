@@ -1,7 +1,6 @@
 package com.easyride.user_service.config;
 
 import com.easyride.user_service.interceptor.SignatureVerificationInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.*;
 
@@ -10,7 +9,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final SignatureVerificationInterceptor signatureVerificationInterceptor;
 
-    @Autowired
     public WebMvcConfig(SignatureVerificationInterceptor signatureVerificationInterceptor) {
         this.signatureVerificationInterceptor = signatureVerificationInterceptor;
     }
@@ -26,7 +24,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOrigins("http://localhost:3000", "https://ER-frontend-domain.com")  // <-- 明确指定前端来源
+                .allowedOrigins("http://localhost:3000", "https://ER-frontend-domain.com") // <-- 明确指定前端来源
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

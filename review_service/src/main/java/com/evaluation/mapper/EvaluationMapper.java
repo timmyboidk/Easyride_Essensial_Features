@@ -5,7 +5,6 @@ import com.evaluation.model.Evaluation;
 import com.evaluation.model.Tag;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**

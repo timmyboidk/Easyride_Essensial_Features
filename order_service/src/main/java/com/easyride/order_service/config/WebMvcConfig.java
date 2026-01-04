@@ -1,7 +1,6 @@
 package com.easyride.order_service.config;
 
 import com.easyride.order_service.interceptor.SignatureVerificationInterceptor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.*;
 
@@ -15,7 +14,6 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final SignatureVerificationInterceptor signatureVerificationInterceptor;
 
-    @Autowired
     public WebMvcConfig(SignatureVerificationInterceptor signatureVerificationInterceptor) {
         this.signatureVerificationInterceptor = signatureVerificationInterceptor;
     }
