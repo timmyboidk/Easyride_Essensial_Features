@@ -10,7 +10,7 @@ import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.springframework.stereotype.Service;
 
 @Service
-@RocketMQMessageListener(topic = "location-request-topic", consumerGroup = "location-service-group")
+@RocketMQMessageListener(topic = "location-request-topic", consumerGroup = "CID_LOCATION_SERVICE")
 public class LocationRequestListener implements RocketMQListener<LocationRequestEvent> {
 
     private final RocketMQTemplate rocketMQTemplate;

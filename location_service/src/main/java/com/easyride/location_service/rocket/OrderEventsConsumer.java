@@ -13,11 +13,7 @@ import org.springframework.stereotype.Service;
 @Service
 // This listener needs to know the planned route when a trip starts.
 // OrderService should publish an event like "TRIP_STARTED_WITH_ROUTE"
-@RocketMQMessageListener(
-        topic = "order-topic",
-        consumerGroup = "location-service-order-consumer-group",
-        selectorExpression = "TRIP_STARTED_WITH_ROUTE || TRIP_ENDED || ORDER_CANCELLED_ACTIVE_TRIP"
-)
+@RocketMQMessageListener(topic = "EASYRIDE_ORDER_STATUS_CHANGED_TOPIC", consumerGroup = "CID_LOCATION_SERVICE", selectorExpression = "TRIP_STARTED_WITH_ROUTE || TRIP_ENDED || ORDER_CANCELLED_ACTIVE_TRIP")
 public class OrderEventsConsumer implements RocketMQListener<Object> {
 
     private static final Logger log = LoggerFactory.getLogger(OrderEventsConsumer.class);
