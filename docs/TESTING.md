@@ -1,93 +1,93 @@
-# EasyRide Testing Checklist
+# EasyRide 测试清单
 
-## 1. Unit Tests
+## 1. 单元测试
 
-Target: Verify individual components (classes/methods) using JUnit 5 and Mockito.
+目标：使用 JUnit 5 和 Mockito 验证单个组件（类/方法）。
 
-### 1.1 User Service
-- **AuthService**:
-  - [ ] Register with valid phone/password -> Success.
-  - [ ] Register with existing phone -> Fail.
-  - [ ] Register with invalid format -> Fail.
-  - [ ] Login with correct credentials -> Return JWT.
-  - [ ] Login with wrong password -> Fail.
-  - [ ] Request OTP with valid phone -> Success.
-- **UserProfileService**:
-  - [ ] Get profile of authenticated user -> Success.
-  - [ ] Update profile (e.g., nickname) -> Success.
-- **DriverService**:
-  - [ ] Submit driver application -> Success.
-  - [ ] Submit empty application -> Fail.
+### 1.1 用户服务
+- **AuthService**：
+  - [ ] 使用有效手机/密码注册 -> 成功。
+  - [ ] 使用已存在手机注册 -> 失败。
+  - [ ] 格式无效注册 -> 失败
+  - [ ] 正确凭证登录 -> 返回JWT
+  - [ ] 密码错误登录 -> 失败
+  - [ ] 有效手机请求OTP -> 成功
+- **用户资料服务**：
+  - [ ] 获取认证用户资料 -> 成功
+  - [ ] 更新资料（如昵称）-> 成功。
+- **司机服务**:
+  - [ ] 提交司机申请 -> 成功。
+  - [ ] 提交空申请 -> 失败。
 
-### 1.2 Order Service
-- **OrderService**:
-  - [ ] Create valid order -> Success.
-  - [ ] Create order with invalid location -> Fail.
-  - [ ] Idempotency Key prevents duplicate orders.
-  - [ ] Get Order By ID -> Success.
-  - [ ] Update status flow (PENDING -> MATCHED) -> Success.
-  - [ ] Update status invalid flow (PENDING -> COMPLETED) -> Fail.
-  - [ ] Cancel order -> Success.
+### 1.2 订单服务
+- **订单服务**:
+  - [ ] 创建有效订单 -> 成功。
+  - [ ] 创建地址无效订单 -> 失败。
+  - [ ] 幂等性键防止重复订单。
+  - [ ] 按ID获取订单 -> 成功。
+  - [ ] 更新状态流（PENDING -> MATCHED）-> 成功。
+  - [ ] 更新无效状态流（PENDING -> COMPLETED）-> 失败。
+  - [ ] 取消订单 -> 成功。
 
-### 1.3 Payment Service
-- **PaymentService**:
-  - [ ] Process payment via Gateway -> Success.
-  - [ ] Process payment via Gateway -> Fail (Mocked).
-  - [ ] Send `EASYRIDE_PAYMENT_SUCCESS_TOPIC` after success.
-- **WalletService**:
-  - [ ] Get Driver Wallet -> Success.
-  - [ ] Request Withdrawal -> Success.
-  - [ ] Withdrawal > Balance -> Fail.
+### 1.3 支付服务
+- **支付服务**：
+  - [ ] 通过网关处理支付 -> 成功。
+  - [ ] 通过网关处理支付 -> 失败（模拟）。
+  - [ ] 支付成功后发送 `EASYRIDE_PAYMENT_SUCCESS_TOPIC` 消息。
+- **钱包服务**：
+  - [ ] 获取司机钱包 -> 成功。
+  - [ ] 请求提现 -> 成功。
+  - [ ] 提现金额 > 余额 -> 失败。
 
-### 1.4 Matching Service
-- **MatchingEngine**:
-  - [ ] Find nearest drivers (Redis Geo) -> Success.
-  - [ ] No drivers found -> Return empty.
-  - [ ] Consume `EASYRIDE_ORDER_CREATED_TOPIC` -> Trigger match.
+### 1.4 匹配服务
+- **匹配引擎**：
+  - [ ] 查找最近司机（Redis地理定位）-> 成功。
+  - [ ] 未找到司机 -> 返回空结果集
+  - [ ] 消费 `EASYRIDE_ORDER_CREATED_TOPIC` -> 触发匹配
 
-## 2. Integration Tests
+## 2. 集成测试
 
-Target: Verify end-to-end business flows across microservices.
+目标：验证微服务间的端到端业务流程。
 
-### Scenario 1: Full Ride Lifecycle
-**Services**: User, Order, Matching, Location, Notification, Payment, Review.
+### 场景1：完整乘车生命周期
+**服务**：用户、订单、匹配、定位、通知、支付、评价。
 
-1. **Passenger** logs in.
-2. **Passenger** creates order (A to B).
-3. **Matching** service receives event, starts search.
-4. **Driver** comes online (Location update).
-5. **Driver** accepts order.
-6. **Order** status updates to `MATCHED`.
-7. **Notification** sent to both parties.
-8. **Driver** updates status: Arrved -> In Progress -> Completed.
-9. **Payment** service triggers auto-deduction.
-10. **Order** status updates to `PAID`.
-11. **Passenger** leaves a 5-star review.
+1. **乘客**登录。
+2. **乘客**创建订单（A点至B点）。
+3. **匹配**服务接收事件，启动搜索。
+4. **司机**上线（定位更新）。
+5. **司机**接单。
+6. **订单**状态更新为`匹配成功`。
+7. 向双方发送**通知**。
+8. **司机**更新状态：到达 -> 进行中 -> 完成。
+9. **支付**服务触发自动扣款。
+10. **订单**状态更新为`已支付`。
+11. **乘客**留下五星好评。
 
-### Scenario 2: Driver Onboarding & Withdrawal
-**Services**: User, Admin, Payment.
+### 场景二：司机入职与提现
+**服务**：用户端、管理员端、支付端。
 
-1. **Driver** registers and submits docs.
-2. **Admin** sees "Pending Review" application.
-3. **Admin** approves application.
-4. **Driver** status becomes `ACTIVE`.
-5. **Driver** completes rides, earns balance.
-6. **Driver** requests withdrawal.
-7. **Admin** approves withdrawal.
-8. **Wallet** balance is deducted.
+1. **司机**注册并提交证件。
+2. **管理员**查看“待审核”申请。
+3. **管理员**批准申请。
+4. **司机**状态变为`ACTIVE`。
+5. **司机**完成订单，赚取余额。
+6. **司机**申请提现。
+7. **管理员**批准提现。
+8. **钱包**余额被扣除。
 
-### Scenario 3: Order Cancellation
-**Services**: Order, Payment.
+### 场景三：订单取消
+**服务**：订单、支付。
 
-1. **Passenger** creates order.
-2. **Passenger** cancels immediately -> Status `CANCELLED`, No fee.
-3. **Passenger** creates order -> Driver accepts.
-4. **Passenger** cancels after 5 mins.
-5. **System** calculates cancellation fee.
-6. **Payment** processes fee deduction.
+1. **乘客**创建订单。
+2. **乘客**立即取消 -> 状态转为`CANCELLED`，免收费用。
+3. **乘客**创建订单 -> 司机接单。
+4. **乘客**5分钟后取消订单。
+5. **系统**计算取消费用。
+6. **支付**处理费用扣除。
 
-## 3. Boundary & Exception Testing
+## 3. 边界与异常测试
 
-- **Matching Timeout**: No driver found within 3 mins -> Order cancelled/failed.
-- **Payment Failure**: Gateway fails -> Order marked `PAYMENT_FAILED` -> User retries manually.
-- **Geo-fencing**: Driver enters restricted zone -> Admin alerted.
+- **匹配超时**：3分钟内未找到司机 -> 订单取消/失败。
+- **支付失败**：网关故障 -> 订单标记为`PAYMENT_FAILED` -> 用户手动重试。
+- **地理围栏**：司机进入限制区域 -> 管理员收到警报。
