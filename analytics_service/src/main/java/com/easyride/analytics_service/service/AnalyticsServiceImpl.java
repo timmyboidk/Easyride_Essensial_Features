@@ -39,13 +39,14 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 redisTemplate.opsForHyperLogLog().add(currentMonthKey, userId);
             }
         } else {
-            AnalyticsRecord record = new AnalyticsRecord();
-            record.setRecordType(RecordType.valueOf(requestDto.getRecordType()));
-            record.setMetricName(requestDto.getMetricName());
-            record.setMetricValue(requestDto.getMetricValue());
-            record.setRecordTime(requestDto.getRecordTime());
-            if (requestDto.getDimensions() != null) {
+            if (requestDto.getDimensions() != null && !requestDto.getDimensions().isEmpty()) {
                 requestDto.getDimensions().forEach((key, value) -> {
+                    // Create a NEW record for each dimension to avoid duplicate key issues
+                    AnalyticsRecord record = new AnalyticsRecord();
+                    record.setRecordType(RecordType.valueOf(requestDto.getRecordType()));
+                    record.setMetricName(requestDto.getMetricName());
+                    record.setMetricValue(requestDto.getMetricValue());
+                    record.setRecordTime(requestDto.getRecordTime());
                     record.setDimensionKey(key);
                     record.setDimensionValue(value);
                     // This is a simplified approach; a real implementation might need a more
@@ -54,6 +55,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     analyticsMapper.insert(record);
                 });
             } else {
+                AnalyticsRecord record = new AnalyticsRecord();
+                record.setRecordType(RecordType.valueOf(requestDto.getRecordType()));
+                record.setMetricName(requestDto.getMetricName());
+                record.setMetricValue(requestDto.getMetricValue());
+                record.setRecordTime(requestDto.getRecordTime());
                 analyticsMapper.insert(record);
             }
         }

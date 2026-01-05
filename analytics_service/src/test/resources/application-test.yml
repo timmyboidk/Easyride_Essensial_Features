@@ -1,0 +1,50 @@
+server:
+  port: 0  # Random port for tests
+
+spring:
+  datasource:
+    # Will be overridden by Testcontainers
+    url: jdbc:tc:mysql:8.0:///analytics_test_db
+    username: test
+    password: test
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+# MyBatis-Plus Configuration
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.easyride.analytics_service.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
+  data:
+    redis:
+      # Will be overridden by Testcontainers
+      host: localhost
+      port: 6379
+      database: 0
+
+jwt:
+  secret: test_jwt_secret_key_that_is_at_least_32_characters_long
+  expiration: 604800000
+
+logging:
+  level:
+    root: INFO
+    com.easyride: DEBUG
+    org.testcontainers: INFO
+
+# Disable RocketMQ for integration tests
+rocketmq:
+  name-server: disabled:9876
+  producer:
+    group: PID_ANALYTICS_TEST
+  consumer:
+    group: CID_ANALYTICS_TEST
