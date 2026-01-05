@@ -33,11 +33,25 @@ public class ComplaintController {
 
         ComplaintDTO createdComplaint = complaintService.fileComplaint(complaintDTO, evidenceFiles);
 
+        // Sanitize for XSS prevention
+        sanitizeComplaint(createdComplaint);
+
         ApiResponse<ComplaintDTO> response = new ApiResponse<>(
                 201,
                 "投诉已提交",
                 createdComplaint);
         return ResponseEntity.status(201).body(response);
+    }
+
+    private void sanitizeComplaint(ComplaintDTO dto) {
+        if (dto == null)
+            return;
+        if (dto.getReason() != null) {
+            dto.setReason(org.springframework.web.util.HtmlUtils.htmlEscape(dto.getReason()));
+        }
+        if (dto.getStatus() != null) {
+            dto.setStatus(org.springframework.web.util.HtmlUtils.htmlEscape(dto.getStatus()));
+        }
     }
 
     /**

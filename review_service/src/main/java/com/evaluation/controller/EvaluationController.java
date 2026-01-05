@@ -28,11 +28,32 @@ public class EvaluationController {
     public ResponseEntity<ApiResponse<EvaluationDTO>> createEvaluation(
             @Valid @RequestBody EvaluationDTO evaluationDTO) {
         EvaluationDTO createdEvaluation = evaluationService.createEvaluation(evaluationDTO);
+
+        // Sanitize for XSS prevention
+        sanitizeEvaluation(createdEvaluation);
+
         ApiResponse<EvaluationDTO> response = new ApiResponse<>(
                 201,
                 "评价已创建",
                 createdEvaluation);
         return ResponseEntity.status(201).body(response);
+    }
+
+    private void sanitizeEvaluation(EvaluationDTO dto) {
+        if (dto == null)
+            return;
+        if (dto.getComment() != null) {
+            dto.setComment(org.springframework.web.util.HtmlUtils.htmlEscape(dto.getComment()));
+        }
+        if (dto.getTags() != null) {
+            List<String> sanitizedTags = dto.getTags().stream()
+                    .map(tag -> tag == null ? null : org.springframework.web.util.HtmlUtils.htmlEscape(tag))
+                    .toList();
+            dto.setTags(sanitizedTags);
+        }
+        if (dto.getStatus() != null) {
+            dto.setStatus(org.springframework.web.util.HtmlUtils.htmlEscape(dto.getStatus()));
+        }
     }
 
     /**

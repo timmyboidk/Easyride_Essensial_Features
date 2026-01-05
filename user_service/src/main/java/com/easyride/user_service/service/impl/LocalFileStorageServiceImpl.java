@@ -29,16 +29,27 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String storeFile(MultipartFile file) {
-        String fileName = UUID.randomUUID().toString() + "_" + file.getOriginalFilename();
+        String originalFileName = file.getOriginalFilename();
+        if (originalFileName == null) {
+            throw new FileStorageException("Filename cannot be null");
+        }
+
+        // 只取文件名部分，去除任何路径信息
+        String cleanedFileName = Paths.get(originalFileName).getFileName().toString();
+        // 生成唯一文件名
+        String uniqueFileName = UUID.randomUUID().toString() + "_" + cleanedFileName;
+
         try {
-            if (fileName.contains("..")) {
-                throw new FileStorageException("Filename contains invalid path sequence " + fileName);
+            // 确保目标位置在存储目录内
+            Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName).normalize();
+            if (!targetLocation.startsWith(this.fileStorageLocation)) {
+                throw new FileStorageException("Filename contains invalid path sequence " + uniqueFileName);
             }
-            Path targetLocation = this.fileStorageLocation.resolve(fileName);
+
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
             return targetLocation.toString();
         } catch (IOException ex) {
-            throw new FileStorageException("Could not store file " + fileName + ". Please try again!", ex);
+            throw new FileStorageException("Could not store file " + uniqueFileName + ". Please try again!", ex);
         }
     }
 }

@@ -3,7 +3,6 @@ package com.evaluation.service;
 import com.evaluation.exception.BadRequestException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -45,23 +44,26 @@ public class FileStorageServiceImpl implements FileStorageService {
     public List<String> storeFiles(MultipartFile[] files) {
         List<String> filePaths = new ArrayList<>();
         for (MultipartFile file : files) {
-            String originalFileName = StringUtils.cleanPath(file.getOriginalFilename());
-            // 生成唯一文件名，防止文件名冲突
-            String uniqueFileName = UUID.randomUUID().toString() + "_" + originalFileName;
+            String originalFileName = file.getOriginalFilename();
+            if (originalFileName == null) {
+                continue;
+            }
+            // 只取文件名部分，去除任何路径信息
+            String cleanedFileName = Paths.get(originalFileName).getFileName().toString();
+            // 生成唯一文件名
+            String uniqueFileName = UUID.randomUUID().toString() + "_" + cleanedFileName;
+
             try {
-                // 检查文件名是否包含非法字符
-                if (originalFileName.contains("..")) {
-                    throw new BadRequestException("文件名包含非法路径序列: " + originalFileName);
+                // 确保目标位置在存储目录内
+                Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName).normalize();
+                if (!targetLocation.startsWith(this.fileStorageLocation)) {
+                    throw new BadRequestException("非法的文件存储位置: " + uniqueFileName);
                 }
 
-                // 复制文件到目标位置（覆盖已有文件）
-                Path targetLocation = this.fileStorageLocation.resolve(uniqueFileName);
                 Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
-
-                // 添加文件路径到列表
                 filePaths.add(targetLocation.toString());
             } catch (IOException ex) {
-                throw new BadRequestException("存储文件失败: " + originalFileName);
+                throw new BadRequestException("存储文件失败: " + cleanedFileName);
             }
         }
         return filePaths;
