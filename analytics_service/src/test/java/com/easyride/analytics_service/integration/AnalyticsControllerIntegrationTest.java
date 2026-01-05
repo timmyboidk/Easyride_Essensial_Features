@@ -35,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 3. Error handling works correctly for invalid inputs
  */
 @DisplayName("Analytics Controller HTTP Integration Tests")
+@SuppressWarnings("null")
 class AnalyticsControllerIntegrationTest extends AnalyticsIntegrationTestBase {
 
         @Autowired

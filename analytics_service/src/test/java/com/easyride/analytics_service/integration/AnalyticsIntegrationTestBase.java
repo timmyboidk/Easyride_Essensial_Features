@@ -33,6 +33,7 @@ import org.testcontainers.utility.DockerImageName;
 @ActiveProfiles("test")
 @Import(TestSecurityConfig.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@SuppressWarnings("resource") // Testcontainers manages container lifecycle via @Container and Ryuk
 public abstract class AnalyticsIntegrationTestBase {
 
     /**

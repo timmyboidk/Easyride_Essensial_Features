@@ -1,7 +1,6 @@
 package com.easyride.analytics_service.integration;
 
 import com.easyride.analytics_service.dto.AnalyticsRequestDto;
-import com.easyride.analytics_service.model.AnalyticsRecord;
 import com.easyride.analytics_service.model.RecordType;
 import com.easyride.analytics_service.repository.AnalyticsMapper;
 import com.easyride.analytics_service.service.AnalyticsService;
@@ -40,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 4. Performance metrics (throughput, latency)
  */
 @DisplayName("Analytics High Concurrency Stress Tests")
+@SuppressWarnings("null")
 class AnalyticsConcurrencyStressTest extends AnalyticsIntegrationTestBase {
 
     @Autowired

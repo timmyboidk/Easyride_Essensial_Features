@@ -12,6 +12,12 @@ spring:
     init:
       mode: always
       schema-locations: classpath:schema.sql
+  data:
+    redis:
+      # Will be overridden by Testcontainers
+      host: localhost
+      port: 6379
+      database: 0
 
 # MyBatis-Plus Configuration
 mybatis-plus:
@@ -24,22 +30,11 @@ mybatis-plus:
     db-config:
       id-type: auto
 
-  data:
-    redis:
-      # Will be overridden by Testcontainers
-      host: localhost
-      port: 6379
-      database: 0
-
-jwt:
-  secret: test_jwt_secret_key_that_is_at_least_32_characters_long
-  expiration: 604800000
-
 logging:
   level:
     root: INFO
-    com.easyride: DEBUG
-    org.testcontainers: INFO
+    "[com.easyride]": DEBUG
+    "[org.testcontainers]": INFO
 
 # Disable RocketMQ for integration tests
 rocketmq:

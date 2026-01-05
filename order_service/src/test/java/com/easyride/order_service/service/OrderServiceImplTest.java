@@ -169,7 +169,6 @@ public class OrderServiceImplTest {
 
         when(orderMapper.selectById(100L)).thenReturn(order);
         when(driverMapper.selectById(2L)).thenReturn(driver);
-        when(passengerMapper.selectById(1L)).thenReturn(passenger);
 
         orderService.cancelOrder(100L);
 
