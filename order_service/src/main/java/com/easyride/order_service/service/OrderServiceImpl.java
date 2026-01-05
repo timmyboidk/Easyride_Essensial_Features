@@ -163,8 +163,6 @@ public class OrderServiceImpl implements OrderService {
         orderMapper.updateById(order);
         log.info("Order ID: {} successfully cancelled.", orderId);
 
-        Passenger passenger = passengerMapper.selectById(order.getPassengerId());
-
         OrderEventDto cancelEvent = new OrderEventDto(
                 order.getId(),
                 order.getPassengerId(),

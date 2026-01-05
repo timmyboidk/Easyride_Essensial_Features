@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.ArgumentMatchers.argThat;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -52,7 +52,6 @@ class AnalyticsServiceImplTest {
     }
 
     @Test
-    @SuppressWarnings("null")
     void recordAnalyticsData_ShouldSaveRecord_WhenNotActiveUserLogin() {
         Map<String, String> dimensions = new HashMap<>();
         dimensions.put("key", "value");
@@ -69,8 +68,8 @@ class AnalyticsServiceImplTest {
         verify(analyticsMapper, times(1)).insert(isA(AnalyticsRecord.class));
     }
 
-    @Test
     @SuppressWarnings("null")
+    @Test
     void recordAnalyticsData_ShouldUseRedis_WhenActiveUserLogin() {
         Map<String, String> dimensions = new HashMap<>();
         dimensions.put("userId", "user123");
@@ -121,7 +120,7 @@ class AnalyticsServiceImplTest {
         countRecord.setRecordType(RecordType.COMPLETED_ORDERS_COUNT);
 
         // Use chained returns for sequential calls: 1st for revenue, 2nd for count
-        when(analyticsMapper.selectList(any(LambdaQueryWrapper.class)))
+        when(analyticsMapper.selectList(ArgumentMatchers.<LambdaQueryWrapper<AnalyticsRecord>>any()))
                 .thenReturn(Collections.singletonList(revenueRecord))
                 .thenReturn(Collections.singletonList(countRecord));
 
@@ -135,7 +134,7 @@ class AnalyticsServiceImplTest {
         String start = "2023-10-01";
         String end = "2023-10-02";
 
-        when(analyticsMapper.selectCount(any(LambdaQueryWrapper.class)))
+        when(analyticsMapper.selectCount(ArgumentMatchers.<LambdaQueryWrapper<AnalyticsRecord>>any()))
                 .thenReturn(10L)
                 .thenReturn(8L);
 
@@ -147,7 +146,8 @@ class AnalyticsServiceImplTest {
     @Test
     void getUserRetentionRate_ShouldReturnZero_WhenNoCohortUsers() {
         String cohortMonth = "2023-01";
-        when(analyticsMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
+        when(analyticsMapper.selectList(ArgumentMatchers.<LambdaQueryWrapper<AnalyticsRecord>>any()))
+                .thenReturn(Collections.emptyList());
 
         double retention = analyticsService.getUserRetentionRate(cohortMonth, 1);
 
@@ -159,11 +159,11 @@ class AnalyticsServiceImplTest {
         // selectCount for completed orders
         // selectList for revenue
         // selectCount for new users
-        when(analyticsMapper.selectCount(any(LambdaQueryWrapper.class)))
+        when(analyticsMapper.selectCount(ArgumentMatchers.<LambdaQueryWrapper<AnalyticsRecord>>any()))
                 .thenReturn(100L) // completed orders
                 .thenReturn(50L); // new users
 
-        when(analyticsMapper.selectList(any(LambdaQueryWrapper.class)))
+        when(analyticsMapper.selectList(ArgumentMatchers.<LambdaQueryWrapper<AnalyticsRecord>>any()))
                 .thenReturn(List.of(AnalyticsRecord.builder().metricValue(2000.0).build()));
 
         DashboardSummaryDto summary = analyticsService.getAdminDashboardSummary("TODAY");

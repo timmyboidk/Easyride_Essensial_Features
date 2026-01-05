@@ -30,28 +30,34 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
 
         try {
             if ("USER_CREATED".equals(event.getEventType()) || "DRIVER_APPROVED".equals(event.getEventType())) {
-                DriverStatus status = driverStatusMapper.selectById(event.getUserId());
-                boolean isNew = (status == null);
-                if (isNew) {
+                DriverStatus existingStatus = driverStatusMapper.selectById(event.getUserId());
+
+                final DriverStatus status;
+                if (existingStatus == null) {
+                    // New driver - create fresh status
                     status = new DriverStatus();
                     status.setDriverId(event.getUserId());
-                }
-
-                status.setAvailable(true); // Default to available when approved/created
-                status.setRating(event.getInitialRating() != null ? event.getInitialRating() : 4.5); // Default new
-                                                                                                     // driver rating
-                status.setVehicleType(event.getVehicleType() != null ? event.getVehicleType() : "UNKNOWN"); // Get from
-                                                                                                            // event
-                // status.setMaxCapacityForCarpool(determineCapacityFromVehicleType(event.getVehicleType()));
-                status.setLastStatusUpdateTime(LocalDateTime.now());
-                if (status.getOnlineSince() == null && "DRIVER_APPROVED".equals(event.getEventType())) {
-                    status.setOnlineSince(LocalDateTime.now()); // Or when they first toggle online
-                }
-
-                if (isNew) {
+                    status.setAvailable(true);
+                    status.setRating(event.getInitialRating() != null ? event.getInitialRating() : 4.5);
+                    status.setVehicleType(event.getVehicleType() != null ? event.getVehicleType() : "UNKNOWN");
+                    status.setLastStatusUpdateTime(LocalDateTime.now());
+                    if ("DRIVER_APPROVED".equals(event.getEventType())) {
+                        status.setOnlineSince(LocalDateTime.now());
+                    }
                     driverStatusMapper.insert(status);
                 } else {
-                    driverStatusMapper.updateById(status);
+                    // Existing driver - update status
+                    existingStatus.setAvailable(true);
+                    existingStatus.setRating(
+                            event.getInitialRating() != null ? event.getInitialRating() : existingStatus.getRating());
+                    if (event.getVehicleType() != null) {
+                        existingStatus.setVehicleType(event.getVehicleType());
+                    }
+                    existingStatus.setLastStatusUpdateTime(LocalDateTime.now());
+                    if (existingStatus.getOnlineSince() == null && "DRIVER_APPROVED".equals(event.getEventType())) {
+                        existingStatus.setOnlineSince(LocalDateTime.now());
+                    }
+                    driverStatusMapper.updateById(existingStatus);
                 }
                 log.info("Upserted DriverStatus for driver ID {} due to event {}", event.getUserId(),
                         event.getEventType());
@@ -76,7 +82,9 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
                 }
             }
             // Handle USER_DISABLED or DRIVER_SUSPENDED events to mark driver as unavailable
-        } catch (Exception e) {
+        } catch (
+
+        Exception e) {
             log.error("Error processing UserEvent for driverId {}: ", event.getUserId(), e);
             // Consider DLQ
         }

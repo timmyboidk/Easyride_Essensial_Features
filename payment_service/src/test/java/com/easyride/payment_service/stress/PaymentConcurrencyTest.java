@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -75,19 +76,18 @@ public class PaymentConcurrencyTest {
         });
 
         // Mock Strategy Processor
-        when(strategyProcessor.processPayment(any(PaymentRequestDto.class))).thenAnswer(inv -> {
-            PaymentRequestDto req = inv.getArgument(0);
-            return PaymentResponseDto.builder()
-                    .transactionId("TXN_" + System.currentTimeMillis() + "_" + Thread.currentThread().getId())
-                    .status(PaymentStatus.COMPLETED)
-                    .message("Success")
-                    .paymentGatewayUsed("STRIPE")
-                    .build();
-        });
+        when(strategyProcessor.processPayment(any(PaymentRequestDto.class)))
+                .thenAnswer(inv -> PaymentResponseDto.builder()
+                        .transactionId("TXN_" + System.currentTimeMillis() + "_" + Thread.currentThread().getId())
+                        .status(PaymentStatus.COMPLETED)
+                        .message("Success")
+                        .paymentGatewayUsed("STRIPE")
+                        .build());
 
         // Mock Repositories
         when(paymentMapper.insert(any(Payment.class))).thenAnswer(inv -> 1);
-        when(passengerPaymentMethodMapper.selectOne(any(LambdaQueryWrapper.class)))
+        when(passengerPaymentMethodMapper.selectOne(
+                ArgumentMatchers.<LambdaQueryWrapper<com.easyride.payment_service.model.PassengerPaymentMethod>>any()))
                 .thenReturn(null);
     }
 

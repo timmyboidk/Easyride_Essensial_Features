@@ -32,25 +32,23 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @org.springframework.transaction.annotation.Transactional
     public void addFunds(Long driverId, Integer amount) {
-        Wallet wallet = walletMapper.selectOne(new LambdaQueryWrapper<Wallet>().eq(Wallet::getDriverId, driverId));
-        boolean exist = (wallet != null);
-        if (!exist) {
-            wallet = new Wallet();
-            wallet.setDriverId(driverId);
-            wallet.setBalance(0);
-            wallet.setCurrency("USD");
-            wallet.setCreatedAt(LocalDateTime.now());
-            wallet.setUpdatedAt(LocalDateTime.now());
-        }
-
+        Wallet existingWallet = walletMapper
+                .selectOne(new LambdaQueryWrapper<Wallet>().eq(Wallet::getDriverId, driverId));
         // 计算平台服务费，假设按 10% 收取
         int serviceFee = (int) Math.round(amount * 0.10);
-        wallet.setBalance(wallet.getBalance() + amount - serviceFee);
-        wallet.setUpdatedAt(LocalDateTime.now());
-        if (exist) {
-            walletMapper.updateById(wallet);
+
+        if (existingWallet == null) {
+            Wallet newWallet = new Wallet();
+            newWallet.setDriverId(driverId);
+            newWallet.setBalance(amount - serviceFee);
+            newWallet.setCurrency("USD");
+            newWallet.setCreatedAt(LocalDateTime.now());
+            newWallet.setUpdatedAt(LocalDateTime.now());
+            walletMapper.insert(newWallet);
         } else {
-            walletMapper.insert(wallet);
+            existingWallet.setBalance(existingWallet.getBalance() + amount - serviceFee);
+            existingWallet.setUpdatedAt(LocalDateTime.now());
+            walletMapper.updateById(existingWallet);
         }
     }
 

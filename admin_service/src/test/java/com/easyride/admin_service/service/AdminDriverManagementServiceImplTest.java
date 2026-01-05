@@ -21,6 +21,8 @@ import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import org.mockito.ArgumentMatchers;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -72,7 +74,8 @@ class AdminDriverManagementServiceImplTest {
         mybatisPage.setRecords(Collections.singletonList(app));
         mybatisPage.setTotal(1);
 
-        when(applicationMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class)))
+        when(applicationMapper.selectPage(ArgumentMatchers.<Page<DriverApplication>>any(),
+                ArgumentMatchers.<LambdaQueryWrapper<DriverApplication>>any()))
                 .thenReturn(mybatisPage);
 
         org.springframework.data.domain.Page<DriverApplicationDto> result = service.getPendingDriverApplications(0, 10);

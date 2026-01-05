@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -64,21 +63,17 @@ public class EvaluationServiceImpl implements EvaluationService {
 
         Evaluation evaluation = evaluationDtoMapper.toEntity(evaluationDTO);
         if (evaluationDTO.getTags() != null && !evaluationDTO.getTags().isEmpty()) {
-            Set<Tag> managedTags = evaluationDTO.getTags().stream()
-                    .map(tagName -> {
-                        Tag tag = tagMapper.selectOne(new LambdaQueryWrapper<Tag>().eq(Tag::getName, tagName));
-                        if (tag == null) {
-                            tag = new Tag();
-                            tag.setName(tagName);
-                            tagMapper.insert(tag);
-                        }
-                        return tag;
-                    })
-                    .collect(Collectors.toSet());
-            // evaluation.setTags(managedTags); // tags relation is removed or handled
-            // manually
+            // Ensure tags exist in the database
+            evaluationDTO.getTags().forEach(tagName -> {
+                Tag tag = tagMapper.selectOne(new LambdaQueryWrapper<Tag>().eq(Tag::getName, tagName));
+                if (tag == null) {
+                    tag = new Tag();
+                    tag.setName(tagName);
+                    tagMapper.insert(tag);
+                }
+            });
 
-            // Also set string representation if needed
+            // Set string representation of tags
             evaluation.setTagsString(String.join(",", evaluationDTO.getTags()));
         }
 

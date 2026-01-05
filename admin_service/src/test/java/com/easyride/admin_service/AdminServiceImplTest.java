@@ -38,7 +38,7 @@ class AdminServiceImplTest {
                                 .build();
 
                 // 2. Mock
-                when(adminUserMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+                when(adminUserMapper.selectCount(ArgumentMatchers.<LambdaQueryWrapper<AdminUser>>any())).thenReturn(0L);
                 when(adminUserMapper.insert(any(AdminUser.class)))
                                 .thenAnswer(invocation -> {
                                         AdminUser user = invocation.getArgument(0);
@@ -50,7 +50,7 @@ class AdminServiceImplTest {
                 AdminUser createdUser = adminService.createAdminUser(dto);
 
                 // 4. 验证
-                verify(adminUserMapper).selectCount(any(LambdaQueryWrapper.class));
+                verify(adminUserMapper).selectCount(ArgumentMatchers.<LambdaQueryWrapper<AdminUser>>any());
                 verify(adminUserMapper).insert(any(AdminUser.class));
 
                 assertNotNull(createdUser);
@@ -69,7 +69,7 @@ class AdminServiceImplTest {
                                 .build();
 
                 // 2. Mock
-                when(adminUserMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
+                when(adminUserMapper.selectCount(ArgumentMatchers.<LambdaQueryWrapper<AdminUser>>any())).thenReturn(1L);
 
                 // 3. 执行
                 RuntimeException ex = assertThrows(RuntimeException.class,
