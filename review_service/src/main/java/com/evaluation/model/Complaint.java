@@ -1,7 +1,7 @@
 package com.evaluation.model;
 
 import java.time.LocalDateTime;
-import java.util.List;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import com.baomidou.mybatisplus.annotation.IdType;

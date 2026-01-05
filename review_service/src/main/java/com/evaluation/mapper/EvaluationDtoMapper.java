@@ -2,10 +2,8 @@ package com.evaluation.mapper;
 
 import com.evaluation.dto.EvaluationDTO;
 import com.evaluation.model.Evaluation;
-import com.evaluation.model.Tag;
-import org.springframework.stereotype.Component;
 
-import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
 /**
  * 评价映射器，用于实体和DTO之间的转换

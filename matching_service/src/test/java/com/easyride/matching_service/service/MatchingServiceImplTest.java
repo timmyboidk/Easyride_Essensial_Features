@@ -24,7 +24,6 @@ import org.springframework.data.redis.domain.geo.Metrics;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;

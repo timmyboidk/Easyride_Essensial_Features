@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.dto.PaymentResponseDto;
 import com.easyride.payment_service.exception.PaymentServiceException;
-import com.easyride.payment_service.model.PassengerPaymentMethod;
+
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.repository.PassengerPaymentMethodMapper;
