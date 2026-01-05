@@ -1,16 +1,17 @@
 package com.easyride.admin_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "driver_applications")
+@TableName("driver_applications")
 @Data
 @NoArgsConstructor
 public class DriverApplication {
-    @Id
+    @TableId(type = IdType.INPUT)
     private Long driverId; // Corresponds to User ID from User Service
 
     private String username; // From event
@@ -19,7 +20,6 @@ public class DriverApplication {
     // private String driverLicenseDocumentUrl;
     // private String vehicleDocumentUrl;
 
-    @Enumerated(EnumType.STRING)
     private DriverApplicationStatus status;
 
     private LocalDateTime applicationTime; // From event or when this record created
@@ -27,7 +27,8 @@ public class DriverApplication {
     private Long reviewedByAdminId;
     private String adminNotes;
 
-    public DriverApplication(Long driverId, String username, String driverLicenseNumber, LocalDateTime applicationTime) {
+    public DriverApplication(Long driverId, String username, String driverLicenseNumber,
+            LocalDateTime applicationTime) {
         this.driverId = driverId;
         this.username = username;
         this.driverLicenseNumber = driverLicenseNumber;

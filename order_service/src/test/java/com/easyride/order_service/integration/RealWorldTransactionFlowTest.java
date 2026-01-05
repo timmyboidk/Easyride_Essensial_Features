@@ -1,8 +1,8 @@
 package com.easyride.order_service.integration;
 
 import com.easyride.order_service.dto.*;
-import com.easyride.order_service.model.*;
 import com.easyride.order_service.repository.*;
+import com.easyride.order_service.model.*;
 import com.easyride.order_service.rocket.OrderEventProducer;
 import com.easyride.order_service.service.OrderServiceImpl;
 import com.easyride.order_service.service.PricingService;
@@ -14,7 +14,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,13 +24,13 @@ import static org.mockito.Mockito.*;
 class RealWorldTransactionFlowTest {
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderMapper orderMapper; // Changed from OrderRepository to OrderMapper
     @Mock
-    private PassengerRepository passengerRepository;
+    private PassengerMapper passengerMapper; // Changed from PassengerRepository to PassengerMapper
     @Mock
-    private DriverRepository driverRepository;
+    private DriverMapper driverMapper; // Changed from DriverRepository to DriverMapper
     @Mock
-    private UserRepository userRepository;
+    private UserMapper userMapper; // Changed from UserRepository to UserMapper
     @Mock
     private PricingService pricingService;
     @Mock
@@ -45,32 +44,43 @@ class RealWorldTransactionFlowTest {
 
     @BeforeEach
     void setUp() {
-        // Simulate DB persistence for Order
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+        // Simulate DB persistence for Order (Insert)
+        when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
             if (order.getId() == null) {
                 order.setId(1001L);
             }
             orderStore.set(order);
-            return order;
+            return 1; // Mappers typically return affected rows count
         });
 
-        when(orderRepository.findById(anyLong())).thenAnswer(invocation -> {
+        // Simulate DB persistence for Order (Update)
+        lenient().when(orderMapper.updateById(any(Order.class))).thenAnswer(invocation -> {
+            Order order = invocation.getArgument(0);
+            orderStore.set(order);
+            return 1; // Mappers typically return affected rows count
+        });
+
+        when(orderMapper.selectById(anyLong())).thenAnswer(invocation -> {
             Long id = invocation.getArgument(0);
             if (orderStore.get() != null && orderStore.get().getId().equals(id)) {
-                return Optional.of(orderStore.get());
+                return orderStore.get(); // Mappers typically return the entity directly or null
             }
-            return Optional.empty();
+            return null;
         });
 
-        // Simulate DB persistence for Driver
-        when(driverRepository.save(any(Driver.class))).thenAnswer(invocation -> {
+        // Simulate DB persistence for Driver (Update)
+        // Since test doesn't explicitly save Driver via service (service logic for
+        // accept might, but we mock mapper)
+        // Actually OrderService might update driver availability using DriverMapper.
+        lenient().when(driverMapper.updateById(any(Driver.class))).thenAnswer(invocation -> {
             Driver driver = invocation.getArgument(0);
             driverStore.set(driver);
-            return driver;
+            return 1; // Mappers typically return affected rows count
         });
 
-        when(driverRepository.findById(anyLong())).thenAnswer(invocation -> {
+        // Mock Driver retrieval
+        when(driverMapper.selectById(anyLong())).thenAnswer(invocation -> {
             Long id = invocation.getArgument(0);
             if (id == 2002L) { // Driver ID
                 if (driverStore.get() == null) {
@@ -79,18 +89,18 @@ class RealWorldTransactionFlowTest {
                     d.setAvailable(true);
                     driverStore.set(d);
                 }
-                return Optional.of(driverStore.get());
+                return driverStore.get(); // Mappers typically return the entity directly or null
             }
-            return Optional.empty();
+            return null;
         });
 
         // Mock Passenger
-        when(passengerRepository.findById(anyLong())).thenAnswer(invocation -> {
+        when(passengerMapper.selectById(anyLong())).thenAnswer(invocation -> {
             Long id = invocation.getArgument(0);
             Passenger p = new Passenger();
             p.setId(id);
             p.setUsername("Passenger_" + id);
-            return Optional.of(p);
+            return p; // Mappers typically return the entity directly or null
         });
 
         // Mock Pricing
@@ -122,7 +132,7 @@ class RealWorldTransactionFlowTest {
 
         assertNotNull(createdOrder);
         assertEquals(OrderStatus.PENDING_MATCH, createdOrder.getStatus());
-        assertEquals(101L, orderStore.get().getPassenger().getId());
+        assertEquals(101L, orderStore.get().getPassengerId());
 
         System.out.println("Step 1: Order Created. Status: " + createdOrder.getStatus());
 
@@ -140,7 +150,7 @@ class RealWorldTransactionFlowTest {
         orderService.processDriverAssigned(assignedEvent);
 
         assertEquals(OrderStatus.DRIVER_ASSIGNED, orderStore.get().getStatus());
-        assertEquals(2002L, orderStore.get().getDriver().getId());
+        assertEquals(2002L, orderStore.get().getDriverId());
         assertFalse(driverStore.get().isAvailable()); // Driver should be busy
 
         System.out.println("Step 2: Driver Assigned. Status: " + orderStore.get().getStatus());

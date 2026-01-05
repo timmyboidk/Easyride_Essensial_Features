@@ -2,18 +2,17 @@ package com.evaluation.model;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.IdType;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "review_windows")
+@TableName("review_windows")
 @Data
 @NoArgsConstructor
 // Optional helper entity if managing windows explicitly
 public class ReviewWindow { // Tracks if a review can be submitted for an order
-    @Id
+    @TableId(type = IdType.INPUT)
     private Long orderId; // Use Order ID as primary key
 
     private Long passengerId;
@@ -38,77 +37,5 @@ public class ReviewWindow { // Tracks if a review can be submitted for an order
         this.driverCanReview = true;
         this.passengerReviewed = false;
         this.driverReviewed = false;
-    }
-
-    public Long getOrderId() {
-        return orderId;
-    }
-
-    public void setOrderId(Long orderId) {
-        this.orderId = orderId;
-    }
-
-    public Long getPassengerId() {
-        return passengerId;
-    }
-
-    public void setPassengerId(Long passengerId) {
-        this.passengerId = passengerId;
-    }
-
-    public Long getDriverId() {
-        return driverId;
-    }
-
-    public void setDriverId(Long driverId) {
-        this.driverId = driverId;
-    }
-
-    public LocalDateTime getWindowOpenTime() {
-        return windowOpenTime;
-    }
-
-    public void setWindowOpenTime(LocalDateTime windowOpenTime) {
-        this.windowOpenTime = windowOpenTime;
-    }
-
-    public LocalDateTime getWindowCloseTime() {
-        return windowCloseTime;
-    }
-
-    public void setWindowCloseTime(LocalDateTime windowCloseTime) {
-        this.windowCloseTime = windowCloseTime;
-    }
-
-    public boolean isPassengerCanReview() {
-        return passengerCanReview;
-    }
-
-    public void setPassengerCanReview(boolean passengerCanReview) {
-        this.passengerCanReview = passengerCanReview;
-    }
-
-    public boolean isDriverCanReview() {
-        return driverCanReview;
-    }
-
-    public void setDriverCanReview(boolean driverCanReview) {
-        this.driverCanReview = driverCanReview;
-    }
-
-    public boolean isPassengerReviewed() {
-        return passengerReviewed;
-    }
-
-    public void setPassengerReviewed(boolean passengerReviewed) {
-        this.passengerReviewed = passengerReviewed;
-    }
-
-    public boolean isDriverReviewed() {
-        return driverReviewed;
-    }
-
-    public void setDriverReviewed(boolean driverReviewed) {
-        this.driverReviewed = driverReviewed;
     }
 }

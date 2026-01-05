@@ -1,14 +1,15 @@
 package com.easyride.matching_service.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.matching_service.config.MatchingConfig;
 import com.easyride.matching_service.dto.*;
 import com.easyride.matching_service.model.DriverStatus;
 import com.easyride.matching_service.model.GrabbableOrder;
 import com.easyride.matching_service.model.GrabbableOrderStatus;
 import com.easyride.matching_service.model.MatchingRecord;
-import com.easyride.matching_service.repository.DriverStatusRepository;
-import com.easyride.matching_service.repository.GrabbableOrderRepository;
-import com.easyride.matching_service.repository.MatchingRecordRepository;
+import com.easyride.matching_service.repository.DriverStatusMapper;
+import com.easyride.matching_service.repository.GrabbableOrderMapper;
+import com.easyride.matching_service.repository.MatchingRecordMapper;
 import com.easyride.matching_service.rocket.MatchingEventProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,26 +31,26 @@ import java.util.stream.Collectors;
 @Service
 public class MatchingServiceImpl implements MatchingService {
 
-    private final DriverStatusRepository driverStatusRepository;
-    private final MatchingRecordRepository matchingRecordRepository;
+    private final DriverStatusMapper driverStatusMapper;
+    private final MatchingRecordMapper matchingRecordMapper;
     private final MatchingEventProducer matchingEventProducer;
-    private final GrabbableOrderRepository grabbableOrderRepository;
+    private final GrabbableOrderMapper grabbableOrderMapper;
     private final MatchingConfig matchingConfig;
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String DRIVER_LOCATIONS_KEY = "driver:locations";
 
-    public MatchingServiceImpl(DriverStatusRepository driverStatusRepository,
-            MatchingRecordRepository matchingRecordRepository,
+    public MatchingServiceImpl(DriverStatusMapper driverStatusMapper,
+            MatchingRecordMapper matchingRecordMapper,
             MatchingEventProducer matchingEventProducer,
             MatchingConfig matchingConfig,
-            GrabbableOrderRepository grabbableOrderRepository,
+            GrabbableOrderMapper grabbableOrderMapper,
             RedisTemplate<String, String> redisTemplate) {
-        this.driverStatusRepository = driverStatusRepository;
-        this.matchingRecordRepository = matchingRecordRepository;
+        this.driverStatusMapper = driverStatusMapper;
+        this.matchingRecordMapper = matchingRecordMapper;
         this.matchingEventProducer = matchingEventProducer;
         this.matchingConfig = matchingConfig;
-        this.grabbableOrderRepository = grabbableOrderRepository;
+        this.grabbableOrderMapper = grabbableOrderMapper;
         this.redisTemplate = redisTemplate;
     }
 
@@ -83,11 +84,9 @@ public class MatchingServiceImpl implements MatchingService {
                     Long driverId = Long.parseLong(driverIdStr);
                     double distanceToPickup = result.getDistance().getValue();
 
-                    Optional<DriverStatus> driverOpt = driverStatusRepository.findById(driverId);
-                    if (driverOpt.isEmpty())
+                    DriverStatus driver = driverStatusMapper.selectById(driverId);
+                    if (driver == null)
                         return null;
-
-                    DriverStatus driver = driverOpt.get();
 
                     // Preliminary checks
                     if (!driver.isAvailable()) {
@@ -152,7 +151,11 @@ public class MatchingServiceImpl implements MatchingService {
             bestDriver.setCurrentPassengersInCar(bestDriver.getCurrentPassengersInCar() + 1);
         }
         bestDriver.setLastStatusUpdateTime(LocalDateTime.now());
-        driverStatusRepository.save(bestDriver);
+        if (driverStatusMapper.updateById(bestDriver) == 0) {
+            log.warn("Failed to assign driver {} due to concurrent update.", bestDriver.getDriverId());
+            // In a real scenario, you might retry or try the next ranked driver.
+            return null;
+        }
 
         MatchingRecord record = MatchingRecord.builder()
                 .orderId(matchRequest.getOrderId())
@@ -162,7 +165,7 @@ public class MatchingServiceImpl implements MatchingService {
                 .matchStrategy("AUTOMATIC")
                 .success(true)
                 .build();
-        matchingRecordRepository.save(record);
+        matchingRecordMapper.insert(record);
 
         log.info("Successfully matched driver {} to order {}", bestDriver.getDriverId(), matchRequest.getOrderId());
 
@@ -208,11 +211,11 @@ public class MatchingServiceImpl implements MatchingService {
     @Transactional
     public void updateDriverStatus(Long driverId, DriverStatusUpdateDto statusUpdateDto) {
         log.info("Updating status for driver ID {}: {}", driverId, statusUpdateDto);
-        DriverStatus driverStatus = driverStatusRepository.findById(driverId)
-                .orElseThrow(() -> {
-                    log.warn("DriverStatus not found for ID {} during update attempt.", driverId);
-                    return new RuntimeException("司机状态记录未找到: " + driverId);
-                });
+        DriverStatus driverStatus = driverStatusMapper.selectById(driverId);
+        if (driverStatus == null) {
+            log.warn("DriverStatus not found for ID {} during update attempt.", driverId);
+            throw new RuntimeException("司机状态记录未找到: " + driverId);
+        }
 
         driverStatus.setAvailable(statusUpdateDto.getAvailable());
         if (statusUpdateDto.getCurrentLatitude() != null && statusUpdateDto.getCurrentLongitude() != null) {
@@ -231,7 +234,7 @@ public class MatchingServiceImpl implements MatchingService {
         }
 
         driverStatus.setLastStatusUpdateTime(LocalDateTime.now());
-        driverStatusRepository.save(driverStatus);
+        driverStatusMapper.updateById(driverStatus);
 
         // Update Redis Geo information
         if (driverStatus.isAvailable()) {
@@ -261,13 +264,14 @@ public class MatchingServiceImpl implements MatchingService {
                 matchRequest.getEstimatedCost(),
                 matchRequest.getOrderTime(),
                 LocalDateTime.now().plusMinutes(10));
-        grabbableOrderRepository.save(grabbableOrder);
+        grabbableOrderMapper.insert(grabbableOrder);
     }
 
     @Override
     public List<AvailableOrderDto> getAvailableOrdersForDriver() {
-        List<GrabbableOrder> pendingOrders = grabbableOrderRepository.findByStatusAndExpiryTimeAfter(
-                GrabbableOrderStatus.PENDING_GRAB, LocalDateTime.now());
+        List<GrabbableOrder> pendingOrders = grabbableOrderMapper.selectList(new LambdaQueryWrapper<GrabbableOrder>()
+                .eq(GrabbableOrder::getStatus, GrabbableOrderStatus.PENDING_GRAB)
+                .gt(GrabbableOrder::getExpiryTime, LocalDateTime.now()));
         log.info("Found {} pending grabbable orders.", pendingOrders.size());
 
         return pendingOrders.stream()
@@ -287,32 +291,29 @@ public class MatchingServiceImpl implements MatchingService {
     @Transactional
     public boolean acceptOrder(Long orderId, Long driverId) {
         log.info("Driver {} attempting to accept/grab order {}", driverId, orderId);
-        Optional<GrabbableOrder> grabbableOrderOpt = grabbableOrderRepository.findById(orderId);
-        Optional<DriverStatus> driverOpt = driverStatusRepository.findById(driverId);
+        GrabbableOrder grabbableOrder = grabbableOrderMapper.selectById(orderId);
+        DriverStatus driver = driverStatusMapper.selectById(driverId);
 
-        if (driverOpt.isEmpty() || !driverOpt.get().isAvailable()) {
+        if (driver == null || !driver.isAvailable()) {
             log.warn("Driver {} not found or not available to accept order {}", driverId, orderId);
             return false;
         }
 
-        DriverStatus driver = driverOpt.get();
-
-        if (grabbableOrderOpt.isPresent()) {
-            GrabbableOrder grabbableOrder = grabbableOrderOpt.get();
+        if (grabbableOrder != null) {
             if (grabbableOrder.getStatus() == GrabbableOrderStatus.PENDING_GRAB &&
                     grabbableOrder.getExpiryTime().isAfter(LocalDateTime.now())) {
 
                 grabbableOrder.setStatus(GrabbableOrderStatus.GRABBED);
                 grabbableOrder.setGrabbingDriverId(driverId);
-                grabbableOrderRepository.save(grabbableOrder);
+                grabbableOrderMapper.updateById(grabbableOrder);
 
                 driver.setAvailable(false);
                 driver.setLastStatusUpdateTime(LocalDateTime.now());
-                driverStatusRepository.save(driver);
+                driverStatusMapper.updateById(driver);
 
                 // For simplicity, directly assign here.
                 grabbableOrder.setStatus(GrabbableOrderStatus.ASSIGNED);
-                grabbableOrderRepository.save(grabbableOrder);
+                grabbableOrderMapper.updateById(grabbableOrder);
 
                 MatchingRecord record = MatchingRecord.builder()
                         .orderId(orderId)
@@ -322,7 +323,7 @@ public class MatchingServiceImpl implements MatchingService {
                         .status("ASSIGNED")
                         .success(true)
                         .build();
-                matchingRecordRepository.save(record);
+                matchingRecordMapper.insert(record);
 
                 DriverAssignedEventDto assignedEvent = new DriverAssignedEventDto(
                         orderId, driverId, "Driver " + driverId,

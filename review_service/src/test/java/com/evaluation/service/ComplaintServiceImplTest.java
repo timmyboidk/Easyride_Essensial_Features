@@ -1,11 +1,11 @@
 package com.evaluation.service;
 
 import com.evaluation.dto.ComplaintDTO;
-import com.evaluation.mapper.ComplaintMapper;
+import com.evaluation.mapper.ComplaintDtoMapper;
 import com.evaluation.model.Complaint;
 import com.evaluation.model.Evaluation;
-import com.evaluation.repository.ComplaintRepository;
-import com.evaluation.repository.EvaluationRepository;
+import com.evaluation.repository.ComplaintMapper;
+import com.evaluation.repository.EvaluationMapper;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,15 +25,15 @@ import static org.mockito.Mockito.*;
 class ComplaintServiceImplTest {
 
     @Mock
-    private ComplaintRepository complaintRepository;
-    @Mock
     private ComplaintMapper complaintMapper;
+    @Mock
+    private ComplaintDtoMapper complaintDtoMapper;
     @Mock
     private RocketMQTemplate rocketMQTemplate;
     @Mock
     private SensitiveWordService sensitiveWordService;
     @Mock
-    private EvaluationRepository evaluationRepository;
+    private EvaluationMapper evaluationMapper;
     @Mock
     private FileStorageService fileStorageService;
 
@@ -54,11 +54,11 @@ class ComplaintServiceImplTest {
         complaint.setId(1L);
         complaint.setComplainantId(1L);
 
-        when(evaluationRepository.findById(100L)).thenReturn(Optional.of(evaluation));
+        when(evaluationMapper.selectById(100L)).thenReturn(evaluation);
         when(sensitiveWordService.containsSensitiveWords(anyString())).thenReturn(false);
-        when(complaintMapper.toEntity(dto)).thenReturn(complaint);
-        when(complaintRepository.save(any(Complaint.class))).thenReturn(complaint);
-        when(complaintMapper.toDTO(complaint)).thenReturn(dto);
+        when(complaintDtoMapper.toEntity(dto)).thenReturn(complaint);
+        when(complaintMapper.insert(any(Complaint.class))).thenReturn(1);
+        when(complaintDtoMapper.toDTO(complaint)).thenReturn(dto);
 
         ComplaintDTO result = complaintService.fileComplaint(dto, null);
 

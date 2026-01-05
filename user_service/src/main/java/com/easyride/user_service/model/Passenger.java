@@ -1,15 +1,17 @@
 package com.easyride.user_service.model;
 
-import jakarta.persistence.Entity;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.*;
 
-@Entity
-@Data
+@TableName("passengers")
+@Getter
+@Setter
 @NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Passenger extends User {
+    @TableId
+    private Long id;
+
     public Passenger(String username, String password, String email, String phoneNumber) {
         super(username, password, email, phoneNumber, Role.PASSENGER);
     }

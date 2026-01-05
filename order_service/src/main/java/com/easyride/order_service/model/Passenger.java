@@ -1,10 +1,9 @@
 package com.easyride.order_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.*;
 
-@Entity
-@Table(name = "passengers")
+@TableName("passengers")
 @Getter
 @Setter
 @NoArgsConstructor

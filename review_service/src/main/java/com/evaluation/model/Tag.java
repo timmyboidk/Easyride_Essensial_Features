@@ -1,28 +1,19 @@
 package com.evaluation.model;
 
-import jakarta.persistence.*;
-import java.util.Set;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 
 /**
  * 标签实体类
  */
-@Entity
-@Table(name = "tags")
+@TableName("tags")
 @Data
 @NoArgsConstructor
 public class Tag {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
-
-    // 标签名称
-    @Column(nullable = false, unique = true)
     private String name;
-
-    // 关联的评价（可选）
-    @ManyToMany(mappedBy = "tags")
-    private Set<Evaluation> evaluations;
 }

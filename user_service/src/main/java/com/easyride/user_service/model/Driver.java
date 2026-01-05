@@ -1,56 +1,41 @@
 package com.easyride.user_service.model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Table;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-@Entity
-@Table(name = "drivers")
+@TableName("drivers")
 @Getter
 @Setter
 @NoArgsConstructor
 public class Driver extends User {
+    @TableId
+    private Long id;
 
-    @Column(nullable = false)
     private String realName;
 
-    @Column(nullable = false)
     private String idCardNumber;
 
-    @Column(nullable = false)
     private String idCardFrontUrl;
 
-    @Column(nullable = false)
     private String idCardBackUrl;
 
-    @Column(nullable = false)
     private String driverLicenseNumber;
 
-    @Column(nullable = false)
     private String driverLicenseUrl;
 
-    @Column(nullable = false)
     private String carModel;
 
-    @Column(nullable = false)
     private String carLicensePlate;
 
-    @Column(nullable = false)
     private String carInsuranceUrl;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private DriverApprovalStatus verificationStatus = DriverApprovalStatus.PENDING_SUBMISSION;
 
-    @Column(columnDefinition = "TEXT")
     private String reviewNotes;
 
-    @Column(precision = 3, scale = 2)
     private Double serviceRatingAvg;
 
     public Driver(String username, String password, String email, String phoneNumber) {

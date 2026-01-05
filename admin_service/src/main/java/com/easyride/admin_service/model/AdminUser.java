@@ -1,10 +1,11 @@
 package com.easyride.admin_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.*;
 
-@Entity
-@Table(name = "admin_users")
+@TableName("admin_users")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -12,8 +13,7 @@ import lombok.*;
 @Builder
 public class AdminUser {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
     // 管理员用户名
@@ -23,7 +23,6 @@ public class AdminUser {
     private String password;
 
     // 管理员角色，如财务、客服、超级管理员等
-    @Enumerated(EnumType.STRING)
     private Role role;
 
     // 是否启用

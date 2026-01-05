@@ -9,13 +9,18 @@ spring:
     username: admin # Change as needed
     password: 2721388927 # Change as needed
     driver-class-name: com.mysql.cj.jdbc.Driver
-  jpa:
-    hibernate:
-      ddl-auto: update # Or validate for prod
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQLDialect
+  
+  # MyBatis-Plus Configuration
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.easyride.admin_service.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+
   security: # Basic security properties, more in SecurityConfig.java
     user:
       name: admin # Default admin for basic auth on actuator/dev, not for app logic

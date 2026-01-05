@@ -1,8 +1,9 @@
 package com.easyride.analytics_service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.analytics_service.model.AnalyticsRecord;
 import com.easyride.analytics_service.model.RecordType;
-import com.easyride.analytics_service.repository.AnalyticsRepository;
+import com.easyride.analytics_service.repository.AnalyticsMapper;
 import com.easyride.analytics_service.service.AnalyticsServiceImpl;
 import com.easyride.analytics_service.dto.AnalyticsRequestDto;
 import com.easyride.analytics_service.dto.DashboardSummaryDto;
@@ -32,7 +33,7 @@ import static org.mockito.Mockito.*;
 class AnalyticsServiceImplTest {
 
     @Mock
-    private AnalyticsRepository analyticsRepository;
+    private AnalyticsMapper analyticsMapper;
 
     @Mock
     private RedisTemplate<String, Object> redisTemplate;
@@ -65,7 +66,7 @@ class AnalyticsServiceImplTest {
 
         analyticsService.recordAnalyticsData(request);
 
-        verify(analyticsRepository, times(1)).save(isA(AnalyticsRecord.class));
+        verify(analyticsMapper, times(1)).insert(isA(AnalyticsRecord.class));
     }
 
     @Test
@@ -83,7 +84,7 @@ class AnalyticsServiceImplTest {
 
         verify(hyperLogLogOperations, times(1)).add(argThat(s -> s != null && s.contains("dau:")), eq("user123"));
         verify(hyperLogLogOperations, times(1)).add(argThat(s -> s != null && s.contains("mau:")), eq("user123"));
-        verify(analyticsRepository, never()).save(isA(AnalyticsRecord.class));
+        verify(analyticsMapper, never()).insert(isA(AnalyticsRecord.class));
     }
 
     @Test
@@ -113,14 +114,15 @@ class AnalyticsServiceImplTest {
 
         AnalyticsRecord revenueRecord = new AnalyticsRecord();
         revenueRecord.setMetricValue(500.0);
+        revenueRecord.setRecordType(RecordType.ORDER_REVENUE);
 
         AnalyticsRecord countRecord = new AnalyticsRecord();
         countRecord.setMetricValue(5.0); // Assuming 5 completed orders
+        countRecord.setRecordType(RecordType.COMPLETED_ORDERS_COUNT);
 
-        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_REVENUE), any(), any()))
-                .thenReturn(Collections.singletonList(revenueRecord));
-        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.COMPLETED_ORDERS_COUNT), any(),
-                any()))
+        // Use chained returns for sequential calls: 1st for revenue, 2nd for count
+        when(analyticsMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(Collections.singletonList(revenueRecord))
                 .thenReturn(Collections.singletonList(countRecord));
 
         double aov = analyticsService.getAverageOrderValue(start, end);
@@ -133,10 +135,8 @@ class AnalyticsServiceImplTest {
         String start = "2023-10-01";
         String end = "2023-10-02";
 
-        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_REQUEST), any(), any()))
-                .thenReturn(10L);
-        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_ACCEPTED_BY_DRIVER), any(),
-                any()))
+        when(analyticsMapper.selectCount(any(LambdaQueryWrapper.class)))
+                .thenReturn(10L)
                 .thenReturn(8L);
 
         double rate = analyticsService.getDriverAcceptanceRate(start, end);
@@ -147,8 +147,7 @@ class AnalyticsServiceImplTest {
     @Test
     void getUserRetentionRate_ShouldReturnZero_WhenNoCohortUsers() {
         String cohortMonth = "2023-01";
-        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.USER_REGISTRATION), any(), any()))
-                .thenReturn(Collections.emptyList());
+        when(analyticsMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.emptyList());
 
         double retention = analyticsService.getUserRetentionRate(cohortMonth, 1);
 
@@ -157,13 +156,15 @@ class AnalyticsServiceImplTest {
 
     @Test
     void getAdminDashboardSummary_ShouldReturnSummary() {
-        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.COMPLETED_ORDERS_COUNT), any(),
-                any()))
-                .thenReturn(100L);
-        when(analyticsRepository.findByRecordTypeAndRecordTimeBetween(eq(RecordType.ORDER_REVENUE), any(), any()))
+        // selectCount for completed orders
+        // selectList for revenue
+        // selectCount for new users
+        when(analyticsMapper.selectCount(any(LambdaQueryWrapper.class)))
+                .thenReturn(100L) // completed orders
+                .thenReturn(50L); // new users
+
+        when(analyticsMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(List.of(AnalyticsRecord.builder().metricValue(2000.0).build()));
-        when(analyticsRepository.countByRecordTypeAndRecordTimeBetween(eq(RecordType.USER_REGISTRATION), any(), any()))
-                .thenReturn(50L);
 
         DashboardSummaryDto summary = analyticsService.getAdminDashboardSummary("TODAY");
 

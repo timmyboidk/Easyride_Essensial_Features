@@ -1,5 +1,6 @@
 package com.easyride.order_service.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.order_service.dto.OrderCreateDto;
 import com.easyride.order_service.dto.OrderResponseDto;
 import com.easyride.order_service.model.*;
@@ -19,20 +20,20 @@ public class OrderServiceImpl implements OrderService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderServiceImpl.class);
 
-    private final OrderRepository orderRepository;
-    private final PassengerRepository passengerRepository;
-    private final DriverRepository driverRepository;
+    private final OrderMapper orderMapper;
+    private final PassengerMapper passengerMapper;
+    private final DriverMapper driverMapper;
     private final PricingService pricingService;
     private final OrderEventProducer orderEventProducer;
 
-    public OrderServiceImpl(OrderRepository orderRepository,
-            PassengerRepository passengerRepository,
-            DriverRepository driverRepository,
+    public OrderServiceImpl(OrderMapper orderMapper,
+            PassengerMapper passengerMapper,
+            DriverMapper driverMapper,
             OrderEventProducer orderEventProducer,
             PricingService pricingService) {
-        this.orderRepository = orderRepository;
-        this.passengerRepository = passengerRepository;
-        this.driverRepository = driverRepository;
+        this.orderMapper = orderMapper;
+        this.passengerMapper = passengerMapper;
+        this.driverMapper = driverMapper;
         this.pricingService = pricingService;
         this.orderEventProducer = orderEventProducer;
     }
@@ -41,15 +42,15 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponseDto createOrder(OrderCreateDto orderCreateDto) {
         log.info("Processing order creation request for passenger ID: {}", orderCreateDto.getPassengerId());
-        Passenger passenger = passengerRepository.findById(orderCreateDto.getPassengerId())
-                .orElseGet(() -> {
-                    log.warn("Passenger entity not found for ID {}, creating a placeholder.",
-                            orderCreateDto.getPassengerId());
-                    Passenger newP = new Passenger();
-                    newP.setId(orderCreateDto.getPassengerId());
-                    newP.setUsername("Passenger " + orderCreateDto.getPassengerId()); // Placeholder name
-                    return passengerRepository.save(newP);
-                });
+        Passenger passenger = passengerMapper.selectById(orderCreateDto.getPassengerId());
+        if (passenger == null) {
+            log.warn("Passenger entity not found for ID {}, creating a placeholder.",
+                    orderCreateDto.getPassengerId());
+            passenger = new Passenger();
+            passenger.setId(orderCreateDto.getPassengerId());
+            passenger.setUsername("Passenger " + orderCreateDto.getPassengerId()); // Placeholder name
+            passengerMapper.insert(passenger);
+        }
 
         PricingContext pricingContext = PricingContext.builder()
                 .startLocation(orderCreateDto.getStartLocation())
@@ -61,7 +62,7 @@ public class OrderServiceImpl implements OrderService {
         EstimatedPriceInfo estimatedPriceInfo = pricingService.calculateEstimatedPrice(pricingContext);
 
         Order order = new Order();
-        order.setPassenger(passenger);
+        order.setPassengerId(passenger.getId());
         order.setStartLatitude(orderCreateDto.getStartLocation().getLatitude());
         order.setStartLongitude(orderCreateDto.getStartLocation().getLongitude());
         order.setEndLatitude(orderCreateDto.getEndLocation().getLatitude());
@@ -76,6 +77,8 @@ public class OrderServiceImpl implements OrderService {
         order.setPassengerNotes(orderCreateDto.getPassengerNotes());
         order.setPassengerCount(orderCreateDto.getPassengerCount());
         order.setCreatedBy(passenger.getId());
+        order.setCreatedAt(LocalDateTime.now());
+        order.setUpdatedAt(LocalDateTime.now());
 
         if (orderCreateDto.getScheduledTime() != null) {
             if (orderCreateDto.getScheduledTime().isBefore(LocalDateTime.now().plusMinutes(15))) {
@@ -88,12 +91,13 @@ public class OrderServiceImpl implements OrderService {
             order.setStatus(OrderStatus.PENDING_MATCH);
         }
 
-        Order savedOrder = orderRepository.save(order);
+        orderMapper.insert(order);
+        Order savedOrder = order;
         log.info("Order (ID: {}) saved with status: {}. Scheduled time: {}", savedOrder.getId(), savedOrder.getStatus(),
                 savedOrder.getScheduledTime());
 
         if (order.getStatus() == OrderStatus.PENDING_MATCH) {
-            OrderCreatedEvent event = mapToOrderCreatedEvent(savedOrder, estimatedPriceInfo);
+            OrderCreatedEvent event = mapToOrderCreatedEvent(savedOrder, estimatedPriceInfo, passenger);
             orderEventProducer.sendOrderCreatedEvent(event);
             log.info("ORDER_CREATED event published for immediate order ID: {}", savedOrder.getId());
         }
@@ -104,29 +108,35 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void acceptOrder(Long orderId, Long driverId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
-        Driver driver = driverRepository.findById(driverId)
-                .orElseThrow(() -> new ResourceNotFoundException("司机不存在"));
-        if (order.getDriver() != null && order.getDriver().getId().equals(driver.getId())) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单不存在");
+        }
+        Driver driver = driverMapper.selectById(driverId);
+        if (driver == null) {
+            throw new ResourceNotFoundException("司机不存在");
+        }
+        if (order.getDriverId() != null && order.getDriverId().equals(driver.getId())) {
             // Driver is already assigned to this order, proceed to accept
         } else if (!driver.isAvailable()) {
             throw new OrderServiceException("司机不可用");
         }
-        order.setDriver(driver);
+        order.setDriverId(driver.getId());
         order.setStatus(OrderStatus.ACCEPTED);
         order.setUpdatedAt(LocalDateTime.now());
         order.setUpdatedBy(driverId);
-        orderRepository.save(order);
+        orderMapper.updateById(order);
         driver.setAvailable(false);
-        driverRepository.save(driver);
+        driverMapper.updateById(driver);
     }
 
     @Override
     @Transactional(readOnly = true)
     public OrderResponseDto getOrderDetails(Long orderId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单不存在");
+        }
         return mapToOrderResponseDto(order);
     }
 
@@ -134,26 +144,32 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void cancelOrder(Long orderId) {
         log.info("Processing cancellation for order ID: {}", orderId);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单 " + orderId + " 未找到"));
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单 " + orderId + " 未找到");
+        }
 
         order.setStatus(OrderStatus.CANCELED);
         order.setUpdatedAt(LocalDateTime.now());
         order.setCancellationReason("Cancelled by user/system");
 
-        if (order.getDriver() != null) {
-            Driver driver = order.getDriver();
-            driver.setAvailable(true);
-            driverRepository.save(driver);
-            log.info("Driver {} made available after order {} cancellation.", driver.getId(), orderId);
+        if (order.getDriverId() != null) {
+            Driver driver = driverMapper.selectById(order.getDriverId());
+            if (driver != null) {
+                driver.setAvailable(true);
+                driverMapper.updateById(driver);
+                log.info("Driver {} made available after order {} cancellation.", driver.getId(), orderId);
+            }
         }
-        orderRepository.save(order);
+        orderMapper.updateById(order);
         log.info("Order ID: {} successfully cancelled.", orderId);
+
+        Passenger passenger = passengerMapper.selectById(order.getPassengerId());
 
         OrderEventDto cancelEvent = new OrderEventDto(
                 order.getId(),
-                order.getPassenger().getId(),
-                order.getDriver() != null ? order.getDriver().getId() : null,
+                order.getPassengerId(),
+                order.getDriverId(),
                 OrderStatus.CANCELED,
                 "订单已取消",
                 LocalDateTime.now(),
@@ -165,19 +181,23 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void updateOrderStatus(Long orderId, OrderStatus status) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单不存在"));
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单不存在");
+        }
         order.setStatus(status);
         order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
+        orderMapper.updateById(order);
     }
 
     @Override
     @Transactional
     public void processDriverAssigned(DriverAssignedEventDto event) {
         log.info("Processing driver assignment for order ID: {}", event.getOrderId());
-        Order order = orderRepository.findById(event.getOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("订单 " + event.getOrderId() + " 未找到以分配司机"));
+        Order order = orderMapper.selectById(event.getOrderId());
+        if (order == null) {
+            throw new ResourceNotFoundException("订单 " + event.getOrderId() + " 未找到以分配司机");
+        }
 
         if (order.getStatus() != OrderStatus.PENDING_MATCH && order.getStatus() != OrderStatus.SCHEDULED) {
             log.warn("Order {} is not in a state to be assigned a driver. Current status: {}", event.getOrderId(),
@@ -185,35 +205,36 @@ public class OrderServiceImpl implements OrderService {
             return;
         }
 
-        Driver driver = driverRepository.findById(event.getDriverId()).orElseGet(() -> {
+        Driver driver = driverMapper.selectById(event.getDriverId());
+        if (driver == null) {
             log.warn("Driver entity not found locally for ID {}, creating a placeholder.", event.getDriverId());
-            Driver newDriver = new Driver();
-            newDriver.setId(event.getDriverId());
-            newDriver.setUsername(
+            driver = new Driver();
+            driver.setId(event.getDriverId());
+            driver.setUsername(
                     event.getDriverName() != null ? event.getDriverName() : "Driver " + event.getDriverId());
-            newDriver.setAvailable(false);
-            return driverRepository.save(newDriver);
-        });
+            driver.setAvailable(false);
+            driverMapper.insert(driver);
+        }
 
         if (!driver.isAvailable()) {
             log.warn("Driver {} was assigned to order {} but is no longer available. Requesting rematch or notifying.",
                     driver.getId(), order.getId());
             order.setStatus(OrderStatus.PENDING_MATCH);
-            orderRepository.save(order);
+            orderMapper.updateById(order);
             return;
         }
 
-        order.setDriver(driver);
+        order.setDriverId(driver.getId());
         order.setStatus(OrderStatus.DRIVER_ASSIGNED);
         order.setUpdatedAt(LocalDateTime.now());
-        orderRepository.save(order);
+        orderMapper.updateById(order);
 
         driver.setAvailable(false);
-        driverRepository.save(driver);
+        driverMapper.updateById(driver);
         log.info("Driver {} successfully assigned to order {}.", event.getDriverId(), event.getOrderId());
 
         OrderEventDto orderStatusUpdateEvent = new OrderEventDto(
-                order.getId(), order.getPassenger().getId(), order.getDriver().getId(),
+                order.getId(), order.getPassengerId(), order.getDriverId(),
                 OrderStatus.DRIVER_ASSIGNED, "司机已接单，正在前来", LocalDateTime.now(),
                 order.getStartLatitude(), order.getStartLongitude());
         orderEventProducer.sendOrderStatusUpdateEvent(orderStatusUpdateEvent);
@@ -223,12 +244,12 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void processOrderMatchFailed(Long orderId, String reason) {
         log.warn("Order match failed for order ID: {}. Reason: {}", orderId, reason);
-        Order order = orderRepository.findById(orderId).orElse(null);
+        Order order = orderMapper.selectById(orderId);
         if (order != null
                 && (order.getStatus() == OrderStatus.PENDING_MATCH || order.getStatus() == OrderStatus.SCHEDULED)) {
             order.setStatus(OrderStatus.FAILED);
             order.setUpdatedAt(LocalDateTime.now());
-            orderRepository.save(order);
+            orderMapper.updateById(order);
             log.info("Order ID: {} marked as FAILED due to matching failure.", orderId);
         }
     }
@@ -237,8 +258,10 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public void processPaymentConfirmation(Long orderId, Double finalAmount, String paymentTransactionId) {
         log.info("Processing payment confirmation for order ID: {}", orderId);
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("订单 " + orderId + " 未找到"));
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new ResourceNotFoundException("订单 " + orderId + " 未找到");
+        }
 
         if (order.getStatus() == OrderStatus.COMPLETED || order.getStatus() == OrderStatus.PAYMENT_SETTLED) {
             order.setActualDropOffTime(LocalDateTime.now());
@@ -253,7 +276,7 @@ public class OrderServiceImpl implements OrderService {
             order.setActualDistance(finalPrice.getActualDistance());
             order.setActualDuration(finalPrice.getActualDuration());
             order.setStatus(OrderStatus.PAYMENT_SETTLED);
-            orderRepository.save(order);
+            orderMapper.updateById(order);
 
             log.info("Order ID {} status updated to PAYMENT_SETTLED. Final cost: {}", orderId, finalAmount);
 
@@ -262,8 +285,8 @@ public class OrderServiceImpl implements OrderService {
                     order.getFinalCost(),
                     order.getPaymentMethod().name(),
                     LocalDateTime.now(),
-                    order.getPassenger().getId(),
-                    order.getDriver() != null ? order.getDriver().getId() : null);
+                    order.getPassengerId(),
+                    order.getDriverId());
             orderEventProducer.sendOrderPaymentSettledEvent(settledEvent);
         } else {
             log.warn("Order {} is not in COMPLETED state to confirm payment. Current status: {}", orderId,
@@ -271,10 +294,10 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private OrderCreatedEvent mapToOrderCreatedEvent(Order order, EstimatedPriceInfo priceInfo) {
+    private OrderCreatedEvent mapToOrderCreatedEvent(Order order, EstimatedPriceInfo priceInfo, Passenger passenger) {
         return new OrderCreatedEvent(
                 order.getId(),
-                order.getPassenger().getId(),
+                order.getPassengerId(),
                 order.getStartLatitude(),
                 order.getStartLongitude(),
                 order.getEndLatitude(),
@@ -285,16 +308,18 @@ public class OrderServiceImpl implements OrderService {
                 order.getEstimatedCost(),
                 order.getScheduledTime(),
                 order.getOrderTime(),
-                order.getPassenger().getUsername());
+                passenger.getUsername());
     }
 
     private OrderResponseDto mapToOrderResponseDto(Order order) {
+        Passenger passenger = passengerMapper.selectById(order.getPassengerId());
+        Driver driver = order.getDriverId() != null ? driverMapper.selectById(order.getDriverId()) : null;
         return new OrderResponseDto(
                 order.getId(),
                 order.getStatus(),
-                order.getPassenger().getId(),
-                order.getPassenger().getUsername(),
-                order.getDriver() != null ? order.getDriver().getUsername() : null,
+                order.getPassengerId(),
+                passenger != null ? passenger.getUsername() : "Unknown",
+                driver != null ? driver.getUsername() : null,
                 order.getEstimatedCost(),
                 order.getEstimatedDistance(),
                 order.getEstimatedDuration());

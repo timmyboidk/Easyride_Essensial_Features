@@ -1,9 +1,10 @@
 package com.easyride.analytics_service.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.analytics_service.dto.*;
 import com.easyride.analytics_service.model.AnalyticsRecord;
 import com.easyride.analytics_service.model.RecordType;
-import com.easyride.analytics_service.repository.AnalyticsRepository;
+import com.easyride.analytics_service.repository.AnalyticsMapper;
 import com.easyride.analytics_service.util.PrivacyUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,11 +20,11 @@ import java.util.stream.Collectors;
 @Service
 public class AnalyticsServiceImpl implements AnalyticsService {
     private static final Logger log = LoggerFactory.getLogger(AnalyticsServiceImpl.class);
-    private final AnalyticsRepository analyticsRepository;
+    private final AnalyticsMapper analyticsMapper;
     private final RedisTemplate<String, Object> redisTemplate;// For unique user tracking with HLL or Sets
 
-    public AnalyticsServiceImpl(AnalyticsRepository analyticsRepository, RedisTemplate<String, Object> redisTemplate) {
-        this.analyticsRepository = analyticsRepository;
+    public AnalyticsServiceImpl(AnalyticsMapper analyticsMapper, RedisTemplate<String, Object> redisTemplate) {
+        this.analyticsMapper = analyticsMapper;
         this.redisTemplate = redisTemplate;
     }
 
@@ -50,10 +51,10 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                     // This is a simplified approach; a real implementation might need a more
                     // complex way to handle multiple dimensions
                     PrivacyUtil.anonymizeRecord(record);
-                    analyticsRepository.save(record);
+                    analyticsMapper.insert(record);
                 });
             } else {
-                analyticsRepository.save(record);
+                analyticsMapper.insert(record);
             }
         }
     }
@@ -87,10 +88,14 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDateTime startDate = LocalDate.parse(startDateStr).atStartOfDay();
         LocalDateTime endDate = LocalDate.parse(endDateStr).plusDays(1).atStartOfDay(); // Exclusive end
 
-        List<AnalyticsRecord> revenueRecords = analyticsRepository.findByRecordTypeAndRecordTimeBetween(
-                RecordType.ORDER_REVENUE, startDate, endDate);
-        List<AnalyticsRecord> completedOrderRecords = analyticsRepository.findByRecordTypeAndRecordTimeBetween(
-                RecordType.COMPLETED_ORDERS_COUNT, startDate, endDate);
+        List<AnalyticsRecord> revenueRecords = analyticsMapper.selectList(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.ORDER_REVENUE)
+                .between(AnalyticsRecord::getRecordTime, startDate, endDate));
+
+        List<AnalyticsRecord> completedOrderRecords = analyticsMapper
+                .selectList(new LambdaQueryWrapper<AnalyticsRecord>()
+                        .eq(AnalyticsRecord::getRecordType, RecordType.COMPLETED_ORDERS_COUNT)
+                        .between(AnalyticsRecord::getRecordTime, startDate, endDate));
 
         double totalRevenue = revenueRecords.stream().mapToDouble(AnalyticsRecord::getMetricValue).sum();
         long totalCompletedOrders = completedOrderRecords.stream().mapToLong(r -> r.getMetricValue().longValue()).sum();
@@ -105,10 +110,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDateTime startDate = LocalDate.parse(startDateStr).atStartOfDay();
         LocalDateTime endDate = LocalDate.parse(endDateStr).plusDays(1).atStartOfDay();
 
-        long totalOrderRequests = analyticsRepository.countByRecordTypeAndRecordTimeBetween(
-                RecordType.ORDER_REQUEST, startDate, endDate); // Or a more specific "orders_offered_to_drivers"
-        long totalOrdersAccepted = analyticsRepository.countByRecordTypeAndRecordTimeBetween(
-                RecordType.ORDER_ACCEPTED_BY_DRIVER, startDate, endDate);
+        long totalOrderRequests = analyticsMapper.selectCount(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.ORDER_REQUEST)
+                .between(AnalyticsRecord::getRecordTime, startDate, endDate));
+        long totalOrdersAccepted = analyticsMapper.selectCount(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.ORDER_ACCEPTED_BY_DRIVER)
+                .between(AnalyticsRecord::getRecordTime, startDate, endDate));
 
         if (totalOrderRequests == 0)
             return 0.0;
@@ -122,8 +129,9 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDateTime cohortEndDate = cohortMonth.atEndOfMonth().plusDays(1).atStartOfDay();
 
         // 1. Get users who registered in the cohort month
-        List<AnalyticsRecord> cohortRegistrations = analyticsRepository.findByRecordTypeAndRecordTimeBetween(
-                RecordType.USER_REGISTRATION, cohortStartDate, cohortEndDate);
+        List<AnalyticsRecord> cohortRegistrations = analyticsMapper.selectList(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.USER_REGISTRATION)
+                .between(AnalyticsRecord::getRecordTime, cohortStartDate, cohortEndDate));
         var cohortUserIds = cohortRegistrations.stream()
                 .filter(ar -> "userId".equals(ar.getDimensionKey()))
                 .map(AnalyticsRecord::getDimensionValue)
@@ -193,13 +201,16 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 break;
         }
 
-        long totalOrders = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.COMPLETED_ORDERS_COUNT,
-                startDate, endDate);
-        double totalRevenue = analyticsRepository
-                .findByRecordTypeAndRecordTimeBetween(RecordType.ORDER_REVENUE, startDate, endDate)
-                .stream().mapToDouble(AnalyticsRecord::getMetricValue).sum();
-        long newUsers = analyticsRepository.countByRecordTypeAndRecordTimeBetween(RecordType.USER_REGISTRATION,
-                startDate, endDate);
+        long totalOrders = analyticsMapper.selectCount(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.COMPLETED_ORDERS_COUNT)
+                .between(AnalyticsRecord::getRecordTime, startDate, endDate));
+        List<AnalyticsRecord> revenueRecords = analyticsMapper.selectList(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.ORDER_REVENUE)
+                .between(AnalyticsRecord::getRecordTime, startDate, endDate));
+        double totalRevenue = revenueRecords.stream().mapToDouble(AnalyticsRecord::getMetricValue).sum();
+        long newUsers = analyticsMapper.selectCount(new LambdaQueryWrapper<AnalyticsRecord>()
+                .eq(AnalyticsRecord::getRecordType, RecordType.USER_REGISTRATION)
+                .between(AnalyticsRecord::getRecordTime, startDate, endDate));
         long activeDrivers = getActiveDriversInRange(startDate, endDate); // Needs specific logic
 
         return new DashboardSummaryDto(totalOrders, totalRevenue, newUsers, activeDrivers);

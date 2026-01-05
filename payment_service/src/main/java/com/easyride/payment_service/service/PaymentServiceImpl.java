@@ -6,8 +6,9 @@ import com.easyride.payment_service.exception.ResourceNotFoundException;
 import com.easyride.payment_service.model.PassengerPaymentMethod;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
-import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
-import com.easyride.payment_service.repository.PaymentRepository;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.easyride.payment_service.repository.PassengerPaymentMethodMapper;
+import com.easyride.payment_service.repository.PaymentMapper;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
 import com.easyride.payment_service.util.PaymentGatewayUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,27 +30,26 @@ public class PaymentServiceImpl implements PaymentService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentServiceImpl.class);
 
-    private final PaymentRepository paymentRepository;
+    private final PaymentMapper paymentMapper;
     private final WalletService walletService;
     private final StringRedisTemplate redisTemplate;
     private final PaymentEventProducer paymentEventProducer;
     private final PaymentStrategyProcessor strategyProcessor;
-    private final PassengerPaymentMethodRepository passengerPaymentMethodRepository;
+    private final PassengerPaymentMethodMapper passengerPaymentMethodMapper;
 
-    public PaymentServiceImpl(PaymentRepository paymentRepository,
+    public PaymentServiceImpl(PaymentMapper paymentMapper,
             WalletService walletService,
             PaymentEventProducer paymentEventProducer,
             StringRedisTemplate redisTemplate,
-            PaymentGatewayUtil paymentGatewayUtil, // kept in constructor signature to avoid breaking implicit wiring,
-                                                   // but unused
+            PaymentGatewayUtil paymentGatewayUtil,
             PaymentStrategyProcessor strategyProcessor,
-            PassengerPaymentMethodRepository passengerPaymentMethodRepository) {
-        this.paymentRepository = paymentRepository;
+            PassengerPaymentMethodMapper passengerPaymentMethodMapper) {
+        this.paymentMapper = paymentMapper;
         this.walletService = walletService;
         this.paymentEventProducer = paymentEventProducer;
         this.redisTemplate = redisTemplate;
         this.strategyProcessor = strategyProcessor;
-        this.passengerPaymentMethodRepository = passengerPaymentMethodRepository;
+        this.passengerPaymentMethodMapper = passengerPaymentMethodMapper;
     }
 
     @Override
@@ -59,9 +59,13 @@ public class PaymentServiceImpl implements PaymentService {
 
         PassengerPaymentMethod storedPaymentMethod = null;
         if (paymentRequestDto.getPaymentMethodId() != null) {
-            storedPaymentMethod = passengerPaymentMethodRepository
-                    .findByIdAndPassengerId(paymentRequestDto.getPaymentMethodId(), paymentRequestDto.getPassengerId())
-                    .orElseThrow(() -> new PaymentServiceException("选择的支付方式无效或不存在"));
+            storedPaymentMethod = passengerPaymentMethodMapper
+                    .selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                            .eq(PassengerPaymentMethod::getId, paymentRequestDto.getPaymentMethodId())
+                            .eq(PassengerPaymentMethod::getPassengerId, paymentRequestDto.getPassengerId()));
+            if (storedPaymentMethod == null) {
+                throw new PaymentServiceException("选择的支付方式无效或不存在");
+            }
         } else if (paymentRequestDto.getPaymentGatewayNonce() == null) {
             throw new PaymentServiceException("有效的支付方式ID或支付网关nonce必须提供。");
         }
@@ -92,7 +96,7 @@ public class PaymentServiceImpl implements PaymentService {
             payment.setPaymentGateway(strategyResponse.getPaymentGatewayUsed());
             payment.setPaymentMethod(paymentRequestDto.getPaymentMethod());
             payment.setCreatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
+            paymentMapper.insert(payment);
 
             log.info("Payment record saved with ID {} and status {}", payment.getId(), payment.getStatus());
 
@@ -101,7 +105,7 @@ public class PaymentServiceImpl implements PaymentService {
                     Long driverId = getDriverIdByOrderId(paymentRequestDto.getOrderId());
                     if (driverId != null) {
                         payment.setDriverId(driverId);
-                        paymentRepository.save(payment);
+                        paymentMapper.updateById(payment);
                         walletService.addFunds(driverId, paymentRequestDto.getAmount());
                     } else {
                         log.warn("Could not determine driver ID for order {}. Wallet not updated.",
@@ -154,8 +158,11 @@ public class PaymentServiceImpl implements PaymentService {
                 return;
             }
 
-            Payment payment = paymentRepository.findByOrderId(OrderId)
-                    .orElseThrow(() -> new RuntimeException("Payment not found for transaction ID: " + OrderId));
+            Payment payment = paymentMapper
+                    .selectOne(new LambdaQueryWrapper<Payment>().eq(Payment::getOrderId, OrderId));
+            if (payment == null) {
+                throw new RuntimeException("Payment not found for transaction ID: " + OrderId);
+            }
 
             if (payment.getStatus() != PaymentStatus.PENDING) {
                 log.warn("Payment {} has already been processed with status: {}", payment.getId(), payment.getStatus());
@@ -174,7 +181,7 @@ public class PaymentServiceImpl implements PaymentService {
             } else {
                 payment.setStatus(PaymentStatus.FAILED);
             }
-            paymentRepository.save(payment);
+            paymentMapper.updateById(payment);
             log.info("Payment {} status updated to {}", payment.getId(), payment.getStatus());
 
         } catch (IOException e) {
@@ -186,8 +193,10 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional
     public PaymentResponseDto refundPayment(String internalPaymentId, Integer amountToRefund) {
         log.info("Attempting refund for internal payment ID: {}", internalPaymentId);
-        Payment payment = paymentRepository.findById(Long.parseLong(internalPaymentId))
-                .orElseThrow(() -> new ResourceNotFoundException("支付记录 " + internalPaymentId + " 未找到"));
+        Payment payment = paymentMapper.selectById(Long.parseLong(internalPaymentId));
+        if (payment == null) {
+            throw new ResourceNotFoundException("支付记录 " + internalPaymentId + " 未找到");
+        }
 
         if (payment.getStatus() != PaymentStatus.COMPLETED && payment.getStatus() != PaymentStatus.PARTIALLY_REFUNDED) {
             throw new PaymentServiceException("支付状态为 " + payment.getStatus() + ", 无法退款。");
@@ -217,7 +226,7 @@ public class PaymentServiceImpl implements PaymentService {
                 payment.setStatus(PaymentStatus.PARTIALLY_REFUNDED);
             }
             payment.setUpdatedAt(LocalDateTime.now());
-            paymentRepository.save(payment);
+            paymentMapper.updateById(payment);
 
             if (payment.getDriverId() != null) {
                 try {
@@ -241,9 +250,9 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     private Long getDriverIdByOrderId(Long orderId) {
-        Optional<Payment> paymentOpt = paymentRepository.findByOrderId(orderId);
-        if (paymentOpt.isPresent() && paymentOpt.get().getDriverId() != null) {
-            return paymentOpt.get().getDriverId();
+        Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>().eq(Payment::getOrderId, orderId));
+        if (payment != null && payment.getDriverId() != null) {
+            return payment.getDriverId();
         }
         // Fallback logic: Without being able to call another service (which would
         // require new models/clients),
@@ -257,22 +266,24 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public void processOrderPayment(Long orderId) {
-        paymentRepository.findByOrderId(orderId)
-                .stream()
-                .filter(p -> p.getStatus() == PaymentStatus.COMPLETED)
-                .findFirst()
-                .orElseThrow(() -> new RuntimeException("支付记录不存在或未完成"));
+        Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>()
+                .eq(Payment::getOrderId, orderId)
+                .eq(Payment::getStatus, PaymentStatus.COMPLETED));
+        if (payment == null) {
+            throw new RuntimeException("支付记录不存在或未完成");
+        }
         // 此处可添加额外逻辑，例如通知订单服务更新状态
     }
 
     @Override
     @Transactional
     public void associateDriverWithOrderPayment(Long orderId, Long driverId) {
-        paymentRepository.findByOrderId(orderId).ifPresent(payment -> {
+        Payment payment = paymentMapper.selectOne(new LambdaQueryWrapper<Payment>().eq(Payment::getOrderId, orderId));
+        if (payment != null) {
             payment.setDriverId(driverId);
-            paymentRepository.save(payment);
+            paymentMapper.updateById(payment);
             log.info("Associated driver ID {} with payment for order ID {}", driverId, orderId);
-        });
+        }
     }
 
 }

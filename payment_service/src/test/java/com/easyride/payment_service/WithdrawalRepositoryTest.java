@@ -1,20 +1,23 @@
 package com.easyride.payment_service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.payment_service.model.Withdrawal;
-import com.easyride.payment_service.repository.WithdrawalRepository;
+import com.easyride.payment_service.repository.WithdrawalMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
+@SpringBootTest
+@Transactional
 public class WithdrawalRepositoryTest {
 
     @Autowired
-    private WithdrawalRepository withdrawalRepository;
+    private WithdrawalMapper withdrawalMapper;
 
     @Test
     void testFindByWalletId() {
@@ -23,9 +26,10 @@ public class WithdrawalRepositoryTest {
         w.setAmount(100);
         w.setStatus(com.easyride.payment_service.model.WithdrawalStatus.PENDING);
         w.setRequestTime(java.time.LocalDateTime.now());
-        withdrawalRepository.save(w);
+        withdrawalMapper.insert(w);
 
-        List<Withdrawal> list = withdrawalRepository.findByWalletId(10L);
+        List<Withdrawal> list = withdrawalMapper
+                .selectList(new LambdaQueryWrapper<Withdrawal>().eq(Withdrawal::getWalletId, 10L));
         assertThat(list).isNotEmpty();
         assertThat(list.get(0).getWalletId()).isEqualTo(10L);
     }

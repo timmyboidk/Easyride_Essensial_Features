@@ -1,0 +1,51 @@
+server:
+  port: 8082
+ 
+spring:
+  datasource:
+    url: jdbc:h2:mem:payment_service_db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  sql:
+    init:
+      schema-locations: classpath:schema.sql
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://your-issuer.com/
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: 
+      database: 0
+ 
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.easyride.payment_service.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+ 
+rocketmq:
+  name-server: 127.0.0.1:9876
+  producer:
+    group: PID_PAYMENT_SERVICE
+  consumer:
+    group: CID_PAYMENT_SERVICE
+ 
+logging:
+  level:
+    "[root]": INFO
+    org.springframework.web: DEBUG
+ 
+# Payment Gateway Configurations
+payment-gateway:
+  paypal:
+    client-id: test_client_id
+    client-secret: test_client_secret
+    mode: sandbox
+  stripe:
+    api-key: sk_test_key

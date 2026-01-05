@@ -12,7 +12,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -29,13 +28,13 @@ import static org.mockito.Mockito.when;
 class HighConcurrencyTest {
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderMapper orderMapper; // Changed from OrderRepository to OrderMapper
     @Mock
-    private DriverRepository driverRepository;
+    private DriverMapper driverMapper; // Changed from DriverRepository to DriverMapper
     @Mock
-    private PassengerRepository passengerRepository;
+    private PassengerMapper passengerMapper; // Changed from PassengerRepository to PassengerMapper
     @Mock
-    private UserRepository userRepository;
+    private UserMapper userMapper; // Changed from UserRepository to UserMapper
     @Mock
     private PricingService pricingService;
     @Mock
@@ -53,9 +52,8 @@ class HighConcurrencyTest {
         order.setStatus(OrderStatus.PENDING_MATCH);
         sharedOrder.set(order);
 
-        // Mock Order Repo to mimic DB behavior (not thread safe in reality, but
-        // simulation)
-        when(orderRepository.findById(100L)).thenAnswer(inv -> {
+        // Mock Order Mapper
+        when(orderMapper.selectById(100L)).thenAnswer(inv -> { // Changed findById to selectById
             // Emulate slight delay?
             // Thread.sleep(1);
             // Return a COPY or the reference?
@@ -64,27 +62,30 @@ class HighConcurrencyTest {
             // Here we return the SAME object reference to simulate "Transaction Scope" if
             // it were shared,
             // OR we return the current state.
-            return Optional.of(sharedOrder.get());
+            return sharedOrder.get(); // Removed Optional.of()
         });
 
-        // Mock Driver Repo
-        when(driverRepository.findById(anyLong())).thenAnswer(inv -> {
+        // Mock Driver Mapper
+        when(driverMapper.selectById(anyLong())).thenAnswer(inv -> { // Changed findById to selectById
             Long id = inv.getArgument(0);
             Driver d = new Driver();
             d.setId(id);
             d.setAvailable(true); // Always available initially
-            return Optional.of(d);
+            return d; // Removed Optional.of()
         });
 
-        // Mock Save Order
-        when(orderRepository.save(any(Order.class))).thenAnswer(inv -> {
+        // Mock Update Order (updateById returns int)
+        when(orderMapper.updateById(any(Order.class))).thenAnswer(inv -> { // Changed save to updateById
             Order o = inv.getArgument(0);
             sharedOrder.set(o);
-            return o;
+            return 1; // Changed return type to int (update count)
         });
 
-        // Mock Save Driver
-        when(driverRepository.save(any(Driver.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Mock Update Driver (updateById returns int)
+        when(driverMapper.updateById(any(Driver.class))).thenAnswer(inv -> { // Changed save to updateById
+            // Driver update logic simulation
+            return 1; // Changed return type to int (update count)
+        });
     }
 
     @Test
@@ -115,7 +116,7 @@ class HighConcurrencyTest {
         System.out.println("Successful Accepts: " + successfulAccepts.get());
         System.out.println("Failures: " + failures.get());
         System.out.println("Final Driver ID: "
-                + (sharedOrder.get().getDriver() != null ? sharedOrder.get().getDriver().getId() : "null"));
+                + (sharedOrder.get().getDriverId() != null ? sharedOrder.get().getDriverId() : "null"));
 
         // Ideally, ONLY ONE driver should succeed.
         // But due to race condition, multiple might succeed (overwrite).

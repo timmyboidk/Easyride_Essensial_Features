@@ -11,13 +11,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class PayPalStrategy implements PaymentStrategy {
 
-    @Value("${paypal.client-id}")
+    @Value("${payment-gateway.paypal.client-id}")
     private String clientId;
 
-    @Value("${paypal.client-secret}")
+    @Value("${payment-gateway.paypal.client-secret}")
     private String clientSecret;
 
-    @Value("${paypal.mode}")
+    @Value("${payment-gateway.paypal.mode}")
     private String mode;
 
     @Override

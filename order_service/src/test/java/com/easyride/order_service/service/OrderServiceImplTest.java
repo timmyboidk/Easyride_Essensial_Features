@@ -23,13 +23,13 @@ import static org.mockito.Mockito.*;
 public class OrderServiceImplTest {
 
     @Mock
-    private OrderRepository orderRepository;
+    private OrderMapper orderMapper;
     @Mock
-    private PassengerRepository passengerRepository;
+    private PassengerMapper passengerMapper;
     @Mock
-    private DriverRepository driverRepository;
+    private DriverMapper driverMapper;
     @Mock
-    private UserRepository userRepository;
+    private UserMapper userMapper;
     @Mock
     private PricingService pricingService;
     @Mock
@@ -65,12 +65,12 @@ public class OrderServiceImplTest {
 
     @Test
     void createOrder_Success_Immediate() {
-        when(passengerRepository.findById(1L)).thenReturn(Optional.of(passenger));
+        when(passengerMapper.selectById(1L)).thenReturn(passenger);
         when(pricingService.calculateEstimatedPrice(any())).thenReturn(estimatedPriceInfo);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+        when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
             Order o = invocation.getArgument(0);
             o.setId(100L);
-            return o;
+            return 1;
         });
 
         OrderResponseDto response = orderService.createOrder(orderCreateDto);
@@ -79,23 +79,23 @@ public class OrderServiceImplTest {
         assertEquals(100L, response.getOrderId());
         assertEquals(OrderStatus.PENDING_MATCH, response.getStatus());
         verify(orderEventProducer, times(1)).sendOrderCreatedEvent(any());
-        verify(orderRepository, times(1)).save(any());
+        verify(orderMapper, times(1)).insert(any(Order.class));
     }
 
     @Test
     void createOrder_PassengerNotFound_CreatesPlaceholder() {
-        when(passengerRepository.findById(1L)).thenReturn(Optional.empty());
-        when(passengerRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(passengerMapper.selectById(1L)).thenReturn(null);
+        when(passengerMapper.insert(any(Passenger.class))).thenReturn(1);
         when(pricingService.calculateEstimatedPrice(any())).thenReturn(estimatedPriceInfo);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+        when(orderMapper.insert(any(Order.class))).thenAnswer(invocation -> {
             Order o = invocation.getArgument(0);
             o.setId(100L);
-            return o;
+            return 1;
         });
 
         orderService.createOrder(orderCreateDto);
 
-        verify(passengerRepository, times(1)).save(any(Passenger.class));
+        verify(passengerMapper, times(1)).insert(any(Passenger.class));
     }
 
     @Test
@@ -103,13 +103,9 @@ public class OrderServiceImplTest {
         LocalDateTime scheduledTime = LocalDateTime.now().plusHours(1);
         orderCreateDto.setScheduledTime(scheduledTime);
 
-        when(passengerRepository.findById(1L)).thenReturn(Optional.of(passenger));
+        when(passengerMapper.selectById(1L)).thenReturn(passenger);
         when(pricingService.calculateEstimatedPrice(any())).thenReturn(estimatedPriceInfo);
-        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
-            Order o = invocation.getArgument(0);
-            o.setId(100L);
-            return o;
-        });
+        when(orderMapper.insert(any(Order.class))).thenReturn(1);
 
         OrderResponseDto response = orderService.createOrder(orderCreateDto);
 
@@ -122,7 +118,7 @@ public class OrderServiceImplTest {
         LocalDateTime scheduledTime = LocalDateTime.now().plusMinutes(10);
         orderCreateDto.setScheduledTime(scheduledTime);
 
-        when(passengerRepository.findById(1L)).thenReturn(Optional.of(passenger));
+        when(passengerMapper.selectById(1L)).thenReturn(passenger);
         when(pricingService.calculateEstimatedPrice(any())).thenReturn(estimatedPriceInfo);
 
         assertThrows(OrderServiceException.class, () -> orderService.createOrder(orderCreateDto));
@@ -138,16 +134,16 @@ public class OrderServiceImplTest {
         driver.setId(2L);
         driver.setAvailable(true);
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
-        when(driverRepository.findById(2L)).thenReturn(Optional.of(driver));
+        when(orderMapper.selectById(100L)).thenReturn(order);
+        when(driverMapper.selectById(2L)).thenReturn(driver);
 
         orderService.acceptOrder(100L, 2L);
 
         assertEquals(OrderStatus.ACCEPTED, order.getStatus());
-        assertEquals(driver, order.getDriver());
+        assertEquals(driver.getId(), order.getDriverId());
         assertFalse(driver.isAvailable());
-        verify(orderRepository).save(order);
-        verify(driverRepository).save(driver);
+        verify(orderMapper).updateById(order);
+        verify(driverMapper).updateById(driver);
     }
 
     @Test
@@ -156,8 +152,8 @@ public class OrderServiceImplTest {
         Driver driver = new Driver();
         driver.setAvailable(false);
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
-        when(driverRepository.findById(2L)).thenReturn(Optional.of(driver));
+        when(orderMapper.selectById(100L)).thenReturn(order);
+        when(driverMapper.selectById(2L)).thenReturn(driver);
 
         assertThrows(OrderServiceException.class, () -> orderService.acceptOrder(100L, 2L));
     }
@@ -167,18 +163,21 @@ public class OrderServiceImplTest {
         Order order = new Order();
         order.setId(100L);
         order.setStatus(OrderStatus.ACCEPTED);
-        order.setPassenger(passenger);
+        order.setPassengerId(passenger.getId());
         Driver driver = new Driver();
         driver.setId(2L);
-        order.setDriver(driver);
+        order.setDriverId(driver.getId());
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderMapper.selectById(100L)).thenReturn(order);
+        when(driverMapper.selectById(2L)).thenReturn(driver);
+        when(passengerMapper.selectById(1L)).thenReturn(passenger);
 
         orderService.cancelOrder(100L);
 
         assertEquals(OrderStatus.CANCELED, order.getStatus());
         assertTrue(driver.isAvailable());
         verify(orderEventProducer).sendOrderStatusUpdateEvent(any());
+        verify(orderMapper).updateById(order);
     }
 
     @Test
@@ -186,7 +185,7 @@ public class OrderServiceImplTest {
         Order order = new Order();
         order.setId(100L);
         order.setStatus(OrderStatus.PENDING_MATCH);
-        order.setPassenger(passenger);
+        order.setPassengerId(passenger.getId());
 
         Driver driver = new Driver();
         driver.setId(2L);
@@ -196,13 +195,13 @@ public class OrderServiceImplTest {
         event.setOrderId(100L);
         event.setDriverId(2L);
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
-        when(driverRepository.findById(2L)).thenReturn(Optional.of(driver));
+        when(orderMapper.selectById(100L)).thenReturn(order);
+        when(driverMapper.selectById(2L)).thenReturn(driver);
 
         orderService.processDriverAssigned(event);
 
         assertEquals(OrderStatus.DRIVER_ASSIGNED, order.getStatus());
-        assertEquals(driver, order.getDriver());
+        assertEquals(driver.getId(), order.getDriverId());
         assertFalse(driver.isAvailable());
         verify(orderEventProducer).sendOrderStatusUpdateEvent(any());
     }
@@ -214,11 +213,11 @@ public class OrderServiceImplTest {
         DriverAssignedEventDto event = new DriverAssignedEventDto();
         event.setOrderId(100L);
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderMapper.selectById(100L)).thenReturn(order);
 
         orderService.processDriverAssigned(event);
 
-        verify(driverRepository, never()).findById(anyLong());
+        verify(driverMapper, never()).selectById(anyLong());
     }
 
     @Test
@@ -226,12 +225,12 @@ public class OrderServiceImplTest {
         Order order = new Order();
         order.setStatus(OrderStatus.PENDING_MATCH);
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderMapper.selectById(100L)).thenReturn(order);
 
         orderService.processOrderMatchFailed(100L, "No drivers found");
 
         assertEquals(OrderStatus.FAILED, order.getStatus());
-        verify(orderRepository).save(order);
+        verify(orderMapper).updateById(order);
     }
 
     @Test
@@ -239,12 +238,12 @@ public class OrderServiceImplTest {
         Order order = new Order();
         order.setId(100L);
         order.setStatus(OrderStatus.COMPLETED);
-        order.setPassenger(passenger);
+        order.setPassengerId(passenger.getId());
         order.setPaymentMethod(PaymentMethod.CREDIT_CARD);
         order.setDriverAssignedTime(LocalDateTime.now().minusMinutes(30));
         order.setOrderTime(LocalDateTime.now().minusMinutes(30)); // Mocking order completion
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderMapper.selectById(100L)).thenReturn(order);
         FinalPriceInfo finalPrice = new FinalPriceInfo();
         finalPrice.setFinalCost(3000L);
         finalPrice.setActualDistance(5.0);
@@ -267,8 +266,8 @@ public class OrderServiceImplTest {
         event.setOrderId(100L);
         event.setDriverId(2L);
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
-        when(driverRepository.findById(2L)).thenReturn(Optional.of(driver));
+        when(orderMapper.selectById(100L)).thenReturn(order);
+        when(driverMapper.selectById(2L)).thenReturn(driver);
 
         orderService.processDriverAssigned(event);
 
@@ -277,21 +276,20 @@ public class OrderServiceImplTest {
 
     @Test
     void processOrderMatchFailed_OrderNotFound_DoesNothing() {
-        when(orderRepository.findById(100L)).thenReturn(Optional.empty());
+        when(orderMapper.selectById(100L)).thenReturn(null);
         orderService.processOrderMatchFailed(100L, "Reason");
-        verify(orderRepository, never()).save(any());
+        verify(orderMapper, never()).updateById(any(Order.class));
     }
 
     @Test
     void processPaymentConfirmation_AlreadySettled_Success() {
         Order order = new Order();
         order.setStatus(OrderStatus.PAYMENT_SETTLED);
-        order.setPassenger(passenger);
+        order.setPassengerId(passenger.getId());
+        order.setDriverId(2L);
         order.setPaymentMethod(PaymentMethod.CREDIT_CARD);
-        order.setDriverAssignedTime(LocalDateTime.now());
-        order.setOrderTime(LocalDateTime.now());
 
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderMapper.selectById(100L)).thenReturn(order);
         FinalPriceInfo finalPrice = new FinalPriceInfo();
         finalPrice.setFinalCost(3000L);
         finalPrice.setActualDistance(5.0);
@@ -307,9 +305,9 @@ public class OrderServiceImplTest {
     void processPaymentConfirmation_OrderNotCompleted_DoesNothing() {
         Order order = new Order();
         order.setStatus(OrderStatus.PENDING_MATCH);
-        when(orderRepository.findById(100L)).thenReturn(Optional.of(order));
+        when(orderMapper.selectById(100L)).thenReturn(order);
         orderService.processPaymentConfirmation(100L, 30.0, "TX123");
-        verify(orderRepository, times(1)).findById(100L);
-        verify(orderRepository, never()).save(any());
+        verify(orderMapper, times(1)).selectById(100L);
+        verify(orderMapper, never()).updateById(any(Order.class));
     }
 }

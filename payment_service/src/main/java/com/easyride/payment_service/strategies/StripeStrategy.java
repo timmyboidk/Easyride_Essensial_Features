@@ -19,7 +19,7 @@ import java.math.BigDecimal;
 @Service
 public class StripeStrategy implements PaymentStrategy {
 
-    @Value("${stripe.api.key:sk_test_placeholder}")
+    @Value("${payment-gateway.stripe.api-key:sk_test_placeholder}")
     private String stripeApiKey;
 
     @Override

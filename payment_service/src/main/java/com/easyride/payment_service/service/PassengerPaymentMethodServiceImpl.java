@@ -6,7 +6,8 @@ import com.easyride.payment_service.exception.ResourceNotFoundException;
 import com.easyride.payment_service.exception.PaymentServiceException; // Create this custom exception
 import com.easyride.payment_service.model.PassengerPaymentMethod;
 import com.easyride.payment_service.model.PaymentMethodType;
-import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.easyride.payment_service.repository.PassengerPaymentMethodMapper;
 import com.easyride.payment_service.util.PaymentGatewayUtil; // You'll need to enhance this
 
 import org.slf4j.Logger;
@@ -23,12 +24,12 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
 
     private static final Logger log = LoggerFactory.getLogger(PassengerPaymentMethodServiceImpl.class);
 
-    private final PassengerPaymentMethodRepository paymentMethodRepository;
+    private final PassengerPaymentMethodMapper paymentMethodMapper;
     private final PaymentGatewayUtil paymentGatewayUtil; // To interact with Stripe/PayPal for token processing
 
-    public PassengerPaymentMethodServiceImpl(PassengerPaymentMethodRepository paymentMethodRepository,
+    public PassengerPaymentMethodServiceImpl(PassengerPaymentMethodMapper paymentMethodMapper,
             PaymentGatewayUtil paymentGatewayUtil) {
-        this.paymentMethodRepository = paymentMethodRepository;
+        this.paymentMethodMapper = paymentMethodMapper;
         this.paymentGatewayUtil = paymentGatewayUtil;
     }
 
@@ -53,7 +54,8 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
 
         // Ensure this nonce/token isn't already stored for this user to prevent
         // duplicates from same nonce.
-        if (paymentMethodRepository.findByPaymentGatewayToken(processedMethod.getPermanentToken()).isPresent()) {
+        if (paymentMethodMapper.selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                .eq(PassengerPaymentMethod::getPaymentGatewayToken, processedMethod.getPermanentToken())) != null) {
             log.warn("Attempt to add duplicate payment method with gateway token {} for passenger {}",
                     processedMethod.getPermanentToken(), passengerId);
             throw new PaymentServiceException("此支付方式似乎已添加。");
@@ -73,29 +75,36 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
 
         if (requestDto.isDefault()) {
             // If setting this as default, unset other defaults for this passenger
-            paymentMethodRepository.findByPassengerIdAndIsDefaultTrue(passengerId).ifPresent(oldDefault -> {
+            PassengerPaymentMethod oldDefault = paymentMethodMapper
+                    .selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                            .eq(PassengerPaymentMethod::getPassengerId, passengerId)
+                            .eq(PassengerPaymentMethod::isDefault, true));
+            if (oldDefault != null) {
                 oldDefault.setDefault(false);
-                paymentMethodRepository.save(oldDefault);
-            });
+                paymentMethodMapper.updateById(oldDefault);
+            }
             newMethod.setDefault(true);
         } else {
             // If it's the first payment method, make it default
-            if (!paymentMethodRepository.findByPassengerId(passengerId).stream()
-                    .anyMatch(PassengerPaymentMethod::isDefault)) {
+            Long count = paymentMethodMapper.selectCount(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                    .eq(PassengerPaymentMethod::getPassengerId, passengerId)
+                    .eq(PassengerPaymentMethod::isDefault, true));
+            if (count == 0) {
                 newMethod.setDefault(true);
             }
         }
 
         newMethod.setCreatedAt(LocalDateTime.now());
-        PassengerPaymentMethod savedMethod = paymentMethodRepository.save(newMethod);
-        log.info("Payment method (ID: {}) added successfully for passenger {}", savedMethod.getId(), passengerId);
-        return mapToResponseDto(savedMethod);
+        paymentMethodMapper.insert(newMethod);
+        log.info("Payment method (ID: {}) added successfully for passenger {}", newMethod.getId(), passengerId);
+        return mapToResponseDto(newMethod);
     }
 
     @Override
     public List<PaymentMethodResponseDto> getPaymentMethods(Long passengerId) {
         log.debug("Fetching payment methods for passenger ID {}", passengerId);
-        return paymentMethodRepository.findByPassengerId(passengerId).stream()
+        return paymentMethodMapper.selectList(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                .eq(PassengerPaymentMethod::getPassengerId, passengerId)).stream()
                 .map(this::mapToResponseDto)
                 .collect(Collectors.toList());
     }
@@ -104,19 +113,26 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
     @Transactional
     public void setDefaultPaymentMethod(Long passengerId, Long paymentMethodId) {
         log.info("Setting payment method ID {} as default for passenger {}", paymentMethodId, passengerId);
-        PassengerPaymentMethod newDefault = paymentMethodRepository.findByIdAndPassengerId(paymentMethodId, passengerId)
-                .orElseThrow(() -> new ResourceNotFoundException("支付方式未找到或不属于该用户"));
+        PassengerPaymentMethod newDefault = paymentMethodMapper
+                .selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                        .eq(PassengerPaymentMethod::getId, paymentMethodId)
+                        .eq(PassengerPaymentMethod::getPassengerId, passengerId));
+        if (newDefault == null) {
+            throw new ResourceNotFoundException("支付方式未找到或不属于该用户");
+        }
 
-        paymentMethodRepository.findByPassengerIdAndIsDefaultTrue(passengerId).ifPresent(oldDefault -> {
-            if (!oldDefault.getId().equals(newDefault.getId())) {
-                oldDefault.setDefault(false);
-                paymentMethodRepository.save(oldDefault);
-            }
-        });
+        PassengerPaymentMethod oldDefault = paymentMethodMapper
+                .selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                        .eq(PassengerPaymentMethod::getPassengerId, passengerId)
+                        .eq(PassengerPaymentMethod::isDefault, true));
+        if (oldDefault != null && !oldDefault.getId().equals(newDefault.getId())) {
+            oldDefault.setDefault(false);
+            paymentMethodMapper.updateById(oldDefault);
+        }
 
         if (!newDefault.isDefault()) {
             newDefault.setDefault(true);
-            paymentMethodRepository.save(newDefault);
+            paymentMethodMapper.updateById(newDefault);
         }
         log.info("Payment method ID {} is now default for passenger {}", paymentMethodId, passengerId);
     }
@@ -125,9 +141,13 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
     @Transactional
     public void deletePaymentMethod(Long passengerId, Long paymentMethodId) {
         log.info("Deleting payment method ID {} for passenger {}", paymentMethodId, passengerId);
-        PassengerPaymentMethod methodToDelete = paymentMethodRepository
-                .findByIdAndPassengerId(paymentMethodId, passengerId)
-                .orElseThrow(() -> new ResourceNotFoundException("支付方式未找到或不属于该用户"));
+        PassengerPaymentMethod methodToDelete = paymentMethodMapper
+                .selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                        .eq(PassengerPaymentMethod::getId, paymentMethodId)
+                        .eq(PassengerPaymentMethod::getPassengerId, passengerId));
+        if (methodToDelete == null) {
+            throw new ResourceNotFoundException("支付方式未找到或不属于该用户");
+        }
 
         // Before deleting from DB, you might need to detach/delete it from the payment
         // gateway's customer object
@@ -136,17 +156,20 @@ public class PassengerPaymentMethodServiceImpl implements PassengerPaymentMethod
                 methodToDelete.getPaymentGatewayToken(),
                 methodToDelete.getMethodType());
 
-        paymentMethodRepository.delete(methodToDelete);
+        paymentMethodMapper.deleteById(methodToDelete.getId());
 
         // If the deleted method was default, try to set another one as default
         if (methodToDelete.isDefault()) {
-            paymentMethodRepository.findByPassengerId(passengerId).stream().findFirst()
-                    .ifPresent(newPotentialDefault -> {
-                        newPotentialDefault.setDefault(true);
-                        paymentMethodRepository.save(newPotentialDefault);
-                        log.info("Set payment method ID {} as new default for passenger {} after deletion.",
-                                newPotentialDefault.getId(), passengerId);
-                    });
+            PassengerPaymentMethod newPotentialDefault = paymentMethodMapper
+                    .selectOne(new LambdaQueryWrapper<PassengerPaymentMethod>()
+                            .eq(PassengerPaymentMethod::getPassengerId, passengerId)
+                            .last("LIMIT 1"));
+            if (newPotentialDefault != null) {
+                newPotentialDefault.setDefault(true);
+                paymentMethodMapper.updateById(newPotentialDefault);
+                log.info("Set payment method ID {} as new default for passenger {} after deletion.",
+                        newPotentialDefault.getId(), passengerId);
+            }
         }
         log.info("Payment method ID {} deleted for passenger {}", paymentMethodId, passengerId);
     }

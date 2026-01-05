@@ -1,16 +1,17 @@
 package com.easyride.matching_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
-@Entity
-@Table(name = "grabbable_orders")
+@TableName("grabbable_orders")
 @Data
 @NoArgsConstructor
 public class GrabbableOrder { // Represents an order available for drivers to grab
-    @Id
+    @TableId(type = IdType.INPUT)
     private Long orderId; // Same as the actual order ID from Order Service
 
     private double startLatitude;
@@ -25,12 +26,13 @@ public class GrabbableOrder { // Represents an order available for drivers to gr
     private LocalDateTime orderTime;
     private LocalDateTime expiryTime; // Time after which this grabbable order might be auto-matched or removed
 
-    @Enumerated(EnumType.STRING)
     private GrabbableOrderStatus status; // PENDING_GRAB, GRABBED, EXPIRED
 
     private Long grabbingDriverId; // Who grabbed it
 
-    public GrabbableOrder(Long orderId, double startLatitude, double startLongitude, String startAddressFormatted, double endLatitude, double endLongitude, String endAddressFormatted, String vehicleTypeRequired, String serviceType, Double estimatedFare, LocalDateTime orderTime, LocalDateTime expiryTime) {
+    public GrabbableOrder(Long orderId, double startLatitude, double startLongitude, String startAddressFormatted,
+            double endLatitude, double endLongitude, String endAddressFormatted, String vehicleTypeRequired,
+            String serviceType, Double estimatedFare, LocalDateTime orderTime, LocalDateTime expiryTime) {
         this.orderId = orderId;
         this.startLatitude = startLatitude;
         this.startLongitude = startLongitude;

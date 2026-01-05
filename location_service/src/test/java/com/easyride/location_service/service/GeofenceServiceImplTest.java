@@ -1,7 +1,7 @@
 package com.easyride.location_service.service;
 
 import com.easyride.location_service.model.Geofence;
-import com.easyride.location_service.repository.GeofenceRepository;
+import com.easyride.location_service.repository.GeofenceMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,20 +19,20 @@ import static org.mockito.Mockito.*;
 class GeofenceServiceImplTest {
 
     @Mock
-    private GeofenceRepository geofenceRepository;
+    private GeofenceMapper geofenceMapper;
 
     private GeofenceServiceImpl geofenceService;
     private ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        geofenceService = new GeofenceServiceImpl(geofenceRepository, objectMapper);
+        geofenceService = new GeofenceServiceImpl(geofenceMapper, objectMapper);
     }
 
     @Test
     void createGeofence_Success() {
         Geofence geofence = new Geofence();
-        when(geofenceRepository.save(any(Geofence.class))).thenReturn(geofence);
+        when(geofenceMapper.insert(any(Geofence.class))).thenReturn(1);
 
         Geofence result = geofenceService.createGeofence(geofence);
         assertNotNull(result);
@@ -45,7 +45,7 @@ class GeofenceServiceImplTest {
         // Square 0,0 to 10,10. Point 5,5 is inside.
         geofence.setPolygonCoordinatesJson("[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]");
 
-        when(geofenceRepository.findById(1L)).thenReturn(Optional.of(geofence));
+        when(geofenceMapper.selectById(1L)).thenReturn(geofence);
 
         boolean result = geofenceService.isPointInGeofence(5.0, 5.0, 1L);
         assertTrue(result);
@@ -57,7 +57,7 @@ class GeofenceServiceImplTest {
         geofence.setActive(true);
         geofence.setPolygonCoordinatesJson("[[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]");
 
-        when(geofenceRepository.findById(1L)).thenReturn(Optional.of(geofence));
+        when(geofenceMapper.selectById(1L)).thenReturn(geofence);
 
         boolean result = geofenceService.isPointInGeofence(15.0, 15.0, 1L);
         assertFalse(result);

@@ -6,9 +6,9 @@ import com.easyride.matching_service.model.DriverStatus;
 import com.easyride.matching_service.model.GrabbableOrder;
 import com.easyride.matching_service.model.GrabbableOrderStatus;
 import com.easyride.matching_service.model.MatchingRecord;
-import com.easyride.matching_service.repository.DriverStatusRepository;
-import com.easyride.matching_service.repository.GrabbableOrderRepository;
-import com.easyride.matching_service.repository.MatchingRecordRepository;
+import com.easyride.matching_service.repository.DriverStatusMapper;
+import com.easyride.matching_service.repository.GrabbableOrderMapper;
+import com.easyride.matching_service.repository.MatchingRecordMapper;
 import com.easyride.matching_service.rocket.MatchingEventProducer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,13 +34,13 @@ import static org.mockito.Mockito.*;
 class MatchingServiceImplTest {
 
     @Mock
-    private DriverStatusRepository driverStatusRepository;
+    private DriverStatusMapper driverStatusMapper;
     @Mock
-    private MatchingRecordRepository matchingRecordRepository;
+    private MatchingRecordMapper matchingRecordMapper;
     @Mock
     private MatchingEventProducer matchingEventProducer;
     @Mock
-    private GrabbableOrderRepository grabbableOrderRepository;
+    private GrabbableOrderMapper grabbableOrderMapper;
     @Mock
     private MatchingConfig matchingConfig;
     @Mock
@@ -56,11 +56,11 @@ class MatchingServiceImplTest {
     void setUp() {
         // Manually instantiate to avoid injection issues
         matchingService = new MatchingServiceImpl(
-                driverStatusRepository,
-                matchingRecordRepository,
+                driverStatusMapper,
+                matchingRecordMapper,
                 matchingEventProducer,
                 matchingConfig,
-                grabbableOrderRepository,
+                grabbableOrderMapper,
                 redisTemplate);
 
         lenient().when(redisTemplate.opsForGeo()).thenReturn(geoOperations);
@@ -97,14 +97,16 @@ class MatchingServiceImplTest {
         driver.setAvailable(true);
         driver.setVehicleType("ECONOMY");
         driver.setRating(4.8);
-        when(driverStatusRepository.findById(201L)).thenReturn(Optional.of(driver));
+        when(driverStatusMapper.selectById(201L)).thenReturn(driver);
+        when(driverStatusMapper.updateById(any(DriverStatus.class))).thenReturn(1);
+        when(matchingRecordMapper.insert(any(MatchingRecord.class))).thenReturn(1);
 
         DriverAssignedEventDto result = matchingService.findAndAssignDriver(request);
 
         assertNotNull(result);
         assertEquals(201L, result.getDriverId());
-        verify(driverStatusRepository).save(any(DriverStatus.class));
-        verify(matchingRecordRepository).save(any(MatchingRecord.class));
+        verify(driverStatusMapper).updateById(any(DriverStatus.class));
+        verify(matchingRecordMapper).insert(any(MatchingRecord.class));
         verify(matchingEventProducer).sendDriverAssignedEvent(any(DriverAssignedEventDto.class));
     }
 
@@ -134,11 +136,12 @@ class MatchingServiceImplTest {
 
         DriverStatus status = new DriverStatus();
         status.setDriverId(driverId);
-        when(driverStatusRepository.findById(driverId)).thenReturn(Optional.of(status));
+        when(driverStatusMapper.selectById(driverId)).thenReturn(status);
+        when(driverStatusMapper.updateById(any(DriverStatus.class))).thenReturn(1);
 
         matchingService.updateDriverStatus(driverId, dto);
 
-        verify(driverStatusRepository).save(status);
+        verify(driverStatusMapper).updateById(status);
         verify(geoOperations).add(eq("driver:locations"), any(Point.class), eq("301"));
         assertTrue(status.isAvailable());
     }
@@ -151,11 +154,12 @@ class MatchingServiceImplTest {
 
         DriverStatus status = new DriverStatus();
         status.setDriverId(driverId);
-        when(driverStatusRepository.findById(driverId)).thenReturn(Optional.of(status));
+        when(driverStatusMapper.selectById(driverId)).thenReturn(status);
+        when(driverStatusMapper.updateById(any(DriverStatus.class))).thenReturn(1);
 
         matchingService.updateDriverStatus(driverId, dto);
 
-        verify(driverStatusRepository).save(status);
+        verify(driverStatusMapper).updateById(status);
         verify(zSetOperations).remove("driver:locations", "301");
         assertFalse(status.isAvailable());
     }
@@ -174,8 +178,11 @@ class MatchingServiceImplTest {
         driver.setDriverId(driverId);
         driver.setAvailable(true);
 
-        when(grabbableOrderRepository.findById(orderId)).thenReturn(Optional.of(order));
-        when(driverStatusRepository.findById(driverId)).thenReturn(Optional.of(driver));
+        when(grabbableOrderMapper.selectById(orderId)).thenReturn(order);
+        when(driverStatusMapper.selectById(driverId)).thenReturn(driver);
+        when(grabbableOrderMapper.updateById(any(GrabbableOrder.class))).thenReturn(1);
+        when(driverStatusMapper.updateById(any(DriverStatus.class))).thenReturn(1);
+        when(matchingRecordMapper.insert(any(MatchingRecord.class))).thenReturn(1);
 
         boolean accepted = matchingService.acceptOrder(orderId, driverId);
 
@@ -183,7 +190,9 @@ class MatchingServiceImplTest {
         assertEquals(GrabbableOrderStatus.ASSIGNED, order.getStatus());
         assertEquals(driverId, order.getGrabbingDriverId());
         assertFalse(driver.isAvailable());
-        verify(matchingRecordRepository).save(any(MatchingRecord.class));
+        verify(grabbableOrderMapper, times(2)).updateById(any(GrabbableOrder.class));
+        verify(driverStatusMapper).updateById(any(DriverStatus.class));
+        verify(matchingRecordMapper).insert(any(MatchingRecord.class));
         verify(matchingEventProducer).sendDriverAssignedEvent(any(DriverAssignedEventDto.class));
     }
 
@@ -196,7 +205,7 @@ class MatchingServiceImplTest {
         driver.setDriverId(driverId);
         driver.setAvailable(false);
 
-        when(driverStatusRepository.findById(driverId)).thenReturn(Optional.of(driver));
+        when(driverStatusMapper.selectById(driverId)).thenReturn(driver);
 
         boolean accepted = matchingService.acceptOrder(orderId, driverId);
 

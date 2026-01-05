@@ -1,15 +1,17 @@
 package com.easyride.user_service.model;
 
-import jakarta.persistence.Entity;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
-@Entity
+@TableName("admins")
 @Data
 @NoArgsConstructor
-@EqualsAndHashCode(callSuper = true)
 public class Admin extends User {
+    @TableId
+    private Long id;
+
     public Admin(String username, String password, String email, String phoneNumber) {
         super(username, password, email, phoneNumber, Role.ADMIN);
     }

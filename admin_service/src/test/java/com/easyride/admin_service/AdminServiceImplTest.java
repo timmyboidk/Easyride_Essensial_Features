@@ -1,17 +1,16 @@
 package com.easyride.admin_service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.admin_service.dto.AdminUserDto;
 import com.easyride.admin_service.model.AdminUser;
 import com.easyride.admin_service.model.Role;
-import com.easyride.admin_service.repository.AdminUserRepository;
+import com.easyride.admin_service.repository.AdminUserMapper;
 import com.easyride.admin_service.rocket.AdminRocketProducer;
 import com.easyride.admin_service.service.AdminServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -20,7 +19,7 @@ import static org.mockito.Mockito.*;
 class AdminServiceImplTest {
 
         @Mock
-        private AdminUserRepository adminUserRepository;
+        private AdminUserMapper adminUserMapper;
 
         @Mock
         private AdminRocketProducer adminRocketProducer;
@@ -39,20 +38,20 @@ class AdminServiceImplTest {
                                 .build();
 
                 // 2. Mock
-                when(adminUserRepository.existsByUsername("adminA")).thenReturn(false);
-                when(adminUserRepository.save(any(AdminUser.class)))
+                when(adminUserMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+                when(adminUserMapper.insert(any(AdminUser.class)))
                                 .thenAnswer(invocation -> {
                                         AdminUser user = invocation.getArgument(0);
                                         user.setId(1L); // Simulate ID being set by database
-                                        return user;
+                                        return 1;
                                 });
 
                 // 3. 调用 service
                 AdminUser createdUser = adminService.createAdminUser(dto);
 
                 // 4. 验证
-                verify(adminUserRepository).existsByUsername("adminA");
-                verify(adminUserRepository).save(any(AdminUser.class));
+                verify(adminUserMapper).selectCount(any(LambdaQueryWrapper.class));
+                verify(adminUserMapper).insert(any(AdminUser.class));
 
                 assertNotNull(createdUser);
                 assertEquals("adminA", createdUser.getUsername());
@@ -70,7 +69,7 @@ class AdminServiceImplTest {
                                 .build();
 
                 // 2. Mock
-                when(adminUserRepository.existsByUsername("duplicateUser")).thenReturn(true);
+                when(adminUserMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(1L);
 
                 // 3. 执行
                 RuntimeException ex = assertThrows(RuntimeException.class,
@@ -78,7 +77,7 @@ class AdminServiceImplTest {
                 assertEquals("管理员用户名已存在", ex.getMessage());
 
                 // 4. 验证
-                verify(adminUserRepository, never()).save(any(AdminUser.class));
+                verify(adminUserMapper, never()).insert(any(AdminUser.class));
         }
 
         @Test
@@ -100,9 +99,8 @@ class AdminServiceImplTest {
                                 .role(Role.OPERATOR)
                                 .enabled(true)
                                 .build();
-                when(adminUserRepository.findById(123L)).thenReturn(Optional.of(existing));
-                when(adminUserRepository.save(any(AdminUser.class)))
-                                .thenAnswer(invocation -> invocation.getArgument(0));
+                when(adminUserMapper.selectById(123L)).thenReturn(existing);
+                when(adminUserMapper.updateById(any(AdminUser.class))).thenReturn(1);
 
                 // 3. 执行
                 AdminUser updated = adminService.updateAdminUser(dto);
@@ -112,5 +110,6 @@ class AdminServiceImplTest {
                 assertEquals("secure", updated.getPassword());
                 assertEquals(Role.SUPER_ADMIN, updated.getRole());
                 assertFalse(updated.isEnabled());
+                verify(adminUserMapper).updateById(existing);
         }
 }

@@ -3,15 +3,15 @@ package com.evaluation.stress;
 import com.evaluation.dto.ComplaintDTO;
 import com.evaluation.dto.EvaluationDTO;
 import com.evaluation.exception.BadRequestException;
-import com.evaluation.mapper.ComplaintMapper;
-import com.evaluation.mapper.EvaluationMapper;
+import com.evaluation.mapper.ComplaintDtoMapper;
+import com.evaluation.mapper.EvaluationDtoMapper;
 import com.evaluation.model.Complaint;
 import com.evaluation.model.Evaluation;
 import com.evaluation.model.ReviewWindow;
-import com.evaluation.repository.ComplaintRepository;
-import com.evaluation.repository.EvaluationRepository;
-import com.evaluation.repository.ReviewWindowRepository;
-import com.evaluation.repository.TagRepository;
+import com.evaluation.repository.ComplaintMapper;
+import com.evaluation.repository.EvaluationMapper;
+import com.evaluation.repository.ReviewWindowMapper;
+import com.evaluation.repository.TagMapper;
 import com.evaluation.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,13 +38,13 @@ import org.mockito.junit.jupiter.MockitoSettings;
 public class ReviewIntegratedFlowTest {
 
     @Mock
-    private EvaluationRepository evaluationRepository;
+    private EvaluationMapper evaluationMapper;
     @Mock
-    private TagRepository tagRepository;
+    private TagMapper tagMapper;
     @Mock
-    private ReviewWindowRepository reviewWindowRepository;
+    private ReviewWindowMapper reviewWindowMapper;
     @Mock
-    private ComplaintRepository complaintRepository;
+    private ComplaintMapper complaintMapper;
     @Mock
     private RocketMQTemplate rocketMQTemplate;
     @Mock
@@ -55,8 +55,8 @@ public class ReviewIntegratedFlowTest {
     private EvaluationServiceImpl evaluationService;
     private ComplaintServiceImpl complaintService;
 
-    private final EvaluationMapper evaluationMapper = new EvaluationMapper();
-    private final ComplaintMapper complaintMapper = new ComplaintMapper();
+    private final EvaluationDtoMapper evaluationDtoMapper = new EvaluationDtoMapper();
+    private final ComplaintDtoMapper complaintDtoMapper = new ComplaintDtoMapper();
 
     private final AtomicReference<ReviewWindow> windowStore = new AtomicReference<>();
     private final AtomicReference<Evaluation> evaluationStore = new AtomicReference<>();
@@ -65,46 +65,57 @@ public class ReviewIntegratedFlowTest {
     @BeforeEach
     void setUp() {
         evaluationService = new EvaluationServiceImpl(
-                evaluationRepository,
-                tagRepository,
                 evaluationMapper,
+                tagMapper,
+                evaluationDtoMapper,
                 rocketMQTemplate,
                 sensitiveWordService,
-                reviewWindowRepository);
+                reviewWindowMapper);
 
         complaintService = new ComplaintServiceImpl(
-                complaintRepository,
                 complaintMapper,
+                complaintDtoMapper,
                 fileStorageService,
                 rocketMQTemplate,
                 sensitiveWordService,
-                evaluationRepository);
+                evaluationMapper);
 
         // Mock ReviewWindow Repository
-        when(reviewWindowRepository.findById(anyLong())).thenAnswer(inv -> Optional.ofNullable(windowStore.get()));
-        when(reviewWindowRepository.save(any(ReviewWindow.class))).thenAnswer(inv -> {
+        // Mock ReviewWindow Mapper
+        when(reviewWindowMapper.selectById(anyLong())).thenAnswer(inv -> windowStore.get());
+        when(reviewWindowMapper.updateById(any(ReviewWindow.class))).thenAnswer(inv -> {
             ReviewWindow w = inv.getArgument(0);
             windowStore.set(w);
-            return w;
+            return 1;
+        });
+        when(reviewWindowMapper.insert(any(ReviewWindow.class))).thenAnswer(inv -> {
+            ReviewWindow w = inv.getArgument(0);
+            windowStore.set(w);
+            return 1;
         });
 
-        // Mock Evaluation Repository
-        when(evaluationRepository.save(any(Evaluation.class))).thenAnswer(inv -> {
+        // Mock Evaluation Mapper
+        when(evaluationMapper.insert(any(Evaluation.class))).thenAnswer(inv -> {
             Evaluation e = inv.getArgument(0);
             if (e.getId() == null)
                 e.setId(5001L);
             evaluationStore.set(e);
-            return e;
+            return 1;
         });
-        when(evaluationRepository.findById(anyLong())).thenAnswer(inv -> Optional.ofNullable(evaluationStore.get()));
+        when(evaluationMapper.selectById(anyLong())).thenAnswer(inv -> evaluationStore.get());
+        when(evaluationMapper.updateById(any(Evaluation.class))).thenAnswer(inv -> {
+            Evaluation e = inv.getArgument(0);
+            evaluationStore.set(e);
+            return 1;
+        });
 
-        // Mock Complaint Repository
-        when(complaintRepository.save(any(Complaint.class))).thenAnswer(inv -> {
+        // Mock Complaint Mapper
+        when(complaintMapper.insert(any(Complaint.class))).thenAnswer(inv -> {
             Complaint c = inv.getArgument(0);
             if (c.getId() == null)
                 c.setId(9001L);
             complaintStore.set(c);
-            return c;
+            return 1;
         });
 
         // Mock Sensitive Word Service (no filter)

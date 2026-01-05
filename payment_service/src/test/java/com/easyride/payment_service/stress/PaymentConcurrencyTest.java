@@ -1,12 +1,14 @@
 package com.easyride.payment_service.stress;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.payment_service.dto.PaymentRequestDto;
 import com.easyride.payment_service.dto.PaymentResponseDto;
 import com.easyride.payment_service.exception.PaymentServiceException;
+import com.easyride.payment_service.model.PassengerPaymentMethod;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
-import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
-import com.easyride.payment_service.repository.PaymentRepository;
+import com.easyride.payment_service.repository.PassengerPaymentMethodMapper;
+import com.easyride.payment_service.repository.PaymentMapper;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
 import com.easyride.payment_service.service.PaymentServiceImpl;
 import com.easyride.payment_service.service.PaymentStrategyProcessor;
@@ -22,7 +24,6 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 import java.time.Duration;
-import java.util.Optional;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -35,7 +36,7 @@ import static org.mockito.Mockito.when;
 public class PaymentConcurrencyTest {
 
     @Mock
-    private PaymentRepository paymentRepository;
+    private PaymentMapper paymentMapper;
     @Mock
     private WalletService walletService;
     @Mock
@@ -47,7 +48,7 @@ public class PaymentConcurrencyTest {
     @Mock
     private PaymentStrategyProcessor strategyProcessor;
     @Mock
-    private PassengerPaymentMethodRepository passengerPaymentMethodRepository;
+    private PassengerPaymentMethodMapper passengerPaymentMethodMapper;
 
     private PaymentServiceImpl paymentService;
 
@@ -56,13 +57,13 @@ public class PaymentConcurrencyTest {
     @BeforeEach
     void setUp() {
         paymentService = new PaymentServiceImpl(
-                paymentRepository,
+                paymentMapper,
                 walletService,
                 paymentEventProducer,
                 redisTemplate,
                 null, // gatewayUtil unused
                 strategyProcessor,
-                passengerPaymentMethodRepository);
+                passengerPaymentMethodMapper);
 
         when(redisTemplate.opsForValue()).thenReturn(valueOps);
 
@@ -85,9 +86,9 @@ public class PaymentConcurrencyTest {
         });
 
         // Mock Repositories
-        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(passengerPaymentMethodRepository.findByIdAndPassengerId(anyLong(), anyLong()))
-                .thenReturn(Optional.empty());
+        when(paymentMapper.insert(any(Payment.class))).thenAnswer(inv -> 1);
+        when(passengerPaymentMethodMapper.selectOne(any(LambdaQueryWrapper.class)))
+                .thenReturn(null);
     }
 
     @Test

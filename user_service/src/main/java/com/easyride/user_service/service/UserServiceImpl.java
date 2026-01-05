@@ -22,6 +22,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.RestTemplate; // Add import
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.UUID;
 
@@ -30,10 +31,10 @@ public class UserServiceImpl implements UserService {
 
     private static final Logger log = LoggerFactory.getLogger(UserServiceImpl.class);
 
-    private final PassengerRepository passengerRepository;
-    private final DriverRepository driverRepository;
-    private final AdminRepository adminRepository;
-    private final UserRepository userRepository; // Generic user repo
+    private final PassengerMapper passengerMapper;
+    private final DriverMapper driverMapper;
+    private final AdminMapper adminMapper;
+    private final UserMapper userMapper; // Generic user mapper
     private final PasswordEncoder passwordEncoder;
     private final UserRocketProducer userRocketProducer;
     private final OtpService otpService;
@@ -48,20 +49,20 @@ public class UserServiceImpl implements UserService {
     @Value("${wechat.secret:YOUR_SECRET}")
     private String wechatSecret;
 
-    public UserServiceImpl(PassengerRepository passengerRepository,
-            DriverRepository driverRepository,
-            AdminRepository adminRepository,
-            UserRepository userRepository,
+    public UserServiceImpl(PassengerMapper passengerMapper,
+            DriverMapper driverMapper,
+            AdminMapper adminMapper,
+            UserMapper userMapper,
             PasswordEncoder passwordEncoder,
             UserRocketProducer userRocketProducer,
             OtpService otpService,
             JwtTokenProvider jwtTokenProvider,
             FileStorageService fileStorageService,
             RestTemplate restTemplate) {
-        this.passengerRepository = passengerRepository;
-        this.driverRepository = driverRepository;
-        this.adminRepository = adminRepository;
-        this.userRepository = userRepository;
+        this.passengerMapper = passengerMapper;
+        this.driverMapper = driverMapper;
+        this.adminMapper = adminMapper;
+        this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.userRocketProducer = userRocketProducer;
         this.otpService = otpService;
@@ -78,15 +79,17 @@ public class UserServiceImpl implements UserService {
         log.info("Registering user with phone: {} and email: {}", registrationDto.getPhoneNumber(),
                 registrationDto.getEmail());
 
-        if (userRepository.existsByPhoneNumber(registrationDto.getPhoneNumber())) {
+        if (userMapper.selectCount(
+                new LambdaQueryWrapper<User>().eq(User::getPhoneNumber, registrationDto.getPhoneNumber())) > 0) {
             log.warn("Phone number {} already exists.", registrationDto.getPhoneNumber());
             throw new UserAlreadyExistsException("手机号已被注册");
         }
-        if (userRepository.existsByEmail(registrationDto.getEmail())) {
+        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getEmail, registrationDto.getEmail())) > 0) {
             log.warn("Email {} already exists.", registrationDto.getEmail());
             throw new UserAlreadyExistsException("邮箱已被注册");
         }
-        if (userRepository.existsByUsername(registrationDto.getUsername())) {
+        if (userMapper
+                .selectCount(new LambdaQueryWrapper<User>().eq(User::getUsername, registrationDto.getUsername())) > 0) {
             log.warn("Username {} already exists.", registrationDto.getUsername());
             throw new UserAlreadyExistsException("用户名已存在");
         }
@@ -109,55 +112,40 @@ public class UserServiceImpl implements UserService {
             case PASSENGER:
                 Passenger passenger = new Passenger(registrationDto.getUsername(), encodedPassword,
                         registrationDto.getEmail(), registrationDto.getPhoneNumber());
-                savedUserEntity = passengerRepository.save(passenger);
+                userMapper.insert(passenger);
+                passenger.setId(passenger.getId()); // ID is filled by MyBatis-Plus
+                passengerMapper.insert(passenger);
+                savedUserEntity = passenger;
                 break;
             case DRIVER:
                 Driver driver = new Driver(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(),
                         registrationDto.getPhoneNumber());
-
-                // Required fields validation or assuming @Valid handled basic null checks.
-                // File uploads
                 String licensePath = "";
-                // String vehicleDocPath = ""; // We might need to store this or generic logic
-
-                // For this implementation, we map vehicleDocumentFile to carInsuranceUrl as an
-                // example or add more file upload params
-                // But based on Driver model: idCardFrontUrl, idCardBackUrl, driverLicenseUrl,
-                // carInsuranceUrl
-                // The Controller only accepts driverLicenseFile and vehicleDocumentFile.
-                // We will map:
-                // driverLicenseFile -> driverLicenseUrl
-                // vehicleDocumentFile -> carInsuranceUrl (assuming vehicle document is
-                // insurance for now)
-
                 if (driverLicenseFile != null && !driverLicenseFile.isEmpty()) {
                     licensePath = fileStorageService.storeFile(driverLicenseFile);
                 } else {
                     throw new RuntimeException("Driver license file is required");
                 }
-
                 String insurancePath = "";
                 if (vehicleDocumentFile != null && !vehicleDocumentFile.isEmpty()) {
                     insurancePath = fileStorageService.storeFile(vehicleDocumentFile);
                 } else {
                     throw new RuntimeException("Vehicle document (Insurance) is required");
                 }
-
                 driver.setRealName(registrationDto.getRealName());
                 driver.setIdCardNumber(registrationDto.getIdCardNumber());
                 driver.setDriverLicenseNumber(registrationDto.getDriverLicenseNumber());
                 driver.setCarModel(registrationDto.getCarModel());
                 driver.setCarLicensePlate(registrationDto.getCarLicensePlate());
-
                 driver.setDriverLicenseUrl(licensePath);
                 driver.setCarInsuranceUrl(insurancePath);
-
-                // Placeholder values for now since these are not in DTO or File inputs yet
-                // Ideally we update DTO and Controller to accept 4 files as per Model
                 driver.setIdCardFrontUrl("placeholder_front");
                 driver.setIdCardBackUrl("placeholder_back");
 
-                savedUserEntity = driverRepository.save(driver);
+                userMapper.insert(driver);
+                driver.setId(driver.getId());
+                driverMapper.insert(driver);
+                savedUserEntity = driver;
                 eventType = "DRIVER_APPLICATION_SUBMITTED";
 
                 DriverApplicationEventDto driverAppEvent = new DriverApplicationEventDto(
@@ -166,10 +154,13 @@ public class UserServiceImpl implements UserService {
                         driver.getDriverLicenseNumber());
                 userRocketProducer.sendDriverApplicationEvent(driverAppEvent);
                 break;
-            case ADMIN: // Should admin registration be public? Usually not.
+            case ADMIN:
                 Admin admin = new Admin(registrationDto.getUsername(), encodedPassword, registrationDto.getEmail(),
                         registrationDto.getPhoneNumber());
-                savedUserEntity = adminRepository.save(admin);
+                userMapper.insert(admin);
+                admin.setId(admin.getId());
+                adminMapper.insert(admin);
+                savedUserEntity = admin;
                 break;
             default:
                 log.error("Invalid role type: {}", registrationDto.getRole());
@@ -197,7 +188,7 @@ public class UserServiceImpl implements UserService {
     @Override
     public void requestOtpForLogin(String phoneNumber) {
         log.info("Requesting OTP for login for phone number: {}", phoneNumber);
-        if (!userRepository.existsByPhoneNumber(phoneNumber)) {
+        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getPhoneNumber, phoneNumber)) == 0) {
             log.warn("Attempted OTP request for non-existent phone number: {}", phoneNumber);
             throw new ResourceNotFoundException("该手机号未注册");
         }
@@ -214,19 +205,12 @@ public class UserServiceImpl implements UserService {
             throw new OtpVerificationException("OTP验证失败或已过期");
         }
 
-        User user = userRepository.findByPhoneNumber(loginDto.getPhoneNumber())
-                .orElseThrow(() -> {
-                    log.error("User not found by phone number {} after OTP validation.", loginDto.getPhoneNumber()); // Should
-                                                                                                                     // not
-                                                                                                                     // happen
-                                                                                                                     // if
-                                                                                                                     // OTP
-                                                                                                                     // was
-                                                                                                                     // key'd
-                                                                                                                     // by
-                                                                                                                     // phone
-                    return new ResourceNotFoundException("用户未找到");
-                });
+        User user = userMapper
+                .selectOne(new LambdaQueryWrapper<User>().eq(User::getPhoneNumber, loginDto.getPhoneNumber()));
+        if (user == null) {
+            log.error("User not found by phone number {} after OTP validation.", loginDto.getPhoneNumber());
+            throw new ResourceNotFoundException("用户未找到"); // Changed to throw as per existing pattern
+        }
 
         UserDetailsImpl userDetails = UserDetailsImpl.build(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
@@ -240,17 +224,19 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User findByUsername(String username) {
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found with username: " + username));
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUsername, username));
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found with username: " + username);
+        }
+        return user;
     }
 
     @Override
     public String requestOtpForPasswordReset(String phoneNumber) {
-        if (!userRepository.existsByPhoneNumber(phoneNumber)) {
+        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getPhoneNumber, phoneNumber)) == 0) {
             throw new ResourceNotFoundException("User not found with phone number: " + phoneNumber);
         }
         return otpService.generateOtp(phoneNumber);
-
     }
 
     @Override
@@ -258,41 +244,41 @@ public class UserServiceImpl implements UserService {
         if (!otpService.validateOtp(requestDto.getPhoneNumber(), requestDto.getOtp())) {
             throw new OtpVerificationException("Invalid OTP.");
         }
-        User user = userRepository.findByPhoneNumber(requestDto.getPhoneNumber())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "User not found with phone number: " + requestDto.getPhoneNumber()));
+        User user = userMapper
+                .selectOne(new LambdaQueryWrapper<User>().eq(User::getPhoneNumber, requestDto.getPhoneNumber()));
+        if (user == null) {
+            throw new ResourceNotFoundException("User not found with phone number: " + requestDto.getPhoneNumber());
+        }
         user.setPassword(passwordEncoder.encode(requestDto.getNewPassword()));
-        userRepository.save(user);
+        userMapper.updateById(user);
     }
 
     @Override
     public User updateUserProfile(String username, UserProfileUpdateDto profileUpdateDto) {
         User user = findByUsername(username); // This correctly finds the user by username
         user.setEmail(profileUpdateDto.getEmail());
-        // You can add more fields to update here, for example:
-        // user.setAddress(profileUpdateDto.getAddress());
-        return userRepository.save(user);
+        userMapper.updateById(user);
+        return user;
     }
 
     @Transactional
     @Override
     public Driver updateDriverProfile(Long driverId, DriverProfileUpdateDto updateDto) {
-        // 1. 根据 ID 查找司机，如果找不到则抛出异常
-        Driver driver = driverRepository.findById(driverId)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver not found with id: " + driverId));
+        Driver driver = driverMapper.selectById(driverId);
+        if (driver == null) {
+            throw new ResourceNotFoundException("Driver not found with id: " + driverId);
+        }
 
-        // 2. 检查 DTO 中是否有 verificationStatus 字段，如果不为 null 则更新
         if (updateDto.getVerificationStatus() != null) {
             driver.setVerificationStatus(updateDto.getVerificationStatus());
         }
 
-        // 3. 检查 DTO 中是否有 reviewNotes 字段，如果不为 null 则更新
         if (updateDto.getReviewNotes() != null && !updateDto.getReviewNotes().isEmpty()) {
             driver.setReviewNotes(updateDto.getReviewNotes());
         }
 
-        // 4. 保存更新后的司机信息到数据库并返回
-        return driverRepository.save(driver);
+        driverMapper.updateById(driver);
+        return driver;
     }
 
     @Override
@@ -343,27 +329,24 @@ public class UserServiceImpl implements UserService {
 
         // 3. Check if user exists
         String finalUnionId = unionId;
-        User user = userRepository.findByUnionId(finalUnionId)
-                .orElseGet(() -> {
-                    // 4. Register new user
-                    log.info("WeChat user not found, registering new passenger. UnionID: {}", finalUnionId);
-                    Passenger newPassenger = new Passenger();
-                    // Generate a random username or use nickname
-                    newPassenger.setUsername("wx_" + UUID.randomUUID().toString().substring(0, 8));
-                    newPassenger.setRole(Role.PASSENGER);
-                    newPassenger.setUnionId(finalUnionId);
-                    newPassenger.setOpenId(userInfo.getOpenId());
-                    newPassenger.setEnabled(true);
-                    // Set dummy email/phone or allow nulls in entity (we modified entity to have
-                    // email/phone checks?)
-                    // Entity has @Column(nullable = false) for email/phone?
-                    // We need to fix User entity to allow nulls or provide dummies.
-                    newPassenger.setEmail(finalUnionId + "@wechat.com"); // Dummy
-                    newPassenger.setPhoneNumber(finalUnionId); // Dummy, might need validation fix
-                    newPassenger.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // Random password
+        User user = userMapper.selectOne(new LambdaQueryWrapper<User>().eq(User::getUnionId, finalUnionId));
+        if (user == null) {
+            log.info("WeChat user not found, registering new passenger. UnionID: {}", finalUnionId);
+            Passenger newPassenger = new Passenger();
+            newPassenger.setUsername("wx_" + UUID.randomUUID().toString().substring(0, 8));
+            newPassenger.setRole(Role.PASSENGER);
+            newPassenger.setUnionId(finalUnionId);
+            newPassenger.setOpenId(userInfo.getOpenId());
+            newPassenger.setEnabled(true);
+            newPassenger.setEmail(finalUnionId + "@wechat.com"); // Dummy
+            newPassenger.setPhoneNumber(finalUnionId); // Dummy
+            newPassenger.setPassword(passwordEncoder.encode(UUID.randomUUID().toString())); // Random password
 
-                    return passengerRepository.save(newPassenger);
-                });
+            userMapper.insert(newPassenger);
+            newPassenger.setId(newPassenger.getId());
+            passengerMapper.insert(newPassenger);
+            user = newPassenger;
+        }
 
         // 5. Generate JWT
         UserDetailsImpl userDetails = UserDetailsImpl.build(user);

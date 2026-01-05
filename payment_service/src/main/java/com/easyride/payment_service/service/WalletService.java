@@ -3,7 +3,7 @@ package com.easyride.payment_service.service;
 import com.easyride.payment_service.dto.WalletDto;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.WalletTransaction;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 
 import org.springframework.data.domain.Pageable;

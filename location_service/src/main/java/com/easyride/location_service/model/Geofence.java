@@ -1,40 +1,33 @@
 package com.easyride.location_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List; // For polygon points
+import java.util.List;
 
-@Entity
-@Table(name = "geofences")
+@TableName("geofences")
 @Data
 @NoArgsConstructor
 public class Geofence {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
 
-    @Column(unique = true, nullable = false)
-    private String name; // e.g., "Downtown Service Area", "Airport Zone"
+    private String name;
+    private GeofenceType type;
 
-    @Enumerated(EnumType.STRING)
-    private GeofenceType type; // SERVICE_AREA, RESTRICTED_ZONE, PICKUP_HOTSPOT
-
-    // Storing polygon as a list of points (e.g., JSON string or use PostGIS for real geospatial types)
-    // For simplicity with standard JPA, storing as text and parsing.
-    @Lob // Large object for potentially many points
-    @Column(columnDefinition = "TEXT")
-    private String polygonCoordinatesJson; // JSON string of List<List<Double>> like [[lat,lon], [lat,lon], ...]
+    @TableField("polygon_coordinates_json")
+    private String polygonCoordinatesJson;
 
     private boolean isActive;
     private String description;
 
-    // Transients for parsed polygon - not persisted directly but used in logic
-    @Transient
-    private transient List<Coordinate> parsedPolygon; // Parsed from JSON string
+    @TableField(exist = false)
+    private List<Coordinate> parsedPolygon;
 
-    // Inner class for coordinates if not using a full DTO
     @Data
     @NoArgsConstructor
     public static class Coordinate {

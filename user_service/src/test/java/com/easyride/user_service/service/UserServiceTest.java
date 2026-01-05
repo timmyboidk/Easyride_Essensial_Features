@@ -28,13 +28,13 @@ import static org.mockito.Mockito.*;
 public class UserServiceTest {
 
     @Mock
-    private PassengerRepository passengerRepository;
+    private PassengerMapper passengerMapper;
     @Mock
-    private DriverRepository driverRepository;
+    private DriverMapper driverMapper;
     @Mock
-    private AdminRepository adminRepository;
+    private AdminMapper adminMapper;
     @Mock
-    private UserRepository userRepository;
+    private UserMapper userMapper;
     @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
@@ -65,9 +65,9 @@ public class UserServiceTest {
 
     @Test
     void registerUser_Passenger_Success() {
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L); // phone
+        when(userMapper.selectCount(any())).thenReturn(0L); // email
+        when(userMapper.selectCount(any())).thenReturn(0L); // user
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
 
         Passenger passenger = new Passenger();
@@ -76,7 +76,12 @@ public class UserServiceTest {
         passenger.setRole(Role.PASSENGER);
         passenger.setEnabled(true);
 
-        when(passengerRepository.save(any(Passenger.class))).thenReturn(passenger);
+        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(1L);
+            return 1;
+        });
+        when(passengerMapper.insert(any(Passenger.class))).thenReturn(1);
 
         UserRegistrationResponseDto response = userService.registerUser(registrationDto, null, null);
 
@@ -100,9 +105,9 @@ public class UserServiceTest {
         MockMultipartFile vehicleDocumentFile = new MockMultipartFile("vehicleDocumentFile", "insurance.pdf",
                 "application/pdf", "test data".getBytes());
 
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(fileStorageService.storeFile(any(MultipartFile.class))).thenReturn("/path/to/file");
 
@@ -113,7 +118,12 @@ public class UserServiceTest {
         driver.setDriverLicenseNumber("DL123");
         driver.setEnabled(true);
 
-        when(driverRepository.save(any(Driver.class))).thenReturn(driver);
+        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(2L);
+            return 1;
+        });
+        when(driverMapper.insert(any(Driver.class))).thenReturn(1);
 
         UserRegistrationResponseDto response = userService.registerUser(registrationDto, driverLicenseFile,
                 vehicleDocumentFile);
@@ -125,7 +135,7 @@ public class UserServiceTest {
 
     @Test
     void registerUser_UserAlreadyExists() {
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(true);
+        when(userMapper.selectCount(any())).thenReturn(1L);
 
         assertThrows(UserAlreadyExistsException.class, () -> {
             userService.registerUser(registrationDto, null, null);
@@ -146,7 +156,7 @@ public class UserServiceTest {
         user.setPassword("password");
         user.setEnabled(true);
 
-        when(userRepository.findByPhoneNumber("1234567890")).thenReturn(Optional.of(user));
+        when(userMapper.selectOne(any())).thenReturn(user);
         when(jwtTokenProvider.generateToken(any())).thenReturn("mock-jwt-token");
 
         JwtAuthenticationResponse response = userService.loginWithPhoneOtp(loginDto);
@@ -169,9 +179,9 @@ public class UserServiceTest {
     @Test
     void registerUser_Admin_Success() {
         registrationDto.setRole("ADMIN");
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
 
         Admin admin = new Admin();
@@ -180,7 +190,12 @@ public class UserServiceTest {
         admin.setRole(Role.ADMIN);
         admin.setEnabled(true);
 
-        when(adminRepository.save(any(Admin.class))).thenReturn(admin);
+        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(3L);
+            return 1;
+        });
+        when(adminMapper.insert(any(Admin.class))).thenReturn(1);
 
         UserRegistrationResponseDto response = userService.registerUser(registrationDto, null, null);
 
@@ -191,8 +206,8 @@ public class UserServiceTest {
 
     @Test
     void registerUser_EmailAlreadyExists() {
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(true);
+        when(userMapper.selectCount(any())).thenReturn(0L); // phone
+        when(userMapper.selectCount(any())).thenReturn(1L); // email
 
         assertThrows(UserAlreadyExistsException.class, () -> {
             userService.registerUser(registrationDto, null, null);
@@ -201,9 +216,9 @@ public class UserServiceTest {
 
     @Test
     void registerUser_UsernameAlreadyExists() {
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(true);
+        when(userMapper.selectCount(any())).thenReturn(0L); // phone
+        when(userMapper.selectCount(any())).thenReturn(0L); // email
+        when(userMapper.selectCount(any())).thenReturn(1L); // user
 
         assertThrows(UserAlreadyExistsException.class, () -> {
             userService.registerUser(registrationDto, null, null);
@@ -213,9 +228,9 @@ public class UserServiceTest {
     @Test
     void registerUser_Driver_MissingLicense() {
         registrationDto.setRole("DRIVER");
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
 
         assertThrows(RuntimeException.class, () -> {
             userService.registerUser(registrationDto, null, null);
@@ -228,9 +243,9 @@ public class UserServiceTest {
         MockMultipartFile driverLicenseFile = new MockMultipartFile("driverLicenseFile", "license.jpg", "image/jpeg",
                 "test data".getBytes());
 
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
         when(fileStorageService.storeFile(any())).thenReturn("path");
 
@@ -241,7 +256,7 @@ public class UserServiceTest {
 
     @Test
     void requestOtpForLogin_Success() {
-        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(true);
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(otpService.generateOtp("1234567890")).thenReturn("123456");
 
         userService.requestOtpForLogin("1234567890");
@@ -251,7 +266,7 @@ public class UserServiceTest {
 
     @Test
     void requestOtpForLogin_UserNotFound() {
-        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
 
         assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
             userService.requestOtpForLogin("1234567890");
@@ -262,7 +277,7 @@ public class UserServiceTest {
     void findByUsername_Success() {
         Passenger user = new Passenger();
         user.setUsername("testuser");
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
+        when(userMapper.selectOne(any())).thenReturn(user);
 
         User result = userService.findByUsername("testuser");
         assertEquals("testuser", result.getUsername());
@@ -270,7 +285,7 @@ public class UserServiceTest {
 
     @Test
     void findByUsername_NotFound() {
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.empty());
+        when(userMapper.selectOne(any())).thenReturn(null);
 
         assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
             userService.findByUsername("testuser");
@@ -279,7 +294,7 @@ public class UserServiceTest {
 
     @Test
     void requestOtpForPasswordReset_Success() {
-        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(true);
+        when(userMapper.selectCount(any())).thenReturn(1L);
         when(otpService.generateOtp("1234567890")).thenReturn("123456");
 
         String otp = userService.requestOtpForPasswordReset("1234567890");
@@ -288,7 +303,7 @@ public class UserServiceTest {
 
     @Test
     void requestOtpForPasswordReset_NotFound() {
-        when(userRepository.existsByPhoneNumber("1234567890")).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
 
         assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
             userService.requestOtpForPasswordReset("1234567890");
@@ -301,13 +316,13 @@ public class UserServiceTest {
         when(otpService.validateOtp("1234567890", "123456")).thenReturn(true);
 
         Passenger user = new Passenger();
-        when(userRepository.findByPhoneNumber("1234567890")).thenReturn(Optional.of(user));
+        when(userMapper.selectOne(any())).thenReturn(user);
         when(passwordEncoder.encode("newPassword")).thenReturn("encodedNewPassword");
 
         userService.resetPasswordWithOtp(requestDto);
 
         assertEquals("encodedNewPassword", user.getPassword());
-        verify(userRepository, times(1)).save(user);
+        verify(userMapper, times(1)).updateById(user);
     }
 
     @Test
@@ -327,8 +342,8 @@ public class UserServiceTest {
 
         Passenger user = new Passenger();
         user.setUsername("testuser");
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(user));
-        when(userRepository.save(any())).thenReturn(user);
+        when(userMapper.selectOne(any())).thenReturn(user);
+        when(userMapper.updateById(any(User.class))).thenReturn(1);
 
         User result = userService.updateUserProfile("testuser", updateDto);
 
@@ -343,8 +358,8 @@ public class UserServiceTest {
 
         Driver driver = new Driver();
         driver.setId(2L);
-        when(driverRepository.findById(2L)).thenReturn(Optional.of(driver));
-        when(driverRepository.save(any())).thenReturn(driver);
+        when(driverMapper.selectById(2L)).thenReturn(driver);
+        when(driverMapper.updateById(any(Driver.class))).thenReturn(1);
 
         Driver result = userService.updateDriverProfile(2L, updateDto);
 
@@ -355,7 +370,7 @@ public class UserServiceTest {
     @Test
     void updateDriverProfile_NotFound() {
         DriverProfileUpdateDto updateDto = new DriverProfileUpdateDto();
-        when(driverRepository.findById(2L)).thenReturn(Optional.empty());
+        when(driverMapper.selectById(2L)).thenReturn(null);
 
         assertThrows(com.easyride.user_service.exception.ResourceNotFoundException.class, () -> {
             userService.updateDriverProfile(2L, updateDto);
@@ -365,9 +380,9 @@ public class UserServiceTest {
     @Test
     void registerUser_OtpFailure() {
         registrationDto.setOtpCode("123456");
-        when(userRepository.existsByPhoneNumber(anyString())).thenReturn(false);
-        when(userRepository.existsByEmail(anyString())).thenReturn(false);
-        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
+        when(userMapper.selectCount(any())).thenReturn(0L);
         when(otpService.validateOtp("1234567890", "123456")).thenReturn(false);
 
         assertThrows(OtpVerificationException.class, () -> {
@@ -397,7 +412,7 @@ public class UserServiceTest {
         user.setUsername("wx_user");
         user.setRole(Role.PASSENGER); // Ensure role is set for UserDetails
 
-        when(userRepository.findByUnionId("unionid")).thenReturn(Optional.of(user));
+        when(userMapper.selectOne(any())).thenReturn(user);
         when(jwtTokenProvider.generateToken(any())).thenReturn("jwt-token");
 
         JwtAuthenticationResponse response = userService.loginWithWeChat(request);
@@ -421,7 +436,7 @@ public class UserServiceTest {
 
         when(restTemplate.getForObject(anyString(), eq(WeChatTokenResponse.class))).thenReturn(tokenResponse);
         when(restTemplate.getForObject(anyString(), eq(WeChatUserInfo.class))).thenReturn(userInfo);
-        when(userRepository.findByUnionId("unionid")).thenReturn(Optional.empty());
+        when(userMapper.selectOne(any())).thenReturn(null);
         when(passwordEncoder.encode(anyString())).thenReturn("encodedPwd");
 
         Passenger newPassenger = new Passenger();
@@ -429,13 +444,18 @@ public class UserServiceTest {
         newPassenger.setRole(Role.PASSENGER);
         newPassenger.setUnionId("unionid");
 
-        when(passengerRepository.save(any(Passenger.class))).thenReturn(newPassenger);
+        when(userMapper.insert(any(User.class))).thenAnswer(invocation -> {
+            User u = invocation.getArgument(0);
+            u.setId(2L);
+            return 1;
+        });
+        when(passengerMapper.insert(any(Passenger.class))).thenReturn(1);
         when(jwtTokenProvider.generateToken(any())).thenReturn("jwt-token");
 
         JwtAuthenticationResponse response = userService.loginWithWeChat(request);
 
         assertNotNull(response);
         assertEquals("jwt-token", response.getAccessToken());
-        verify(passengerRepository).save(any(Passenger.class));
+        verify(passengerMapper).insert(any(Passenger.class));
     }
 }

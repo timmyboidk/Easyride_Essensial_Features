@@ -9,6 +9,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
+@org.springframework.boot.autoconfigure.EnableAutoConfiguration(exclude = {
+        org.apache.rocketmq.spring.autoconfigure.RocketMQAutoConfiguration.class
+})
 public class LocationServiceApplicationTests {
 
     @Autowired
@@ -16,6 +19,9 @@ public class LocationServiceApplicationTests {
 
     @MockitoBean
     private LocationService locationService;
+
+    @MockitoBean
+    private org.apache.rocketmq.spring.core.RocketMQTemplate rocketMQTemplate;
 
     @Test
     public void contextLoads() {

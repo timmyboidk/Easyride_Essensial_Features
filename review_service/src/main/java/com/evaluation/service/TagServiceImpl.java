@@ -1,10 +1,11 @@
 package com.evaluation.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.evaluation.dto.TagDTO;
 import com.evaluation.exception.BadRequestException;
-import com.evaluation.mapper.TagMapper;
+import com.evaluation.mapper.TagDtoMapper;
 import com.evaluation.model.Tag;
-import com.evaluation.repository.TagRepository;
+import com.evaluation.repository.TagMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,12 +18,12 @@ import java.util.stream.Collectors;
 @Service
 public class TagServiceImpl implements TagService {
 
-    private final TagRepository tagRepository;
     private final TagMapper tagMapper;
+    private final TagDtoMapper tagDtoMapper;
 
-    public TagServiceImpl(TagRepository tagRepository, TagMapper tagMapper) {
-        this.tagRepository = tagRepository;
+    public TagServiceImpl(TagMapper tagMapper, TagDtoMapper tagDtoMapper) {
         this.tagMapper = tagMapper;
+        this.tagDtoMapper = tagDtoMapper;
     }
 
     /**
@@ -32,9 +33,9 @@ public class TagServiceImpl implements TagService {
      */
     @Override
     public List<TagDTO> getAllTags() {
-        List<Tag> tags = tagRepository.findAll();
+        List<Tag> tags = tagMapper.selectList(null);
         return tags.stream()
-                .map(tagMapper::toDTO)
+                .map(tagDtoMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
@@ -48,12 +49,13 @@ public class TagServiceImpl implements TagService {
     @Transactional
     public TagDTO createTag(TagDTO tagDTO) {
         // 检查标签名称是否已存在
-        tagRepository.findByName(tagDTO.getName()).ifPresent(tag -> {
+        Tag existingTag = tagMapper.selectOne(new LambdaQueryWrapper<Tag>().eq(Tag::getName, tagDTO.getName()));
+        if (existingTag != null) {
             throw new BadRequestException("标签名称已存在: " + tagDTO.getName());
-        });
+        }
 
-        Tag tag = tagMapper.toEntity(tagDTO);
-        Tag savedTag = tagRepository.save(tag);
-        return tagMapper.toDTO(savedTag);
+        Tag tag = tagDtoMapper.toEntity(tagDTO);
+        tagMapper.insert(tag);
+        return tagDtoMapper.toDTO(tag);
     }
 }

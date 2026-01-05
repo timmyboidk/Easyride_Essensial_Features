@@ -1,8 +1,9 @@
 package com.easyride.location_service.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.easyride.location_service.model.Geofence;
 import com.easyride.location_service.model.GeofenceType;
-import com.easyride.location_service.repository.GeofenceRepository;
+import com.easyride.location_service.repository.GeofenceMapper;
 import com.easyride.location_service.exception.ResourceNotFoundException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -19,11 +20,11 @@ import java.util.stream.Collectors;
 public class GeofenceServiceImpl implements GeofenceService {
 
     private static final Logger log = LoggerFactory.getLogger(GeofenceServiceImpl.class);
-    private final GeofenceRepository geofenceRepository;
+    private final GeofenceMapper geofenceMapper;
     private final ObjectMapper objectMapper; // For parsing polygon JSON
 
-    public GeofenceServiceImpl(GeofenceRepository geofenceRepository, ObjectMapper objectMapper) {
-        this.geofenceRepository = geofenceRepository;
+    public GeofenceServiceImpl(GeofenceMapper geofenceMapper, ObjectMapper objectMapper) {
+        this.geofenceMapper = geofenceMapper;
         this.objectMapper = objectMapper;
     }
 
@@ -31,8 +32,8 @@ public class GeofenceServiceImpl implements GeofenceService {
     @Transactional
     public Geofence createGeofence(Geofence geofence) {
         log.info("Creating new geofence: {}", geofence.getName());
-        // Validate polygonCoordinatesJson format if possible here
-        return geofenceRepository.save(geofence);
+        geofenceMapper.insert(geofence);
+        return geofence;
     }
     // ... Implement updateGeofence, deleteGeofence, getAllActiveGeofences,
     // getActiveGeofencesByType ...
@@ -41,37 +42,39 @@ public class GeofenceServiceImpl implements GeofenceService {
     @Transactional
     public Geofence updateGeofence(Long id, Geofence geofenceDetails) {
         log.info("Updating geofence with id: {}", id);
-        Geofence existingGeofence = geofenceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Geofence not found with id: " + id));
+        Geofence existingGeofence = geofenceMapper.selectById(id);
+        if (existingGeofence == null) {
+            throw new ResourceNotFoundException("Geofence not found with id: " + id);
+        }
 
-        existingGeofence.setName(geofenceDetails.getName());
-        existingGeofence.setType(geofenceDetails.getType());
-        existingGeofence.setPolygonCoordinatesJson(geofenceDetails.getPolygonCoordinatesJson());
-        existingGeofence.setActive(geofenceDetails.isActive());
-        existingGeofence.setDescription(geofenceDetails.getDescription());
-
-        return geofenceRepository.save(existingGeofence);
+        geofenceDetails.setId(id);
+        geofenceMapper.updateById(geofenceDetails);
+        return geofenceDetails;
     }
 
     @Override
     @Transactional
     public void deleteGeofence(Long id) {
         log.info("Deleting geofence with id: {}", id);
-        Geofence geofence = geofenceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Geofence not found with id: " + id));
-        geofenceRepository.delete(geofence);
+        if (geofenceMapper.selectById(id) == null) {
+            throw new ResourceNotFoundException("Geofence not found with id: " + id);
+        }
+        geofenceMapper.deleteById(id);
     }
 
     @Override
     public List<Geofence> getAllActiveGeofences() {
-        return geofenceRepository.findByIsActiveTrue();
+        return geofenceMapper.selectList(new LambdaQueryWrapper<Geofence>()
+                .eq(Geofence::isActive, true));
     }
 
     @Override
     public List<Geofence> getActiveGeofencesByType(String typeString) {
         try {
             GeofenceType type = GeofenceType.valueOf(typeString.toUpperCase());
-            return geofenceRepository.findByTypeAndIsActiveTrue(type);
+            return geofenceMapper.selectList(new LambdaQueryWrapper<Geofence>()
+                    .eq(Geofence::getType, type)
+                    .eq(Geofence::isActive, true));
         } catch (IllegalArgumentException e) {
             log.warn("Invalid geofence type string: {}", typeString);
             return List.of();
@@ -80,8 +83,10 @@ public class GeofenceServiceImpl implements GeofenceService {
 
     @Override
     public boolean isPointInGeofence(double latitude, double longitude, Long geofenceId) {
-        Geofence geofence = geofenceRepository.findById(geofenceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Geofence not found with id: " + geofenceId));
+        Geofence geofence = geofenceMapper.selectById(geofenceId);
+        if (geofence == null) {
+            throw new ResourceNotFoundException("Geofence not found with id: " + geofenceId);
+        }
         if (!geofence.isActive())
             return false;
         return isPointInPolygon(latitude, longitude, parsePolygon(geofence.getPolygonCoordinatesJson()));
@@ -90,17 +95,16 @@ public class GeofenceServiceImpl implements GeofenceService {
     @Override
     public List<Geofence> findGeofencesContainingPoint(double latitude, double longitude, String typeFilter) {
         List<Geofence> candidates;
+        LambdaQueryWrapper<Geofence> queryWrapper = new LambdaQueryWrapper<Geofence>().eq(Geofence::isActive, true);
         if (typeFilter != null && !typeFilter.isBlank()) {
             try {
                 GeofenceType type = GeofenceType.valueOf(typeFilter.toUpperCase());
-                candidates = geofenceRepository.findByTypeAndIsActiveTrue(type);
+                queryWrapper.eq(Geofence::getType, type);
             } catch (IllegalArgumentException e) {
                 log.warn("Invalid geofence type filter '{}', finding in all active geofences.", typeFilter);
-                candidates = geofenceRepository.findByIsActiveTrue();
             }
-        } else {
-            candidates = geofenceRepository.findByIsActiveTrue();
         }
+        candidates = geofenceMapper.selectList(queryWrapper);
 
         return candidates.stream()
                 .filter(gf -> isPointInPolygon(latitude, longitude, parsePolygon(gf.getPolygonCoordinatesJson())))

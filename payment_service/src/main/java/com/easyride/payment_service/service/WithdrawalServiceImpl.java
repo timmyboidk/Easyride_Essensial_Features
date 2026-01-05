@@ -5,8 +5,9 @@ import com.easyride.payment_service.dto.WithdrawalResponseDto;
 import com.easyride.payment_service.model.Wallet;
 import com.easyride.payment_service.model.Withdrawal;
 import com.easyride.payment_service.model.WithdrawalStatus;
-import com.easyride.payment_service.repository.WalletRepository;
-import com.easyride.payment_service.repository.WithdrawalRepository;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.easyride.payment_service.repository.WalletMapper;
+import com.easyride.payment_service.repository.WithdrawalMapper;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,19 +16,22 @@ import java.util.List;
 @Service
 public class WithdrawalServiceImpl implements WithdrawalService {
 
-    private final WithdrawalRepository withdrawalRepository;
-    private final WalletRepository walletRepository;
+    private final WithdrawalMapper withdrawalMapper;
+    private final WalletMapper walletMapper;
 
-    public WithdrawalServiceImpl(WithdrawalRepository withdrawalRepository,
-            WalletRepository walletRepository) {
-        this.withdrawalRepository = withdrawalRepository;
-        this.walletRepository = walletRepository;
+    public WithdrawalServiceImpl(WithdrawalMapper withdrawalMapper,
+            WalletMapper walletMapper) {
+        this.withdrawalMapper = withdrawalMapper;
+        this.walletMapper = walletMapper;
     }
 
     @Override
     public WithdrawalResponseDto requestWithdrawal(WithdrawalRequestDto withdrawalRequestDto) {
-        Wallet wallet = walletRepository.findById(withdrawalRequestDto.getDriverId())
-                .orElseThrow(() -> new RuntimeException("钱包不存在"));
+        Wallet wallet = walletMapper.selectOne(
+                new LambdaQueryWrapper<Wallet>().eq(Wallet::getDriverId, withdrawalRequestDto.getDriverId()));
+        if (wallet == null) {
+            throw new RuntimeException("钱包不存在");
+        }
 
         if (wallet.getBalance() < withdrawalRequestDto.getAmount()) {
             return new WithdrawalResponseDto(null, "FAILED", "余额不足");
@@ -40,7 +44,7 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         withdrawal.setStatus(WithdrawalStatus.PENDING);
         withdrawal.setNotes("Withdrawal to: " + withdrawalRequestDto.getBankAccount());
         withdrawal.setRequestTime(LocalDateTime.now());
-        withdrawalRepository.save(withdrawal);
+        withdrawalMapper.insert(withdrawal);
 
         // 冻结提现金额（可选）
 
@@ -49,8 +53,10 @@ public class WithdrawalServiceImpl implements WithdrawalService {
 
     @Override
     public void processWithdrawal(Long withdrawalId) {
-        Withdrawal withdrawal = withdrawalRepository.findById(withdrawalId)
-                .orElseThrow(() -> new RuntimeException("提现申请不存在"));
+        Withdrawal withdrawal = withdrawalMapper.selectById(withdrawalId);
+        if (withdrawal == null) {
+            throw new RuntimeException("提现申请不存在");
+        }
 
         // 进行风控审核
         boolean isApproved = performRiskControl(withdrawal);
@@ -62,29 +68,34 @@ public class WithdrawalServiceImpl implements WithdrawalService {
             if (result) {
                 withdrawal.setStatus(WithdrawalStatus.PROCESSED);
                 withdrawal.setCompletionTime(LocalDateTime.now());
-                withdrawalRepository.save(withdrawal);
+                withdrawalMapper.updateById(withdrawal);
 
                 // 更新钱包余额
-                Wallet wallet = walletRepository.findById(withdrawal.getWalletId())
-                        .orElseThrow(() -> new RuntimeException("钱包不存在"));
+                Wallet wallet = walletMapper.selectById(withdrawal.getWalletId());
+                if (wallet == null) {
+                    throw new RuntimeException("钱包不存在");
+                }
                 wallet.setBalance(wallet.getBalance() - withdrawal.getAmount());
                 wallet.setUpdatedAt(LocalDateTime.now());
-                walletRepository.save(wallet);
+                walletMapper.updateById(wallet);
             } else {
                 withdrawal.setStatus(WithdrawalStatus.FAILED);
-                withdrawalRepository.save(withdrawal);
+                withdrawalMapper.updateById(withdrawal);
             }
         } else {
             withdrawal.setStatus(WithdrawalStatus.REJECTED);
-            withdrawalRepository.save(withdrawal);
+            withdrawalMapper.updateById(withdrawal);
         }
     }
 
     @Override
     public List<Withdrawal> getWithdrawalHistory(Long driverId) {
-        Wallet wallet = walletRepository.findByDriverId(driverId)
-                .orElseThrow(() -> new RuntimeException("钱包不存在"));
-        return withdrawalRepository.findByWalletId(wallet.getId());
+        Wallet wallet = walletMapper.selectOne(new LambdaQueryWrapper<Wallet>().eq(Wallet::getDriverId, driverId));
+        if (wallet == null) {
+            throw new RuntimeException("钱包不存在");
+        }
+        return withdrawalMapper
+                .selectList(new LambdaQueryWrapper<Withdrawal>().eq(Withdrawal::getWalletId, wallet.getId()));
     }
 
     private boolean performRiskControl(Withdrawal withdrawal) {

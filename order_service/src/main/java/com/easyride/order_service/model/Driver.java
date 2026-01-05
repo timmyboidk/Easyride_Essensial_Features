@@ -1,12 +1,11 @@
 package com.easyride.order_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.*;
 
-@Entity
-@Table(name = "drivers")
-@Getter
-@Setter
+@TableName("drivers")
+@Data
+@EqualsAndHashCode(callSuper = true)
 @NoArgsConstructor
 @AllArgsConstructor
 public class Driver extends User {
@@ -15,9 +14,7 @@ public class Driver extends User {
     // private Long id;
     // private String name;
 
-    @Enumerated(EnumType.STRING)
     private VehicleType vehicleType;
 
     private boolean available;
 }
-

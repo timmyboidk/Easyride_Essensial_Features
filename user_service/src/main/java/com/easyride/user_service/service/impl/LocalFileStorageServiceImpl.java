@@ -34,6 +34,10 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
             throw new FileStorageException("Filename cannot be null");
         }
 
+        if (originalFileName.contains("..")) {
+            throw new FileStorageException("Filename contains invalid path sequence " + originalFileName);
+        }
+
         // 只取文件名部分，去除任何路径信息
         String cleanedFileName = Paths.get(originalFileName).getFileName().toString();
         // 生成唯一文件名

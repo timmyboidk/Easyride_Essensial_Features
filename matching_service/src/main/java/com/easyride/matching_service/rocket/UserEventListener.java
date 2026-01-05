@@ -2,7 +2,7 @@ package com.easyride.matching_service.rocket;
 
 import com.easyride.matching_service.dto.UserEventDto;
 import com.easyride.matching_service.model.DriverStatus;
-import com.easyride.matching_service.repository.DriverStatusRepository;
+import com.easyride.matching_service.repository.DriverStatusMapper;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.slf4j.Logger;
@@ -18,7 +18,7 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
     private static final Logger log = LoggerFactory.getLogger(UserEventListener.class);
 
     @Autowired
-    private DriverStatusRepository driverStatusRepository;
+    private DriverStatusMapper driverStatusMapper;
 
     @Override
     public void onMessage(UserEventDto event) {
@@ -30,10 +30,13 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
 
         try {
             if ("USER_CREATED".equals(event.getEventType()) || "DRIVER_APPROVED".equals(event.getEventType())) {
-                DriverStatus status = driverStatusRepository.findById(event.getUserId())
-                        .orElse(new DriverStatus());
+                DriverStatus status = driverStatusMapper.selectById(event.getUserId());
+                boolean isNew = (status == null);
+                if (isNew) {
+                    status = new DriverStatus();
+                    status.setDriverId(event.getUserId());
+                }
 
-                status.setDriverId(event.getUserId());
                 status.setAvailable(true); // Default to available when approved/created
                 status.setRating(event.getInitialRating() != null ? event.getInitialRating() : 4.5); // Default new
                                                                                                      // driver rating
@@ -44,14 +47,20 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
                 if (status.getOnlineSince() == null && "DRIVER_APPROVED".equals(event.getEventType())) {
                     status.setOnlineSince(LocalDateTime.now()); // Or when they first toggle online
                 }
-                driverStatusRepository.save(status);
+
+                if (isNew) {
+                    driverStatusMapper.insert(status);
+                } else {
+                    driverStatusMapper.updateById(status);
+                }
                 log.info("Upserted DriverStatus for driver ID {} due to event {}", event.getUserId(),
                         event.getEventType());
 
             } else if ("USER_UPDATED".equals(event.getEventType())) {
                 // Handle updates to driver profile relevant to matching (e.g., vehicle type
                 // change)
-                driverStatusRepository.findById(event.getUserId()).ifPresent(driverStatus -> {
+                DriverStatus driverStatus = driverStatusMapper.selectById(event.getUserId());
+                if (driverStatus != null) {
                     boolean changed = false;
                     if (event.getVehicleType() != null
                             && !event.getVehicleType().equals(driverStatus.getVehicleType())) {
@@ -61,10 +70,10 @@ public class UserEventListener implements RocketMQListener<UserEventDto> {
                     // Add other updatable fields like rating if User Service sends them
                     if (changed) {
                         driverStatus.setLastStatusUpdateTime(LocalDateTime.now());
-                        driverStatusRepository.save(driverStatus);
+                        driverStatusMapper.updateById(driverStatus);
                         log.info("Updated DriverStatus for driver ID {} from USER_UPDATED event", event.getUserId());
                     }
-                });
+                }
             }
             // Handle USER_DISABLED or DRIVER_SUSPENDED events to mark driver as unavailable
         } catch (Exception e) {

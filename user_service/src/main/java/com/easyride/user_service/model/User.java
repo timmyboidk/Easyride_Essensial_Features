@@ -1,32 +1,24 @@
 package com.easyride.user_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
 @Data
 @NoArgsConstructor
-@Table(name = "users")
-@Inheritance(strategy = InheritanceType.JOINED)
+@TableName("users")
 public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @TableId(type = IdType.AUTO)
     private Long id;
-    @Column(unique = true, nullable = false)
     private String username;
     private String password;
-    @Column(unique = true, nullable = false)
     private String email;
-    @Column(unique = true, nullable = false)
     private String phoneNumber;
-    @Enumerated(EnumType.STRING)
     private Role role;
     private boolean enabled = true;
-
-    @Column(unique = true)
     private String unionId;
-
     private String openId;
 
     public Long getId() {

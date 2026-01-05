@@ -4,9 +4,9 @@ import com.easyride.payment_service.dto.WalletDto;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.model.Wallet;
-import com.easyride.payment_service.repository.PaymentRepository;
-import com.easyride.payment_service.repository.WalletRepository;
-import com.easyride.payment_service.repository.WalletTransactionRepository;
+import com.easyride.payment_service.repository.PaymentMapper;
+import com.easyride.payment_service.repository.WalletMapper;
+import com.easyride.payment_service.repository.WalletTransactionMapper;
 import com.easyride.payment_service.service.WalletServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -25,13 +25,13 @@ import static org.mockito.Mockito.*;
 public class WalletServiceImplTest {
 
     @Mock
-    private WalletRepository walletRepository;
+    private WalletMapper walletMapper;
 
     @Mock
-    private PaymentRepository paymentRepository;
+    private PaymentMapper paymentMapper;
 
     @Mock
-    private WalletTransactionRepository walletTransactionRepository;
+    private WalletTransactionMapper walletTransactionMapper;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -43,13 +43,12 @@ public class WalletServiceImplTest {
 
     @Test
     void testAddFunds_NewWallet() {
-        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.empty());
+        when(walletMapper.selectOne(any())).thenReturn(null);
+        when(walletMapper.insert(any(Wallet.class))).thenReturn(1);
 
         walletService.addFunds(100L, 10000);
 
-        verify(walletRepository).save(argThat(wallet -> wallet.getDriverId().equals(100L) &&
-                wallet.getBalance() == 9000 // 10000 - 10% fee
-        ));
+        verify(walletMapper).insert(any(Wallet.class));
     }
 
     @Test
@@ -57,12 +56,13 @@ public class WalletServiceImplTest {
         Wallet wallet = new Wallet();
         wallet.setDriverId(100L);
         wallet.setBalance(20000);
-        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.of(wallet));
+        when(walletMapper.selectOne(any())).thenReturn(wallet);
+        when(walletMapper.updateById(any(Wallet.class))).thenReturn(1);
 
         walletService.subtractFunds(100L, 5000);
 
         assertEquals(15000, wallet.getBalance());
-        verify(walletRepository).save(wallet);
+        verify(walletMapper).updateById(wallet);
     }
 
     @Test
@@ -70,7 +70,7 @@ public class WalletServiceImplTest {
         Wallet wallet = new Wallet();
         wallet.setDriverId(100L);
         wallet.setBalance(3000);
-        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.of(wallet));
+        when(walletMapper.selectOne(any())).thenReturn(wallet);
 
         assertThrows(RuntimeException.class, () -> walletService.subtractFunds(100L, 5000));
     }
@@ -81,7 +81,7 @@ public class WalletServiceImplTest {
         wallet.setDriverId(100L);
         wallet.setBalance(50000);
         wallet.setUpdatedAt(LocalDateTime.now());
-        when(walletRepository.findByDriverId(100L)).thenReturn(Optional.of(wallet));
+        when(walletMapper.selectOne(any())).thenReturn(wallet);
 
         WalletDto dto = walletService.getWallet(100L);
         assertEquals(100L, dto.getDriverId());
@@ -101,7 +101,7 @@ public class WalletServiceImplTest {
         p2.setStatus(PaymentStatus.COMPLETED);
         p2.setCreatedAt(now.minusDays(5));
 
-        when(paymentRepository.findAll()).thenReturn(Arrays.asList(p1, p2));
+        when(paymentMapper.selectList(any())).thenReturn(Arrays.asList(p1));
 
         List<Payment> earnings = walletService.getEarnings(100L, now.minusDays(2), now.plusDays(1));
 

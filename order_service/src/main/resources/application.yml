@@ -33,14 +33,12 @@ spring:
       connection-timeout: 30000
       maximum-pool-size: 10
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.easyride.order_service.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 jwt:
   secret: your_very_long_jwt_secret_key_that_is_at_least_32_characters_long

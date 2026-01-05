@@ -1,15 +1,16 @@
 package com.easyride.admin_service.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.easyride.admin_service.dto.*;
 import com.easyride.admin_service.exception.ResourceNotFoundException;
 import com.easyride.admin_service.model.DriverApplication;
 import com.easyride.admin_service.model.DriverApplicationStatus;
-import com.easyride.admin_service.repository.DriverApplicationRepository;
+import com.easyride.admin_service.repository.DriverApplicationMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.easyride.admin_service.dto.DriverApplicationReviewedEvent;
@@ -18,12 +19,13 @@ import org.springframework.beans.factory.annotation.Value;
 import com.easyride.admin_service.dto.DriverApplicationEventDto_Consumed;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class AdminDriverManagementServiceImpl implements AdminDriverManagementService {
     private static final Logger log = LoggerFactory.getLogger(AdminDriverManagementServiceImpl.class);
 
-    private final DriverApplicationRepository applicationRepository;
+    private final DriverApplicationMapper applicationMapper;
     private final RocketMQTemplate rocketMQTemplate;
 
     @Value("${rocketmq.topic.driver-review}")
@@ -32,9 +34,9 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
     @Value("${service-urls.user-service}")
     private String userServiceBaseUrl;
 
-    public AdminDriverManagementServiceImpl(DriverApplicationRepository applicationRepository,
+    public AdminDriverManagementServiceImpl(DriverApplicationMapper applicationMapper,
             RocketMQTemplate rocketMQTemplate) {
-        this.applicationRepository = applicationRepository;
+        this.applicationMapper = applicationMapper;
         this.rocketMQTemplate = rocketMQTemplate;
     }
 
@@ -42,7 +44,7 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
     @Transactional
     public void processNewDriverApplication(DriverApplicationEventDto_Consumed event) {
         log.info("Processing new driver application for driver ID: {}", event.getDriverId());
-        if (applicationRepository.existsById(event.getDriverId())) {
+        if (applicationMapper.selectById(event.getDriverId()) != null) {
             log.warn("Driver application for ID {} already exists. Ignoring duplicate event.", event.getDriverId());
             return;
         }
@@ -51,16 +53,28 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
                 event.getUsername(),
                 event.getDriverLicenseNumber(),
                 event.getApplicationTime() != null ? event.getApplicationTime() : LocalDateTime.now());
-        applicationRepository.save(app);
+        applicationMapper.insert(app);
         log.info("New driver application for {} stored with PENDING_REVIEW status.", event.getDriverId());
     }
 
     @Override
-    public Page<DriverApplicationDto> getPendingDriverApplications(int page, int size) {
-        PageRequest pageable = PageRequest.of(page, size, Sort.by("applicationTime").ascending());
-        Page<DriverApplication> applications = applicationRepository
-                .findByStatus(DriverApplicationStatus.PENDING_REVIEW, pageable);
-        return applications.map(this::mapToDto);
+    public org.springframework.data.domain.Page<DriverApplicationDto> getPendingDriverApplications(int page, int size) {
+        Page<DriverApplication> mybatisPage = new Page<>(page + 1, size); // MyBatis-Plus is 1-indexed for pageNum?
+                                                                          // Usually 1. Spring is 0.
+        // Actually BaseMapper.selectPage expects a logical page object.
+        // Default Page is 1-based. Spring Data is 0-based.
+
+        LambdaQueryWrapper<DriverApplication> queryWrapper = new LambdaQueryWrapper<>();
+        queryWrapper.eq(DriverApplication::getStatus, DriverApplicationStatus.PENDING_REVIEW)
+                .orderByAsc(DriverApplication::getApplicationTime);
+
+        Page<DriverApplication> resultPage = applicationMapper.selectPage(mybatisPage, queryWrapper);
+
+        List<DriverApplicationDto> dtos = resultPage.getRecords().stream()
+                .map(this::mapToDto)
+                .toList();
+
+        return new PageImpl<>(dtos, PageRequest.of(page, size), resultPage.getTotal());
     }
 
     @Override
@@ -86,7 +100,7 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         app.setReviewedByAdminId(adminId);
         app.setReviewTime(LocalDateTime.now());
         app.setAdminNotes(notes);
-        applicationRepository.save(app);
+        applicationMapper.updateById(app);
         log.info("Driver application {} approved locally.", driverId);
 
         // 2. 创建并发送消息到 MQ，通知 user_service
@@ -111,7 +125,7 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
         app.setReviewTime(LocalDateTime.now());
         String fullNotes = "Reason: " + reason + ". Notes: " + notes;
         app.setAdminNotes(fullNotes);
-        applicationRepository.save(app);
+        applicationMapper.updateById(app);
         log.info("Driver application {} rejected locally.", driverId);
 
         // 2. 创建并发送消息到 MQ，通知 user_service
@@ -132,8 +146,11 @@ public class AdminDriverManagementServiceImpl implements AdminDriverManagementSe
      */
 
     private DriverApplication findApplicationById(Long driverId) {
-        return applicationRepository.findById(driverId)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver application not found for ID: " + driverId));
+        DriverApplication app = applicationMapper.selectById(driverId);
+        if (app == null) {
+            throw new ResourceNotFoundException("Driver application not found for ID: " + driverId);
+        }
+        return app;
     }
 
     private DriverApplicationDto mapToDto(DriverApplication app) {

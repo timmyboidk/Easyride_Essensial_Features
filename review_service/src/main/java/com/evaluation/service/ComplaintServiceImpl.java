@@ -1,15 +1,18 @@
 package com.evaluation.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.evaluation.dto.ComplaintDTO;
 import com.evaluation.exception.ResourceNotFoundException;
-import com.evaluation.mapper.ComplaintMapper;
+import com.evaluation.mapper.ComplaintDtoMapper;
 import com.evaluation.model.Complaint;
-import com.evaluation.repository.ComplaintRepository;
-import com.evaluation.repository.EvaluationRepository;
+import com.evaluation.model.Evaluation;
+import com.evaluation.repository.ComplaintMapper;
+import com.evaluation.repository.EvaluationMapper;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,34 +27,36 @@ public class ComplaintServiceImpl implements ComplaintService {
 
     private static final Logger log = LoggerFactory.getLogger(ComplaintServiceImpl.class);
 
-    private final ComplaintRepository complaintRepository;
     private final ComplaintMapper complaintMapper;
+    private final ComplaintDtoMapper complaintDtoMapper;
     private final RocketMQTemplate rocketMQTemplate;
     private final SensitiveWordService sensitiveWordService;
-    private final EvaluationRepository evaluationRepository;
+    private final EvaluationMapper evaluationMapper;
     private final FileStorageService fileStorageService;
 
-    public ComplaintServiceImpl(ComplaintRepository complaintRepository,
-            ComplaintMapper complaintMapper,
+    public ComplaintServiceImpl(ComplaintMapper complaintMapper,
+            ComplaintDtoMapper complaintDtoMapper,
             FileStorageService fileStorageService,
             RocketMQTemplate rocketMQTemplate,
             SensitiveWordService sensitiveWordService,
-            EvaluationRepository evaluationRepository) {
-        this.complaintRepository = complaintRepository;
+            EvaluationMapper evaluationMapper) {
         this.complaintMapper = complaintMapper;
+        this.complaintDtoMapper = complaintDtoMapper;
         this.fileStorageService = fileStorageService;
         this.rocketMQTemplate = rocketMQTemplate;
         this.sensitiveWordService = sensitiveWordService;
-        this.evaluationRepository = evaluationRepository;
+        this.evaluationMapper = evaluationMapper;
     }
 
     @Override
     @Transactional
     public ComplaintDTO fileComplaint(ComplaintDTO complaintDTO, List<MultipartFile> evidenceFiles) {
         if (complaintDTO.getEvaluationId() != null) {
-            evaluationRepository.findById(complaintDTO.getEvaluationId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "投诉关联的评价 (ID: " + complaintDTO.getEvaluationId() + ") 未找到。"));
+            Evaluation eval = evaluationMapper.selectById(complaintDTO.getEvaluationId());
+            if (eval == null) {
+                throw new ResourceNotFoundException(
+                        "投诉关联的评价 (ID: " + complaintDTO.getEvaluationId() + ") 未找到。");
+            }
         } else {
             log.warn("Filing a complaint not directly linked to an evaluation by complainant {}.",
                     complaintDTO.getComplainantId());
@@ -63,25 +68,28 @@ public class ComplaintServiceImpl implements ComplaintService {
             complaintDTO.setReason(sensitiveWordService.filterContent(complaintDTO.getReason()));
         }
 
-        Complaint complaint = complaintMapper.toEntity(complaintDTO);
+        Complaint complaint = complaintDtoMapper.toEntity(complaintDTO);
 
         if (evidenceFiles != null && !evidenceFiles.isEmpty()) {
             List<String> evidencePaths = fileStorageService.storeFiles(evidenceFiles.toArray(new MultipartFile[0]));
-            complaint.setEvidencePaths(evidencePaths);
+            complaint.setEvidencePathsString(String.join(",", evidencePaths));
         }
 
         complaint.setStatus("PENDING_REVIEW");
+        complaint.setCreatedAt(LocalDateTime.now());
 
-        Complaint savedComplaint = complaintRepository.save(complaint);
+        complaintMapper.insert(complaint);
+        Complaint savedComplaint = complaint;
         log.info("Complaint (ID: {}) filed successfully by complainant {}.", savedComplaint.getId(),
                 savedComplaint.getComplainantId());
 
         if (savedComplaint.getEvaluationId() != null) {
-            evaluationRepository.findById(savedComplaint.getEvaluationId()).ifPresent(eval -> {
+            Evaluation eval = evaluationMapper.selectById(savedComplaint.getEvaluationId());
+            if (eval != null) {
                 eval.setComplaintStatus("FILED");
                 eval.setUpdatedAt(LocalDateTime.now());
-                evaluationRepository.save(eval);
-            });
+                evaluationMapper.updateById(eval);
+            }
         }
 
         try {
@@ -91,36 +99,57 @@ public class ComplaintServiceImpl implements ComplaintService {
             log.error("Failed to send COMPLAINT_FILED event for complaint ID {}: ", savedComplaint.getId(), e);
         }
 
-        return complaintMapper.toDTO(savedComplaint);
+        return complaintDtoMapper.toDTO(savedComplaint);
     }
 
     @Override
     public List<ComplaintDTO> getComplaintsByEvaluation(Long evaluationId) {
-        List<Complaint> complaints = complaintRepository.findByEvaluationId(evaluationId);
+        List<Complaint> complaints = complaintMapper.selectList(new LambdaQueryWrapper<Complaint>()
+                .eq(Complaint::getEvaluationId, evaluationId));
         return complaints.stream()
-                .map(complaintMapper::toDTO)
+                .map(complaintDtoMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<ComplaintDTO> getComplaintsByComplainant(Long complainantId) {
-        List<Complaint> complaints = complaintRepository.findByComplainantId(complainantId);
+        List<Complaint> complaints = complaintMapper.selectList(new LambdaQueryWrapper<Complaint>()
+                .eq(Complaint::getComplainantId, complainantId));
         return complaints.stream()
-                .map(complaintMapper::toDTO)
+                .map(complaintDtoMapper::toDTO)
                 .collect(Collectors.toList());
     }
 
-    // Other methods for admin operations need to be implemented
     @Override
     public Page<ComplaintDTO> getAllComplaintsForAdmin(Pageable pageable, String status) {
-        // Implementation needed
-        return Page.empty();
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Complaint> page = new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(
+                pageable.getPageNumber() + 1, pageable.getPageSize());
+        LambdaQueryWrapper<Complaint> queryWrapper = new LambdaQueryWrapper<>();
+        if (status != null && !status.isBlank()) {
+            queryWrapper.eq(Complaint::getStatus, status);
+        }
+        com.baomidou.mybatisplus.extension.plugins.pagination.Page<Complaint> result = complaintMapper.selectPage(page,
+                queryWrapper);
+        List<ComplaintDTO> dtos = result.getRecords().stream()
+                .map(complaintDtoMapper::toDTO)
+                .collect(Collectors.toList());
+        return new PageImpl<>(dtos, pageable, result.getTotal());
     }
 
     @Override
+    @Transactional
     public ComplaintDTO adminUpdateComplaintStatus(Long complaintId, String newStatus, String adminNotes,
             Long adminId) {
-        // Implementation needed
-        return null;
+        Complaint complaint = complaintMapper.selectById(complaintId);
+        if (complaint == null) {
+            throw new ResourceNotFoundException("Complaint not found with id: " + complaintId);
+        }
+        complaint.setStatus(newStatus);
+        complaint.setAdminNotes(adminNotes);
+        complaint.setHandledByAdminId(adminId);
+        complaint.setResolutionTime(LocalDateTime.now());
+        complaint.setUpdatedAt(LocalDateTime.now());
+        complaintMapper.updateById(complaint);
+        return complaintDtoMapper.toDTO(complaint);
     }
 }

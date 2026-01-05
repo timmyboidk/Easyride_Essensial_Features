@@ -3,21 +3,22 @@ package com.easyride.payment_service;
 import com.easyride.payment_service.model.Payment;
 import com.easyride.payment_service.model.PaymentStatus;
 import com.easyride.payment_service.model.TransactionType;
-import com.easyride.payment_service.repository.PaymentRepository;
+import com.easyride.payment_service.repository.PaymentMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@DataJpaTest
+@SpringBootTest
+@Transactional
 public class PaymentRepositoryTest {
 
     @Autowired
-    private PaymentRepository paymentRepository;
+    private PaymentMapper paymentMapper;
 
     @Test
     void testSaveAndFindPayment() {
@@ -31,9 +32,9 @@ public class PaymentRepositoryTest {
         payment.setTransactionId("TXN" + System.currentTimeMillis());
         payment.setCreatedAt(LocalDateTime.now());
 
-        Payment saved = paymentRepository.save(payment);
-        Optional<Payment> found = paymentRepository.findById(saved.getId());
-        assertThat(found).isPresent();
-        assertThat(found.get().getOrderId()).isEqualTo(100L);
+        paymentMapper.insert(payment);
+        Payment found = paymentMapper.selectById(payment.getId());
+        assertThat(found).isNotNull();
+        assertThat(found.getOrderId()).isEqualTo(100L);
     }
 }

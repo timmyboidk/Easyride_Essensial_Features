@@ -1,19 +1,17 @@
 // User.java
 package com.easyride.order_service.model;
 
-import jakarta.persistence.*;
+import com.baomidou.mybatisplus.annotation.*;
 import lombok.*;
 
-@Entity
-@Table(name = "users")
+@TableName("users")
 @Data
 public class User {
-    @Id
+    @TableId(type = IdType.INPUT)
     private Long id;
     private String username;
     private String password;
     private String email;
     private String phoneNumber;
-    @Enumerated(EnumType.STRING)
     private Role role;
 }

@@ -10,22 +10,19 @@ spring:
     hikari:
       connection-timeout: 30000
       maximum-pool-size: 10
-
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-
   data:
     redis:
       host: localhost
       port: 6379
       database: 0
       timeout: 3000
+
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.easyride.location_service.model
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
 rocketmq:
   name-server: 127.0.0.1:9876

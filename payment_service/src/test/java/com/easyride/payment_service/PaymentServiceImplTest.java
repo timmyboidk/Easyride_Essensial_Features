@@ -3,8 +3,8 @@ package com.easyride.payment_service;
 import com.easyride.payment_service.dto.*;
 import com.easyride.payment_service.exception.PaymentServiceException;
 import com.easyride.payment_service.model.*;
-import com.easyride.payment_service.repository.PassengerPaymentMethodRepository;
-import com.easyride.payment_service.repository.PaymentRepository;
+import com.easyride.payment_service.repository.PassengerPaymentMethodMapper;
+import com.easyride.payment_service.repository.PaymentMapper;
 import com.easyride.payment_service.rocketmq.PaymentEventProducer;
 import com.easyride.payment_service.service.PaymentServiceImpl;
 import com.easyride.payment_service.service.PaymentStrategyProcessor;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 public class PaymentServiceImplTest {
 
     @Mock
-    private PaymentRepository paymentRepository;
+    private PaymentMapper paymentMapper;
 
     @Mock
     private WalletService walletService;
@@ -48,7 +48,7 @@ public class PaymentServiceImplTest {
     private PaymentStrategyProcessor strategyProcessor;
 
     @Mock
-    private PassengerPaymentMethodRepository passengerPaymentMethodRepository;
+    private PassengerPaymentMethodMapper passengerPaymentMethodMapper;
 
     @InjectMocks
     private PaymentServiceImpl paymentService;
@@ -72,7 +72,7 @@ public class PaymentServiceImplTest {
         PassengerPaymentMethod method = new PassengerPaymentMethod();
         method.setId(1L);
         method.setMethodType(PaymentMethodType.CREDIT_CARD);
-        when(passengerPaymentMethodRepository.findByIdAndPassengerId(1L, 200L)).thenReturn(Optional.of(method));
+        when(passengerPaymentMethodMapper.selectOne(any())).thenReturn(method);
 
         when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
 
@@ -84,13 +84,13 @@ public class PaymentServiceImplTest {
 
         Payment payment = new Payment();
         payment.setId(1L);
-        when(paymentRepository.save(any(Payment.class))).thenReturn(payment);
+        when(paymentMapper.insert(any(Payment.class))).thenReturn(1);
 
         PaymentResponseDto result = paymentService.processPayment(reqDto);
 
         assertNotNull(result);
         assertEquals(PaymentStatus.COMPLETED, result.getStatus());
-        verify(paymentRepository, atLeastOnce()).save(any(Payment.class));
+        verify(paymentMapper, atLeastOnce()).insert(any(Payment.class));
         verify(paymentEventProducer).sendPaymentEvent(any(PaymentEventDto.class));
     }
 
@@ -140,7 +140,7 @@ public class PaymentServiceImplTest {
         payment.setPaymentGateway("STRIPE");
         payment.setDriverId(500L);
 
-        when(paymentRepository.findById(1L)).thenReturn(Optional.of(payment));
+        when(paymentMapper.selectById(1L)).thenReturn(payment);
 
         PaymentResponseDto strategyResponse = new PaymentResponseDto();
         strategyResponse.setStatus(PaymentStatus.REFUNDED);
@@ -151,13 +151,13 @@ public class PaymentServiceImplTest {
 
         assertEquals(PaymentStatus.REFUNDED, result.getStatus());
         verify(walletService).subtractFunds(500L, 10000);
-        verify(paymentRepository).save(payment);
+        verify(paymentMapper).updateById(payment);
         verify(paymentEventProducer).sendPaymentEvent(any(PaymentEventDto.class));
     }
 
     @Test
     void testRefundPayment_NotFound() {
-        when(paymentRepository.findById(99L)).thenReturn(Optional.empty());
+        when(paymentMapper.selectById(99L)).thenReturn(null);
         assertThrows(RuntimeException.class, () -> paymentService.refundPayment("99", 1000));
     }
 }

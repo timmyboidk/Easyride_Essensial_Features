@@ -5,8 +5,8 @@ import com.easyride.order_service.model.Driver;
 import com.easyride.order_service.model.Passenger;
 import com.easyride.order_service.model.Role;
 import com.easyride.order_service.model.User;
-import com.easyride.order_service.repository.DriverRepository;
-import com.easyride.order_service.repository.PassengerRepository;
+import com.easyride.order_service.repository.DriverMapper;
+import com.easyride.order_service.repository.PassengerMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
@@ -16,17 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
-@RocketMQMessageListener(
-        topic = "${rocketmq.consumer.user-topic}",
-        consumerGroup = "${rocketmq.consumer.user-group}"
-)
+@RocketMQMessageListener(topic = "${rocketmq.consumer.user-topic}", consumerGroup = "${rocketmq.consumer.user-group}")
 public class UserRocketConsumer implements RocketMQListener<UserEventDto> {
 
     @Autowired
-    private PassengerRepository passengerRepository;
+    private PassengerMapper passengerMapper;
 
     @Autowired
-    private DriverRepository driverRepository;
+    private DriverMapper driverMapper;
 
     @Override
     @Transactional
@@ -41,23 +38,29 @@ public class UserRocketConsumer implements RocketMQListener<UserEventDto> {
             Role userRole = Role.valueOf(userEvent.getRole().toUpperCase());
 
             if (userRole == Role.PASSENGER) {
-                Passenger passenger = passengerRepository.findById(userEvent.getId())
-                        .orElseGet(() -> {
-                            log.info("Creating new local record for passenger with ID: {}", userEvent.getId());
-                            return new Passenger();
-                        });
-                updateUserData(passenger, userEvent);
-                passengerRepository.save(passenger);
+                Passenger passenger = passengerMapper.selectById(userEvent.getId());
+                if (passenger == null) {
+                    log.info("Creating new local record for passenger with ID: {}", userEvent.getId());
+                    passenger = new Passenger();
+                    updateUserData(passenger, userEvent);
+                    passengerMapper.insert(passenger);
+                } else {
+                    updateUserData(passenger, userEvent);
+                    passengerMapper.updateById(passenger);
+                }
                 log.info("Successfully processed passenger event for ID: {}", userEvent.getId());
 
             } else if (userRole == Role.DRIVER) {
-                Driver driver = driverRepository.findById(userEvent.getId())
-                        .orElseGet(() -> {
-                            log.info("Creating new local record for driver with ID: {}", userEvent.getId());
-                            return new Driver();
-                        });
-                updateUserData(driver, userEvent);
-                driverRepository.save(driver);
+                Driver driver = driverMapper.selectById(userEvent.getId());
+                if (driver == null) {
+                    log.info("Creating new local record for driver with ID: {}", userEvent.getId());
+                    driver = new Driver();
+                    updateUserData(driver, userEvent);
+                    driverMapper.insert(driver);
+                } else {
+                    updateUserData(driver, userEvent);
+                    driverMapper.updateById(driver);
+                }
                 log.info("Successfully processed driver event for ID: {}", userEvent.getId());
             } else {
                 log.warn("Received user event with unhandled role: {}", userEvent.getRole());
@@ -69,7 +72,8 @@ public class UserRocketConsumer implements RocketMQListener<UserEventDto> {
 
     /**
      * Helper method to update common user fields from the event DTO.
-     * @param user The user entity (Passenger or Driver) to update.
+     * 
+     * @param user      The user entity (Passenger or Driver) to update.
      * @param userEvent The DTO containing the new data.
      */
     private void updateUserData(User user, UserEventDto userEvent) {
@@ -77,6 +81,7 @@ public class UserRocketConsumer implements RocketMQListener<UserEventDto> {
         user.setUsername(userEvent.getUsername());
         user.setEmail(userEvent.getEmail());
         user.setRole(Role.valueOf(userEvent.getRole().toUpperCase())); // Correctly converts String to Enum
-        // Phone number is not set because it is not present in the provided UserEventDto
+        // Phone number is not set because it is not present in the provided
+        // UserEventDto
     }
 }

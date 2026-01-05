@@ -2,13 +2,13 @@ package com.evaluation.service;
 
 import com.evaluation.dto.EvaluationDTO;
 import com.evaluation.exception.BadRequestException;
-import com.evaluation.mapper.EvaluationMapper;
+import com.evaluation.mapper.EvaluationDtoMapper;
 import com.evaluation.model.Evaluation;
 import com.evaluation.model.EvaluationStatus;
 import com.evaluation.model.ReviewWindow;
-import com.evaluation.repository.EvaluationRepository;
-import com.evaluation.repository.ReviewWindowRepository;
-import com.evaluation.repository.TagRepository;
+import com.evaluation.repository.EvaluationMapper;
+import com.evaluation.repository.ReviewWindowMapper;
+import com.evaluation.repository.TagMapper;
 import com.evaluation.client.UserClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,11 +29,11 @@ import static org.mockito.Mockito.*;
 class EvaluationServiceImplTest {
 
     @Mock
-    private EvaluationRepository evaluationRepository;
-    @Mock
-    private TagRepository tagRepository;
-    @Mock
     private EvaluationMapper evaluationMapper;
+    @Mock
+    private TagMapper tagMapper;
+    @Mock
+    private EvaluationDtoMapper evaluationDtoMapper;
     @Mock
     private RocketMQTemplate rocketMQTemplate;
     @Mock
@@ -43,7 +43,7 @@ class EvaluationServiceImplTest {
     @Mock
     private TagService tagService;
     @Mock
-    private ReviewWindowRepository reviewWindowRepository;
+    private ReviewWindowMapper reviewWindowMapper;
 
     @InjectMocks
     private EvaluationServiceImpl evaluationService;
@@ -71,20 +71,20 @@ class EvaluationServiceImplTest {
 
     @Test
     void createEvaluation_Success() {
-        when(reviewWindowRepository.findById(1001L)).thenReturn(Optional.of(openWindow));
+        when(reviewWindowMapper.selectById(1001L)).thenReturn(openWindow);
         when(sensitiveWordService.containsSensitiveWords(anyString())).thenReturn(false);
 
         Evaluation evaluationEntity = new Evaluation();
         evaluationEntity.setId(1L);
-        when(evaluationMapper.toEntity(any(EvaluationDTO.class))).thenReturn(evaluationEntity);
-        when(evaluationRepository.save(any(Evaluation.class))).thenReturn(evaluationEntity);
-        when(evaluationMapper.toDto(any(Evaluation.class))).thenReturn(sampleDto);
+        when(evaluationDtoMapper.toEntity(any(EvaluationDTO.class))).thenReturn(evaluationEntity);
+        when(evaluationMapper.insert(any(Evaluation.class))).thenReturn(1);
+        when(evaluationDtoMapper.toDto(any(Evaluation.class))).thenReturn(sampleDto);
 
         EvaluationDTO result = evaluationService.createEvaluation(sampleDto);
 
         assertNotNull(result);
-        verify(evaluationRepository).save(any(Evaluation.class));
-        verify(reviewWindowRepository).save(any(ReviewWindow.class));
+        verify(evaluationMapper).insert(any(Evaluation.class));
+        verify(reviewWindowMapper).updateById(any(ReviewWindow.class));
         verify(rocketMQTemplate).convertAndSend(anyString(), any(Evaluation.class));
         assertTrue(openWindow.isPassengerReviewed());
     }
@@ -92,7 +92,7 @@ class EvaluationServiceImplTest {
     @Test
     void createEvaluation_ReviewWindowClosed() {
         openWindow.setWindowCloseTime(LocalDateTime.now().minusHours(1));
-        when(reviewWindowRepository.findById(1001L)).thenReturn(Optional.of(openWindow));
+        when(reviewWindowMapper.selectById(1001L)).thenReturn(openWindow);
 
         assertThrows(BadRequestException.class, () -> evaluationService.createEvaluation(sampleDto));
     }
@@ -100,7 +100,7 @@ class EvaluationServiceImplTest {
     @Test
     void createEvaluation_AlreadyReviewed() {
         openWindow.setPassengerReviewed(true);
-        when(reviewWindowRepository.findById(1001L)).thenReturn(Optional.of(openWindow));
+        when(reviewWindowMapper.selectById(1001L)).thenReturn(openWindow);
 
         assertThrows(BadRequestException.class, () -> evaluationService.createEvaluation(sampleDto));
     }
@@ -109,14 +109,14 @@ class EvaluationServiceImplTest {
     void createEvaluation_SensitiveWordsFiltered() {
         sampleDto.setComment("Bad words");
 
-        when(reviewWindowRepository.findById(1001L)).thenReturn(Optional.of(openWindow));
+        when(reviewWindowMapper.selectById(1001L)).thenReturn(openWindow);
         when(sensitiveWordService.containsSensitiveWords("Bad words")).thenReturn(true);
         when(sensitiveWordService.filterContent("Bad words")).thenReturn("*** words");
 
         Evaluation evaluationEntity = new Evaluation();
-        when(evaluationMapper.toEntity(any(EvaluationDTO.class))).thenReturn(evaluationEntity);
-        when(evaluationRepository.save(any(Evaluation.class))).thenReturn(evaluationEntity);
-        when(evaluationMapper.toDto(any(Evaluation.class))).thenReturn(sampleDto);
+        when(evaluationDtoMapper.toEntity(any(EvaluationDTO.class))).thenReturn(evaluationEntity);
+        when(evaluationMapper.insert(any(Evaluation.class))).thenReturn(1);
+        when(evaluationDtoMapper.toDto(any(Evaluation.class))).thenReturn(sampleDto);
 
         evaluationService.createEvaluation(sampleDto);
 
@@ -130,12 +130,12 @@ class EvaluationServiceImplTest {
         eval.setId(1L);
         eval.setStatus(EvaluationStatus.ACTIVE);
 
-        when(evaluationRepository.findById(1L)).thenReturn(Optional.of(eval));
-        when(evaluationRepository.save(any(Evaluation.class))).thenReturn(eval);
+        when(evaluationMapper.selectById(1L)).thenReturn(eval);
+        when(evaluationMapper.updateById(any(Evaluation.class))).thenReturn(1);
 
         EvaluationDTO resultDto = new EvaluationDTO();
         resultDto.setStatus("HIDDEN_BY_ADMIN");
-        when(evaluationMapper.toDto(any(Evaluation.class))).thenReturn(resultDto);
+        when(evaluationDtoMapper.toDto(any(Evaluation.class))).thenReturn(resultDto);
 
         EvaluationDTO result = evaluationService.adminUpdateEvaluationStatus(1L, "HIDDEN_BY_ADMIN", "Inappropriate",
                 999L);
