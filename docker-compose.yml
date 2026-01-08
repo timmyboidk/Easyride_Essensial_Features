@@ -10,6 +10,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: root
     command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - ./infrastructure/mysql/init/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - easyride-net
 
@@ -53,9 +55,12 @@ services:
     ports:
       - "8081:8081"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_admin?useSSL=false
+      - SERVER_PORT=8081
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/admin_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -71,9 +76,12 @@ services:
     ports:
       - "8082:8082"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_analytics?useSSL=false
+      - SERVER_PORT=8082
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/analytics_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -89,9 +97,12 @@ services:
     ports:
       - "8083:8083"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_location?useSSL=false
+      - SERVER_PORT=8083
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/location_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -107,9 +118,12 @@ services:
     ports:
       - "8084:8084"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_matching?useSSL=false
+      - SERVER_PORT=8084
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/matching_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -125,9 +139,12 @@ services:
     ports:
       - "8085:8085"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_notification?useSSL=false
+      - SERVER_PORT=8085
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/notification_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -143,9 +160,12 @@ services:
     ports:
       - "8086:8086"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_order?useSSL=false
+      - SERVER_PORT=8086
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/order_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -161,9 +181,12 @@ services:
     ports:
       - "8087:8087"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_payment?useSSL=false
+      - SERVER_PORT=8087
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/payment_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -179,9 +202,12 @@ services:
     ports:
       - "8088:8088"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_review?useSSL=false
+      - SERVER_PORT=8088
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/review_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis
@@ -197,9 +223,12 @@ services:
     ports:
       - "8089:8089"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/easyride_user?useSSL=false
+      - SERVER_PORT=8089
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/user_service_db?useSSL=false
+      - SPRING_DATASOURCE_USERNAME=easyride
+      - SPRING_DATASOURCE_PASSWORD=2721388927
       - SPRING_REDIS_HOST=redis
-      - ROCKETMQ_NAME-SERVER=rmqnamesrv:9876
+      - ROCKETMQ_NAME_SERVER=rmqnamesrv:9876
     depends_on:
       - mysql
       - redis

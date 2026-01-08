@@ -10,16 +10,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class EmailNotificationService implements NotificationService {
 
-    @Value("${mail.smtp.host}")
+    @Value("${spring.mail.host}")
     private String smtpHost;
 
-    @Value("${mail.smtp.port}")
+    @Value("${spring.mail.port}")
     private String smtpPort;
 
-    @Value("${mail.username}")
+    @Value("${spring.mail.username}")
     private String username;
 
-    @Value("${mail.password}")
+    @Value("${spring.mail.password}")
     private String password;
 
     @Override
