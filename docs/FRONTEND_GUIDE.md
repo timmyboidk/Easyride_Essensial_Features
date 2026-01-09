@@ -1,102 +1,119 @@
-# Frontend Developer Guide
+# EasyRide iOS (Swift) Passenger App Guide
 
-## Overview
-This guide provides instructions for frontend developers (Web, iOS, Android) on how to integrate with the EasyRide backend microservices.
+This guide is designed to help Swift developers build a fully functional **Passenger App** for **EasyRide**. It covers architecture, networking, and a detailed breakdown of the passenger booking flow.
 
-## 1. Authentication & Security
-The system uses **JWT (JSON Web Tokens)** for authentication.
+## 1. Aesthetics & Design Philosophy
+**Goal**: Create a premium, Apple-native experience.
+*   **Theme**: Pure white backgrounds (`Color.white`) with strong black typography (`Color.black`).
+*   **Typography**: Use system fonts (San Francisco). Large, legible titles.
+*   **Components**: Use standard SwiftUI components (Lists, Sheets, NavigationStacks) to ensure a familiar iOS feel.
+*   **Icons**: Use **SF Symbols** specifically.
+*   **Feel**: Smooth, fluid transitions. Use Apple Maps integration seamlessly.
 
-### Flow
-1. **Login**: Call `POST /users/login` with credentials.
-2. **Receive Token**: Response details:
-   ```json
-   {
-       "code": 0,
-       "data": {
-           "token": "eyJhbGciOi...",
-           "type": "Bearer"
-       }
-   }
-   ```
-3. **Storage**: Securely store the token (e.g., Keychain, SecureSharedPreferences, HttpOnly Cookie).
-4. **Authenticated Requests**: Add the token to the header of every subsequent request.
-   ```http
-   Authorization: Bearer <your_token>
-   ```
+## 2. Project Setup & Architecture
+*   **Language**: Swift 5+
+*   **UI Framework**: SwiftUI
+*   **Architecture**: MVVM
+*   **Networking**: `async/await` with `URLSession`
+*   **Maps**: MapKit
 
-### Role-Based Access
-- Some endpoints are restricted to `DRIVER` or `ADMIN` roles.
-- Ensure the user has the correct role before attempting to access restricted features to avoid `403 Forbidden` errors.
+## 3. Shared Data Models
+(See `API_REFERENCE.md` for full DTOs).
 
-## 2. API Response Standard
-All APIs (except some legacy notifications) follow a standard envelope format:
+### User & Profile
+```swift
+enum UserRole: String, Codable {
+    case passenger = "PASSENGER"
+    case driver = "DRIVER" // (Even if passenger app, backend returns this enum)
+}
 
-```typescript
-interface ApiResponse<T> {
-  code: number;      // 0 represents success. Any other number indicates an error code.
-  message: string;   // User-friendly message (e.g., "Order Created").
-  data: T;           // The actual data payload. Null if error.
-  timestamp: number; // Server time.
+struct User: Codable {
+    let userId: Int64
+    let phoneNumber: String
+    let nickname: String?
+    let role: UserRole
+    let accessToken: String?
 }
 ```
 
-**Error Handling Strategy:**
-- If `code !== 0`, display `message` to the user (e.g., in a Toast/Snackbar).
-- Handle `401 Unauthorized` by redirecting to the Login Screen.
+### Order
+```swift
+enum OrderStatus: String, Codable {
+    case pendingMatch = "PENDING_MATCH"
+    case driverAssigned = "DRIVER_ASSIGNED"
+    case accepted = "ACCEPTED"
+    case arrived = "ARRIVED"
+    case inProgress = "IN_PROGRESS"
+    case completed = "COMPLETED"
+    case paid = "PAID"
+    case cancelled = "CANCELLED"
+}
+```
 
-## 3. Key Workflows
+## 4. Passenger App Flow
 
-### A. Ordering a Ride (Passenger)
-1. **Get Location**: Use native device GPS to get lat/lon.
-2. **Reverse Geocode (Optional)**: Call `GET /api/location/info?lat=...&lon=...` to get a readable address.
-3. **Create Order**: Call `POST /orders/create` with:
-   - `startLocation`, `endLocation`
-   - `vehicleType`, `serviceType`
-4. **Polling/Socket**: Connect to the notification socket (or poll `GET /orders/{id}`) to list status changes:
-   - `PENDING_MATCH` -> `DRIVER_ASSIGNED` -> `ARRIVED` -> `IN_PROGRESS` -> `COMPLETED`.
+### 4.1 Authentication & Profile
+*   **Login (Password)**: `POST /api/user/auth/login/password`
+*   **Login (OTP)**: `POST /api/user/auth/login/otp` (Requires `POST /api/user/auth/otp/request` first)
+*   **Register**: `POST /api/user/auth/register` (Role: `PASSENGER`)
+*   **Forgot Password**: `POST /api/user/auth/password/reset`
+*   **Get Profile**: `GET /api/user/profile/`
+*   **Update Profile**: `PUT /api/user/profile/`
 
-### B. Accepting a Ride (Driver)
-1. **Go Online**: Update status via `POST /matching/driverStatus/{id}`.
-2. **Receive Request**: Listen for Push Notification or Poll `GET /matching/orders/available`.
-3. **Accept**: Call `POST /orders/{orderId}/accept`.
-4. **Update Trip**: Call `POST /orders/{orderId}/status` to update progress (arrived, started, finished).
+### 4.2 Home (Map & Destination)
+*   **UI**: Full-screen Map with Floating "Where to?" Search Bar.
+*   **Action**: User searches -> Selects result -> Transitions to Ride Config.
 
-### C. Payment
-**Important**: The payment API requires **Encryption**.
-1. Construct your JSON payload: `{"orderId": 123, "amount": 25.0, ...}`
-2. Encrypt this string using the shared public key/secret.
-3. Send `POST /payments/pay` with body: `{ "payload": "<encrypted_string>" }`.
-4. Decrypt the response `payload` to get the result.
+### 4.3 Ride Configuration
+*   **UI**: Route Preview, Service List (Economy/Premium), Price Estimates.
+*   **API**: `POST /api/order/estimate-price`
+*   **Action**: "Request Ride" -> Calls `POST /api/order/` -> Transitions to Matching.
 
-## 4. Environment Setup
-- **Base Domain**: 
-  - Local Dev: `http://localhost:<ServicePort>` (See API_REFERENCE.md for ports)
-  - Staging: `https://api.staging.easyride.com` (Example)
-- **CORS**: The backend is configured to allow requests from standard frontend ports (3000, 8080). If you face CORS issues, ensure you are sending the `Origin` header correctly.
+### 4.4 Matching & Waiting
+*   **UI**: "Finding your driver..."
+*   **Logic**: Poll `GET /api/order/{id}`.
+    *   **Cancel**: User can cancel via `POST /api/order/{id}/cancel`.
+    *   **Transition**: When status becomes `DRIVER_ASSIGNED` or `ACCEPTED`, go to **Trip View**.
 
-## 5. WebSocket / Real-time Updates
-*(If applicable)*
-- The backend supports RocketMQ for internal messaging.
-- For frontend real-time updates (e.g., driver location on map), we recommend using the **Push Notification** flow (`/send-push`) or polling the **Location Service** (`/api/location/trip/{orderId}/path`) every few seconds.
+### 4.5 On Trip
+*   **UI**: Driver Info, Live Map, ETA.
+*   **API**:
+    *   **Driver Loc**: `GET /api/location/order/{id}` (Poll every 3s).
+    *   **Order Status**: Poll `GET /api/order/{id}`.
+*   **States**: Driver Arriving -> Driver Arrived -> In Progress -> Arrived at Destination.
 
-## 6. Definitions (Enums)
+### 4.6 Payment & Rating
+*   **Trigger**: Order Status `COMPLETED`.
+*   **Payment Methods**:
+    *   List: `GET /api/payment/methods/`
+    *   Add: `POST /api/payment/methods/`
+    *   Delete: `DELETE /api/payment/methods/{methodId}`
+*   **Pay**: `POST /api/payment/payments/`
+*   **Review**: `POST /api/review/`
+    *   **Complaint**: `POST /api/review/complaints` (Optional)
 
-**OrderStatus**:
-- `PENDING_MATCH`
-- `DRIVER_ASSIGNED`
-- `ACCEPTED`
-- `ARRIVED`
-- `IN_PROGRESS`
-- `COMPLETED`
-- `CANCELLED`
-- `PAYMENT_SETTLED`
+### 4.7 History
+*   **View History**: `GET /api/order/history?page=0&size=10`
 
-**VehicleType**:
-- `ECONOMY`
-- `STANDARD`
-- `PREMIUM`
+## 5. Development Tips
+*   **MapKit**: Use `MapPolyline` for routes. Use `Annotation` for Driver.
+*   **Error Handling**: Show clean Alerts for network errors.
 
-**ServiceType**:
-- `NORMAL`
-- `EXPRESS`
-- `LUXURY`
+## 6. AI Co-Pilot Prompt (Gemini Pro)
+
+Use this prompt to help refactor your code for the **Passenger App**:
+
+> Act as a Senior iOS Engineer specializing in Consumer/Passenger apps.
+>
+> **Goal**: Refactor my existing Swift code to build the "EasyRide Passenger App".
+>
+> **Design Rules**:
+> 1.  **Apple Native**: Use strict Apple Human Interface Guidelines. White backgrounds, Black text, SF Symbols.
+> 2.  **Clean UI**: Minimalist design. Focus on content and map. Standard SwiftUI navigation.
+>
+> **Functionality**:
+> 1.  Implement the full **Passenger Flow** defined in `FRONTEND_GUIDE.md`.
+> 2.  Integrate **ALL** endpoints: Auth (OTP/Pwd), Order Cycle (Create/Cancel/Track), Payment Methods, and History.
+> 3.  Implement Real-time Polling for Driver Location (`/api/location/order/{id}`).
+>
+> **Task**: Refactor the provided file to implement the **[Insert Feature]** complying with the EasyRide Passenger API.
